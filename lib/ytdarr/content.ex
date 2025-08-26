@@ -84,6 +84,17 @@ defmodule Ytdarr.Content do
   end
 
   ## Complex operations
+  def queue_playlist_download(playlist_id) do
+    playlist = get_playlist_with_videos(playlist_id)
+    #TODO:  queue all videos in the playlist for download - integration point with Oban workers
+    {:ok, playlist}
+  end
 
 
+
+  def sync_channel_content(channel_id) do
+    # Fetch latest content from external API (e.g., YouTube)
+    # Update/create videos and playlists in the database
+    {:ok, :synced}
+  end
 end

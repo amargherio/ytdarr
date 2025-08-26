@@ -18,6 +18,8 @@ defmodule YtdarrWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+
+    oban_dashboard "/oban"
   end
 
   # Other scopes may use custom stacks.
