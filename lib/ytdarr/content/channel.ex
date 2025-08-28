@@ -59,4 +59,22 @@ defmodule Ytdarr.Content.Channel do
       _ -> changeset
     end
   end
+
+  defp validate_url(changeset, field) do
+    validate_change(changeset, field, fn _, url ->
+      case URI.parse(url) do
+        %URI{scheme: nil} -> [{field, "must have a scheme (http or https)"}]
+        %URI{host: nil} -> [{field, "must have a host"}]
+        %URI{scheme: scheme} when scheme in ["http", "https"] -> []
+        _ -> [{field, "must be a valid http or https URL"}]
+      end
+    end)
+  end
+
+  defp sanitize_filename(name) do
+    name
+    |> String.replace(~r/[^\w\s-]/, "")
+    |> String.replace(~r/\s+/, "_")
+    |> String.downcase()
+  end
 end

@@ -49,4 +49,17 @@ defmodule Ytdarr.Content.Playlist do
     end
   end
 
+  defp maybe_set_monitored_timestamp(changeset) do
+    case get_change(changeset, :is_monitored) do
+      true -> put_change(changeset, :is_monitored_since, DateTime.utc_now())
+      _ -> changeset
+    end
+  end
+
+  defp sanitize_filename(name) do
+    name
+    |> String.replace(~r/[^\w\s-]/, "")
+    |> String.replace(~r/\s+/, "_")
+    |> String.downcase()
+  end
 end
