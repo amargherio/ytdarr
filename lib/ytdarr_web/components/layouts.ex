@@ -31,42 +31,67 @@ defmodule YtdarrWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :nav, :atom,
+    default: nil,
+    doc: "current nav section for highlighting (e.g. :dashboard, :channels)"
+
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
+    <div class="flex h-screen overflow-hidden">
+      <aside class="hidden md:flex md:flex-col w-56 bg-base-200 border-r border-base-300">
+        <div class="flex items-center gap-2 p-4 h-16 border-b border-base-300">
+          <a href={~p"/dashboard"} class="inline-flex items-center gap-2 font-semibold">
+            <img src={~p"/images/logo.svg"} width="32" />
+            <span>Ytdarr</span>
+          </a>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4">
+          <ul class="menu px-2 text-sm">
+            <li>
+              <a href={~p"/dashboard"} class={[@nav == :dashboard && "active font-semibold"]}>
+                <span class="hero-chart-bar" /> Dashboard
+              </a>
+            </li>
+            <li>
+              <details open={@nav in [:channels, :channel_add]}>
+                <summary class={[@nav == :channels && "active font-semibold", @nav == :channel_add && "font-semibold"]}>Channels</summary>
+                <ul>
+                  <li>
+                    <a href={~p"/channels"} class={[@nav == :channels && "active font-semibold"]}>All Channels</a>
+                  </li>
+                  <li>
+                    <a href={~p"/channels/add"} class={[@nav == :channel_add && "active font-semibold"]}>Add Channel</a>
+                  </li>
+                </ul>
+              </details>
+            </li>
+            <li>
+              <a href={~p"/oban"} target="_blank">Jobs</a>
+            </li>
+          </ul>
+        </nav>
+        <div class="p-4 border-t border-base-300 flex items-center justify-between text-xs">
+          <span>Phoenix v{Application.spec(:phoenix, :vsn)}</span>
+          <.theme_toggle />
+        </div>
+      </aside>
+      <div class="flex flex-col flex-1 min-w-0">
+        <header class="flex md:hidden items-center justify-between gap-2 p-3 border-b border-base-300 bg-base-200">
+          <a href={~p"/dashboard"} class="inline-flex items-center gap-2 font-semibold">
+            <img src={~p"/images/logo.svg"} width="28" />
+            <span>Ytdarr</span>
+          </a>
+          <div class="flex items-center gap-2">
             <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
+          </div>
+        </header>
+        <main class="flex-1 overflow-y-auto p-6 space-y-4">
+          {render_slot(@inner_block)}
+        </main>
       </div>
-    </header>
-
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
-        {render_slot(@inner_block)}
-      </div>
-    </main>
+    </div>
 
     <.flash_group flash={@flash} />
     """

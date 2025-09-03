@@ -6,7 +6,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} nav={:channels}>
       <.header>
         Channel {@channel.id}
         <:subtitle>This is a channel record from your database.</:subtitle>

@@ -16,10 +16,19 @@ defmodule YtdarrWeb.Router do
 
   scope "/", YtdarrWeb do
     pipe_through :browser
-
     get "/", PageController, :home
 
-    oban_dashboard "/oban"
+    live "/dashboard", DashboardLive.Index, :index
+
+    # Channel management
+    live "/channels/add", ChannelLive.Add, :add
+    live "/channels", ChannelLive.Index, :index
+    live "/channels/new", ChannelLive.Form, :new
+    live "/channels/:id/edit", ChannelLive.Form, :edit
+    live "/channels/:id", ChannelLive.Show, :show
+
+    # Oban Web dashboard (consider adding auth in production)
+    forward "/oban", Oban.Web.Router
   end
 
   # Other scopes may use custom stacks.

@@ -12,8 +12,73 @@ defmodule Ytdarr.Content do
     Repo.all(Channel)
   end
 
+  @doc """
+  Search channels by case-insensitive partial match on name or external_id.
+  Returns all channels when the query is blank or nil.
+  """
+  def list_channels_search(query) when query in [nil, ""], do: list_channels()
+  def list_channels_search(query) do
+    like = "%#{query}%"
+    Channel
+    |> where([c], ilike(c.name, ^like) or ilike(c.external_id, ^like))
+    |> Repo.all()
+  end
+
   def list_monitored_channels do
     Repo.all(from c in Channel, where: c.is_monitored == true)
+  end
+
+  @doc """
+  Returns a page of monitored channels ordered by name.
+
+  Options:
+    * :page - 1-based page number (default 1)
+    * :page_size - items per page (default 20)
+    * :preload - list of associations to preload (default [])
+  """
+  def list_monitored_channels_paginated(opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    page_size = Keyword.get(opts, :page_size, 20)
+    preload_assocs = Keyword.get(opts, :preload, [])
+
+    query =
+      Channel
+      |> where([c], c.is_monitored == true)
+      |> order_by([c], asc: c.name)
+      |> limit(^page_size)
+      |> offset(^((max(page, 1) - 1) * page_size))
+
+    query
+    |> Repo.all()
+    |> Repo.preload(preload_assocs)
+  end
+
+  @doc """
+  Returns a page of monitored channels filtered by a search query (case-insensitive).
+
+  When query is blank, falls back to `list_monitored_channels_paginated/1`.
+  """
+  def search_monitored_channels_paginated(query_string, opts \\ [])
+  def search_monitored_channels_paginated(query_string, opts) when query_string in [nil, ""] do
+    list_monitored_channels_paginated(opts)
+  end
+  def search_monitored_channels_paginated(query_string, opts) do
+    page = Keyword.get(opts, :page, 1)
+    page_size = Keyword.get(opts, :page_size, 20)
+    preload_assocs = Keyword.get(opts, :preload, [])
+    like = "%#{query_string}%"
+
+    query =
+      Channel
+      |> where([c], c.is_monitored == true)
+      |> where([c], ilike(c.name, ^like) or ilike(c.external_id, ^like))
+      |> order_by([c], asc: c.name)
+      |> limit(^page_size)
+      |> offset(^((max(page, 1) - 1) * page_size))
+
+    query
+    |> Repo.all()
+    |> Repo.preload(preload_assocs)
   end
 
   def get_channel!(id), do: Repo.get!(Channel, id)
@@ -92,7 +157,7 @@ defmodule Ytdarr.Content do
 
 
 
-  def sync_channel_content(channel_id) do
+  def sync_channel_content(_channel_id) do
     # Fetch latest content from external API (e.g., YouTube)
     # Update/create videos and playlists in the database
     {:ok, :synced}

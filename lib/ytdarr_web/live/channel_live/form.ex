@@ -7,7 +7,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} nav={:channels}>
       <.header>
         {@page_title}
         <:subtitle>Use this form to manage channel records in your database.</:subtitle>

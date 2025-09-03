@@ -6,7 +6,7 @@ defmodule YtdarrWeb.ChannelLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} nav={:channels}>
       <.header>
         Listing Channels
         <:actions>

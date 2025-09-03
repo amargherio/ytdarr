@@ -26,10 +26,34 @@ import {hooks as colocatedHooks} from "phoenix-colocated/ytdarr"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+const InfiniteScroll = {
+  mounted() {
+    this.observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const end = entry.target.dataset.end === 'true'
+          if (!end) { this.pushEvent("load-more") }
+        }
+      })
+    }, {root: null, rootMargin: '0px', threshold: 1.0})
+
+    const marker = document.getElementById("infinite-scroll-marker")
+    if (marker) this.observer.observe(marker)
+  },
+  updated() {
+    const marker = document.getElementById("infinite-scroll-marker")
+    if (marker && this.observer) {
+      this.observer.disconnect()
+      this.observer.observe(marker)
+    }
+  },
+  destroyed() { this.observer && this.observer.disconnect() }
+}
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, InfiniteScroll},
 })
 
 // Show progress bar on live navigation and form submits
