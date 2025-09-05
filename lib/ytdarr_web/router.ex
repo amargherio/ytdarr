@@ -1,6 +1,8 @@
 defmodule YtdarrWeb.Router do
   use YtdarrWeb, :router
 
+  import Oban.Web.Router
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -21,14 +23,13 @@ defmodule YtdarrWeb.Router do
     live "/dashboard", DashboardLive.Index, :index
 
     # Channel management
-    live "/channels/add", ChannelLive.Add, :add
+    live "/content/add", ContentLive.Add, :add
     live "/channels", ChannelLive.Index, :index
-    live "/channels/new", ChannelLive.Form, :new
     live "/channels/:id/edit", ChannelLive.Form, :edit
     live "/channels/:id", ChannelLive.Show, :show
 
     # Oban Web dashboard (consider adding auth in production)
-    forward "/oban", Oban.Web.Router
+    oban_dashboard("/oban")
   end
 
   # Other scopes may use custom stacks.

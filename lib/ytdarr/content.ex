@@ -82,6 +82,7 @@ defmodule Ytdarr.Content do
   end
 
   def get_channel!(id), do: Repo.get!(Channel, id)
+  def get_channel_by_external_id(ext_id), do: Repo.get_by(Channel, external_id: ext_id)
 
   def get_channel_with_videos(id) do
     Channel
@@ -115,12 +116,18 @@ defmodule Ytdarr.Content do
     |> Repo.all()
   end
 
+  def list_playlists do
+    Repo.all(Playlist)
+  end
+
   def get_playlist_with_videos(id) do
     Playlist
     |> where([p], p.id == ^id)
     |> preload([:videos, :channel])
     |> Repo.one()
   end
+
+  def get_playlist_by_external_id(ext_id), do: Repo.get_by(Playlist, external_id: ext_id)
 
   def create_playlist(attrs \\ %{}) do
     %Playlist{}

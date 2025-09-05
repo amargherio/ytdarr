@@ -55,6 +55,9 @@ defmodule YtdarrWeb.Layouts do
               </a>
             </li>
             <li>
+              <a href={~p"/content/add"} class={[@nav == :content_add && "active font-semibold"]}>Add Content</a>
+            </li>
+            <li>
               <details open={@nav in [:channels, :channel_add]}>
                 <summary class={[@nav == :channels && "active font-semibold", @nav == :channel_add && "font-semibold"]}>Channels</summary>
                 <ul>
@@ -68,7 +71,10 @@ defmodule YtdarrWeb.Layouts do
               </details>
             </li>
             <li>
-              <a href={~p"/oban"} target="_blank">Jobs</a>
+              <a href={~p"/queue"} class={[@nav == :queue_view && "active font-semibold"]}>Download Queue</a>
+            </li>
+            <li>
+              <a href={~p"/oban"} target="_blank">Oban Jobs</a>
             </li>
           </ul>
         </nav>
