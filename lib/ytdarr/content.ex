@@ -162,8 +162,6 @@ defmodule Ytdarr.Content do
     {:ok, playlist}
   end
 
-
-
   def sync_channel_content(_channel_id) do
     # Fetch latest content from external API (e.g., YouTube)
     # Update/create videos and playlists in the database

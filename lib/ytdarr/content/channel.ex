@@ -8,10 +8,11 @@ defmodule Ytdarr.Content.Channel do
     field :url, :string
     field :description, :string
     field :platform, :string # e.g., "YouTube", "Twitch"
-    field :avatar_url, :string
+    field :avatar_url, :string # e.g., YouTube thumbnail url - as high def as we can get?
+    field :banner_url, :string # e.g., YouTube banner url
 
     # monitoring status
-    field :is_monitored, :boolean, default: true
+    field :is_monitored, :boolean, default: false
     field :is_monitored_since, :utc_datetime
     field :last_checked_at, :utc_datetime
 
