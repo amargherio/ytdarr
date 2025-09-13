@@ -15,7 +15,7 @@ defmodule Ytdarr.Application do
       {DNSCluster, query: Application.get_env(:ytdarr, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Ytdarr.PubSub},
       {Finch, name: Ytdarr.Finch}, # Starting the HTTP client for Req
-      Ytdarr.Service.YouTube.ClientSupervisor,
+      Ytdarr.Services.YouTube.ClientSupervisor,
       # Start Oban for background job processing
       #{Oban, Application.fetch_env!(:ytdarr, Oban)},
       # Start a worker by calling: Ytdarr.Worker.start_link(arg)

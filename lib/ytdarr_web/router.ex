@@ -28,6 +28,9 @@ defmodule YtdarrWeb.Router do
     live "/channels/:id/edit", ChannelLive.Form, :edit
     live "/channels/:id", ChannelLive.Show, :show
 
+  # Settings
+  live "/settings", SettingsLive, :index
+
     # Oban Web dashboard (consider adding auth in production)
     oban_dashboard("/oban")
   end
