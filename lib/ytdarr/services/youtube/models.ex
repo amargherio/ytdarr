@@ -21,12 +21,13 @@ defmodule Ytdarr.Services.YouTube.Models do
   defmodule Channel do
     @enforce_keys [:id, :title, :url]
   defstruct [:id, :title, :description, :url, :thumbnail_url,
-         :subscriber_count, :video_count, :view_count, :banner_url, :status]
+         :subscriber_count, :video_count, :view_count, :banner_url, :status, :contentDetails]
 
     def from_api(%{"id" => id, "snippet" => snippet} = data) do
       brandSettings = Map.get(data, "brandingSettings", %{}) || %{}
       status = Map.get(data, "status", %{}) || %{}
       statistics = Map.get(data, "statistics", %{})
+      contentDetails = Map.get(data, "contentDetails", %{})
 
       url =
         if snippet["customUrl"] do
@@ -46,6 +47,7 @@ defmodule Ytdarr.Services.YouTube.Models do
         view_count: parse_int(statistics["viewCount"]),
         banner_url: get_in(brandSettings, ["image", "bannerExternalUrl"]),
         status: status,
+        contentDetails: contentDetails
       }
     end
 

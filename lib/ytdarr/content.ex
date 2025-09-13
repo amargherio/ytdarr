@@ -100,7 +100,11 @@ defmodule Ytdarr.Content do
   def monitor_channel(%Channel{} = channel) do
     channel
     |> Channel.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})
-    |> Repo.update()
+
+    case Repo.update(channel) do
+      {:ok, updated_channel} -> pull_channel_data_after_channel_monitor(updated_channel)
+      {:error, change} -> {:error, change}
+    end
   end
 
   def unmonitor_channel(%Channel{} = channel) do
@@ -162,9 +166,66 @@ defmodule Ytdarr.Content do
     {:ok, playlist}
   end
 
-  def sync_channel_content(_channel_id) do
+  def sync_channel_content(channel_id) do
     # Fetch latest content from external API (e.g., YouTube)
     # Update/create videos and playlists in the database
+    #
+    # Start with playlists, ignoring the "uploads" playlist because it has all videos in it
+    playlists = Client.get_channel_playlists(channel_id)
+
+    Enum.each(playlists, fn pl ->
+      existing_pl = get_playlist_by_external_id(pl.id)
+      if is_nil(existing_pl) do
+        # not already monitored, so create a Ytdarr.Content.Playlist struct and
+        # add it to the DB
+        %Playlist{}
+        |> Playlist.changeset(%{
+          external_id: pl.id,
+          title: pl.title,
+          description: pl.description,
+          url: pl.url,
+          thumbnail_url: pl.thumbnail_url,
+          video_count: pl.video_count,
+          channel_id: pl.channel_id,
+          is_monitored: false
+        })
+        |> Repo.insert()
+      else
+        # log that this playlist is already monitored and skip
+        Phoenix.Logger.info("Playlist #{pl.id} is already monitored, skipping")
+      end
+    end)
+
+    # Now handle videos by pulling from the "uploads" playlist
+    uploads_playlist = Enum.find(playlists, fn pl -> pl.title == "Uploads" end)
+    if uploads_playlist do
+      videos = Client.get_playlist_videos(uploads_playlist.id)
+      Enum.each(videos, fn vid ->
+        existing_vid = Repo.get_by(Video, external_id: vid.id)
+        if is_nil(existing_vid) do
+          # not already monitored, so create a Ytdarr.Content.Video struct and
+          # add it to the DB
+          %Video{}
+          |> Video.changeset(%{
+            external_id: vid.id,
+            title: vid.title,
+            description: vid.description,
+            url: vid.url,
+            thumbnail_url: vid.thumbnail_url,
+            published_at: vid.published_at,
+            duration: vid.duration,
+            view_count: vid.view_count,
+            channel_id: vid.channel_id,
+            is_monitored: false
+          })
+          |> Repo.insert()
+        else
+          # log that this video is already monitored and skip
+          Phoenix.Logger.info("Video #{vid.id} is already monitored, skipping")
+        end
+      end)
+    end
+
     {:ok, :synced}
   end
 end
