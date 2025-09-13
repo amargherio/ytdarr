@@ -48,6 +48,42 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
+  def get_channel_playlists(channel_id, opts \\ []) do
+    case API.get_channel(channel_id) do
+      {:ok, api_response} ->
+        case api_response.items do
+          [first | _] ->
+            channel = Models.Channel.from_api(first)
+            case API.get_playlists_by_channel(channel.id, opts) do
+              {:ok, playlists_response} ->
+                playlists = Enum.map(playlists_response.items, &Models.Playlist.from_api/1)
+                {:ok, playlists}
+              {:error, reason} ->
+                {:error, reason}
+            end
+          [] ->
+            {:error, :not_found}
+        end
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def get_playlist_videos(playlist_id, opts \\ []) do
+    case API.get_playlist(playlist_id, opts) do
+      {:ok, api_response} ->
+        case api_response.items do
+          [] ->
+            {:error, :not_found}
+          items ->
+            videos = Enum.map(items, &Models.Video.from_api/1)
+            {:ok, videos}
+        end
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   def get_channel_videos(channel_id, opts \\ []) do
 
   end

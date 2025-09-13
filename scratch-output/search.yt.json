@@ -1,0 +1,177 @@
+// search output for "dirty civilian"
+{
+  "kind": "youtube#searchListResponse",
+  "etag": "B-paKK3T0i43R_kDxG4xeHLCmFY",
+  "nextPageToken": "CAUQAA",
+  "regionCode": "US",
+  "pageInfo": {
+    "totalResults": 851924,
+    "resultsPerPage": 5
+  },
+  "items": [
+    {
+      "kind": "youtube#searchResult",
+      "etag": "JzifNTzV15Ia8MwxRR4FQQ1zJls",
+      "id": {
+        "kind": "youtube#channel",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ"
+      },
+      "snippet": {
+        "publishedAt": "2022-07-28T05:15:02Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Dirty Civilian",
+        "description": "Our mission is to inspire and inform capable men to build strong families and resilient communities. We cover a variety of topics ...",
+        "thumbnails": {
+          "default": {
+            "url": "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s88-c-k-c0xffffffff-no-rj-mo"
+          },
+          "medium": {
+            "url": "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s240-c-k-c0xffffffff-no-rj-mo"
+          },
+          "high": {
+            "url": "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s800-c-k-c0xffffffff-no-rj-mo"
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "liveBroadcastContent": "none",
+        "publishTime": "2022-07-28T05:15:02Z"
+      }
+    },
+    {
+      "kind": "youtube#searchResult",
+      "etag": "z1khjc60QVqsnlc1mteZ0UHTBWY",
+      "id": {
+        "kind": "youtube#video",
+        "videoId": "Bj-es6zn6kg"
+      },
+      "snippet": {
+        "publishedAt": "2025-09-06T16:30:05Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "The New SOCOM Sniper Rifle for Civs | Is the MRGG-S Worth it?",
+        "description": "The Mid Range Gas Gun - Sniper is a 20\" rifle chambered in 6.5C. With a max effective range of 1500 Meters and still capable of ...",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "liveBroadcastContent": "none",
+        "publishTime": "2025-09-06T16:30:05Z"
+      }
+    },
+    {
+      "kind": "youtube#searchResult",
+      "etag": "hJ8JkgRejUZHPOr8BefZssNEezY",
+      "id": {
+        "kind": "youtube#video",
+        "videoId": "8hYEFnfrcjA"
+      },
+      "snippet": {
+        "publishedAt": "2025-08-23T16:00:12Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Our Emergency Survival Shelter &amp; Family Plan for Storm Season",
+        "description": "We built out our basement to be a tornado shelter and long-term survival storage bunker. We go through the supplies and tools ...",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "liveBroadcastContent": "none",
+        "publishTime": "2025-08-23T16:00:12Z"
+      }
+    },
+    {
+      "kind": "youtube#searchResult",
+      "etag": "o0IwhjIDwyg7bnp1ohrh5Fq6iJY",
+      "id": {
+        "kind": "youtube#video",
+        "videoId": "JHTO_c3KEeI"
+      },
+      "snippet": {
+        "publishedAt": "2025-09-09T15:50:56Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Farmer smokes Invader with .300WM",
+        "description": "Farmers & Hunters with budget bolt actions and Nikon scopes have stopped more hearts than you can imagine. The MRGG-S is ...",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "liveBroadcastContent": "none",
+        "publishTime": "2025-09-09T15:50:56Z"
+      }
+    },
+    {
+      "kind": "youtube#searchResult",
+      "etag": "KNQVxzsoUKkc8FqzQg10_hHLxOQ",
+      "id": {
+        "kind": "youtube#video",
+        "videoId": "ugeXfpHO7LI"
+      },
+      "snippet": {
+        "publishedAt": "2025-08-30T16:01:34Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Scopes for Accurized Rifles | Modern Mk-12 Optics",
+        "description": "Not all scopes are made the same and many are made with a different purpose in mind. Still, there are two that come to mind ...",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/ugeXfpHO7LI/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/ugeXfpHO7LI/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/ugeXfpHO7LI/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "liveBroadcastContent": "none",
+        "publishTime": "2025-08-30T16:01:34Z"
+      }
+    }
+  ]
+}

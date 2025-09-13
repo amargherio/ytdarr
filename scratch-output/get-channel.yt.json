@@ -1,0 +1,67 @@
+{
+  "kind": "youtube#channelListResponse",
+  "etag": "rT5yciVZZtaCOJ7W5xXwKd_5pCg",
+  "pageInfo": {
+    "totalResults": 1,
+    "resultsPerPage": 5
+  },
+  "items": [
+    {
+      "kind": "youtube#channel",
+      "etag": "NeO6oAKd83SLXasm5Bnog3Ne66o",
+      "id": "UC7X2IY5-ZHKU83nyb6KejgQ",
+      "snippet": {
+        "title": "Dirty Civilian",
+        "description": "Our mission is to inspire and inform capable men to build strong families and resilient communities.\nWe cover a variety of topics and subjects involving survival, bushcraft, modern military tech, and marksmanship fundamentals.\nMerch and resources available at https://www.dirtycivilian.com\n\nHosts: Drew Hopkins & Josh Lowry\nVideographer: Chad Barber (RIP Nick Jones)\nScript & Research: Jonathan Fisher\n",
+        "customUrl": "@dirty-civilian",
+        "publishedAt": "2022-07-28T05:15:02.470595Z",
+        "thumbnails": {
+          "default": {
+            "url": "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s88-c-k-c0x00ffffff-no-rj",
+            "width": 88,
+            "height": 88
+          },
+          "medium": {
+            "url": "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s240-c-k-c0x00ffffff-no-rj",
+            "width": 240,
+            "height": 240
+          },
+          "high": {
+            "url": "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s800-c-k-c0x00ffffff-no-rj",
+            "width": 800,
+            "height": 800
+          }
+        },
+        "localized": {
+          "title": "Dirty Civilian",
+          "description": "Our mission is to inspire and inform capable men to build strong families and resilient communities.\nWe cover a variety of topics and subjects involving survival, bushcraft, modern military tech, and marksmanship fundamentals.\nMerch and resources available at https://www.dirtycivilian.com\n\nHosts: Drew Hopkins & Josh Lowry\nVideographer: Chad Barber (RIP Nick Jones)\nScript & Research: Jonathan Fisher\n"
+        },
+        "country": "US"
+      },
+      "contentDetails": {
+        "relatedPlaylists": {
+          "likes": "",
+          "uploads": "UU7X2IY5-ZHKU83nyb6KejgQ"
+        }
+      },
+      "status": {
+        "privacyStatus": "public",
+        "isLinked": true,
+        "longUploadsStatus": "longUploadsUnspecified",
+        "madeForKids": false
+      },
+      "brandingSettings": {
+        "channel": {
+          "title": "Dirty Civilian",
+          "description": "Our mission is to inspire and inform capable men to build strong families and resilient communities.\nWe cover a variety of topics and subjects involving survival, bushcraft, modern military tech, and marksmanship fundamentals.\nMerch and resources available at https://www.dirtycivilian.com\n\nHosts: Drew Hopkins & Josh Lowry\nVideographer: Chad Barber (RIP Nick Jones)\nScript & Research: Jonathan Fisher\n",
+          "keywords": "\"Dirty Civilian\" dirtycivilian training \"drew hopkins\" \"josh lowry\" tactical dirtyciv \"dirty civ\" \"dirt bikes\" sustainment prepper preparedness 2A homesteading \"food prep\" \"water prep\" survival bushcraft fieldcraft shtf \"designated marksman\" \"auto rifleman\" sniper rifleman \"plate carriers\" \"body armor\" \"night vision\" thermal drones \"thermal drones\" \"combat footage\" combat",
+          "unsubscribedTrailer": "eQW-AmsNZ-4",
+          "country": "US"
+        },
+        "image": {
+          "bannerExternalUrl": "https://yt3.googleusercontent.com/7nfUr0b3CNS01SeLm63TJhU1cdME-OkFgVDPGnE0-R1UgSuW7dODJnjX1osYOAQcfhIzlMvORw"
+        }
+      }
+    }
+  ]
+}

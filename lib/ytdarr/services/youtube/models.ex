@@ -4,6 +4,15 @@ defmodule Ytdarr.Services.YouTube.Models do
   Data structures for YouTube API responses.
   """
 
+  # Shared helpers (kept private to this enclosing module)
+  defp parse_date(date_string) when is_binary(date_string) do
+    case DateTime.from_iso8601(date_string) do
+      {:ok, datetime, _} -> DateTime.to_date(datetime)
+      _ -> nil
+    end
+  end
+  defp parse_date(_), do: nil
+
   defmodule APIResponse do
     defstruct [:kind, :next_page_token, :prev_page_token, :page_info, :items]
 
@@ -82,13 +91,8 @@ defmodule Ytdarr.Services.YouTube.Models do
       from_api(%{"id" => video_id, "snippet" => snippet})
     end
 
-    defp parse_date(date_string) when is_binary(date_string) do
-      case DateTime.from_iso8601(date_string) do
-        {:ok, datetime, _} -> DateTime.to_date(datetime)
-        _ -> nil
-      end
-    end
-    defp parse_date(_), do: nil
+    # delegate to outer helper
+    defp parse_date(d), do: Ytdarr.Services.YouTube.Models.send(:parse_date, d)
   end
 
   defmodule Playlist do
@@ -109,6 +113,89 @@ defmodule Ytdarr.Services.YouTube.Models do
         channel_id: snippet["channelId"]
       }
     end
+  end
+
+  defmodule PlaylistImages do
+    @moduledoc """
+    Holds the different thumbnail image variants for a playlist (or playlist item video).
+
+    Each field is a map with the raw data for that resolution, typically containing
+    width, height, and url, or nil if not provided by the API.
+    """
+    defstruct [:default, :medium, :high, :standard, :maxres]
+
+    def from_api(nil), do: %__MODULE__{}
+    def from_api(data) when is_map(data) do
+      %__MODULE__{
+        default: Map.get(data, "default"),
+        medium: Map.get(data, "medium"),
+        high: Map.get(data, "high"),
+        standard: Map.get(data, "standard"),
+        maxres: Map.get(data, "maxres")
+      }
+    end
+    def from_api(_), do: %__MODULE__{}
+  end
+
+  defmodule PlaylistItem do
+    @moduledoc """
+    Represents an item within a YouTube playlist (playlistItems endpoint).
+
+    Fields are derived from the playlistItems API resource:
+    https://developers.google.com/youtube/v3/docs/playlistItems#resource
+    """
+    @enforce_keys [:id, :playlist_id, :video_id, :title, :url]
+    defstruct [
+      :id,
+      :playlist_id,
+      :video_id,
+      :title,
+      :description,
+      :position,
+      :url,
+      :thumbnail_url,
+      :published_at,
+      :video_published_at,
+      :channel_id,
+      :channel_title,
+      :video_owner_channel_title,
+      :video_owner_channel_id,
+      :status,
+      :images
+    ]
+
+    # Accepts a raw playlistItems resource map and converts to struct
+    def from_api(%{"id" => id, "snippet" => snippet} = data) do
+      content_details = Map.get(data, "contentDetails", %{})
+      status = Map.get(data, "status", %{})
+      thumbnails = Map.get(snippet, "thumbnails")
+      video_id = get_in(snippet, ["resourceId", "videoId"]) || content_details["videoId"]
+      playlist_id = snippet["playlistId"]
+
+      %__MODULE__{
+        id: id,
+        playlist_id: playlist_id,
+        video_id: video_id,
+        title: snippet["title"],
+        description: snippet["description"],
+        position: snippet["position"],
+        url: if(video_id, do: "https://www.youtube.com/watch?v=#{video_id}&list=#{playlist_id}", else: nil),
+        thumbnail_url: get_in(thumbnails, ["high", "url"]) || get_in(thumbnails, ["default", "url"]),
+        published_at: parse_date(snippet["publishedAt"]),
+        video_published_at: parse_date(content_details["videoPublishedAt"]),
+        channel_id: snippet["channelId"],
+        channel_title: snippet["channelTitle"],
+        video_owner_channel_title: snippet["videoOwnerChannelTitle"],
+        video_owner_channel_id: snippet["videoOwnerChannelId"],
+        status: status,
+        images: Ytdarr.Services.YouTube.Models.PlaylistImages.from_api(thumbnails)
+      }
+    end
+
+    def from_api(_), do: nil
+
+    # Local date parsing duplicated from Video module; may be refactored.
+    defp parse_date(d), do: Ytdarr.Services.YouTube.Models.send(:parse_date, d)
   end
 
   defmodule DownloadInfo do

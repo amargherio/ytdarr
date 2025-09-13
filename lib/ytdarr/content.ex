@@ -102,7 +102,7 @@ defmodule Ytdarr.Content do
     |> Channel.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})
 
     case Repo.update(channel) do
-      {:ok, updated_channel} -> pull_channel_data_after_channel_monitor(updated_channel)
+      {:ok, updated_channel} -> sync_channel_content(updated_channel.external_id)
       {:error, change} -> {:error, change}
     end
   end

@@ -54,6 +54,50 @@ defmodule Ytdarr.Services.YouTube.API do
     end
   end
 
+  def get_playlists_by_channel(channel_id, opts \\ []) do
+    max_results = Keyword.get(opts, :max_results, 50)
+    params = [
+      part: "snippet,contentDetails",
+      channelId: channel_id,
+      maxResults: max_results
+    ]
+
+    client = get_yt_client()
+    case client |> Req.get(url: "/playlists", params: params) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, Models.APIResponse.from_api(body)}
+      {:ok, %{
+        status: status,
+        body: body
+      }} ->
+        {:error, {:http_error, status, body}}
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def get_playlist_items(playlist_id, opts \\ []) do
+    max_results = Keyword.get(opts, :max_results, 50)
+    params = [
+      part: "id,snippet,contentDetails",
+      playlistId: playlist_id,
+      maxResults: max_results
+    ]
+
+    client = get_yt_client()
+    case client |> Req.get(url: "/playlistItems", params: params) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, Models.APIResponse.from_api(body)}
+      {:ok, %{
+        status: status,
+        body: body
+      }} ->
+        {:error, {:http_error, status, body}}
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   defp get_yt_client do
     ClientSupervisor.get_client()
   end

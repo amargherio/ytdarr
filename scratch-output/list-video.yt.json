@@ -1,0 +1,92 @@
+// curl \
+//  'https://youtube.googleapis.com/youtube/v3/videos?part=id%2CliveStreamingDetails%2Csnippet%2CrecordingDetails%2Cstatus&id=Bj-es6zn6kg&key=[YOUR_API_KEY]' \
+//  --header 'Authorization: Bearer [YOUR_ACCESS_TOKEN]' \
+//  --header 'Accept: application/json' \
+//  --compressed
+
+{
+  "kind": "youtube#videoListResponse",
+  "etag": "NTZR8GkEQNaLtoayi5fWxG510xA",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "etag": "CKEs_eelSTJJxEZj1cvim76S5Vs",
+      "id": "Bj-es6zn6kg",
+      "snippet": {
+        "publishedAt": "2025-09-06T16:30:05Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "The New SOCOM Sniper Rifle for Civs | Is the MRGG-S Worth it?",
+        "description": "The Mid Range Gas Gun - Sniper is a 20\" rifle chambered in 6.5C. With a max effective range of 1,500 Meters and still capable of work inside of 50. It is the future of warfare and is the best in its class at this time. Still, that doesn't mean it's automatically a good purchase for the common man. Today, we think critically about the cost, weight and performance of the MRGG and compare a Gas gun Vs Bolt gun.\n\nWETWRX 10% off DIRTYCIV | https://www.wet-wrx.com/\nVertx Apparel and Bags 15% off DIRTYCIVILIAN | https://vertx.com/collections/pro\nDie Free Co 10% discount DIRTYCIVILIAN | https://www.diefree.com/\nZero Gravity | https://www.zerogravityia.com/\nLeupold MK5HD 3.6-18 PR2\nLeupold Mk5 CF-455 Tripod\n\nDirty Civilian Store | https://www.dirtycivilian.com/store\nPatreon | https://www.patreon.com/dirtycivilian\n\n00:00 Watch This\n01:55 You NEED This\n06:05 MRGG-S\n10:31 My Requirements\n14:47 The Dichotomy \n16:14 Bolt Gun?\n21:17 Gas vs Bolt\n24:27 Enablers \n26:20 MRGG as GPR\n27:20 Conclusion\n28:58 A question for you\n29:58 Bubba",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "tags": [
+          "dirty civilian",
+          "dirtycivilian",
+          "dirty civ",
+          "drew hopkins",
+          "josh lowry",
+          "preparedness",
+          "prepared",
+          "sustainment",
+          "prepper",
+          "citizen",
+          "mrgg",
+          "mrgg-s",
+          "socom mrggs",
+          "6.5 creedmore",
+          "lmt",
+          "lmt mrgg-s",
+          "civ def",
+          "civilian defense"
+        ],
+        "categoryId": "27",
+        "liveBroadcastContent": "none",
+        "defaultLanguage": "en",
+        "localized": {
+          "title": "The New SOCOM Sniper Rifle for Civs | Is the MRGG-S Worth it?",
+          "description": "The Mid Range Gas Gun - Sniper is a 20\" rifle chambered in 6.5C. With a max effective range of 1,500 Meters and still capable of work inside of 50. It is the future of warfare and is the best in its class at this time. Still, that doesn't mean it's automatically a good purchase for the common man. Today, we think critically about the cost, weight and performance of the MRGG and compare a Gas gun Vs Bolt gun.\n\nWETWRX 10% off DIRTYCIV | https://www.wet-wrx.com/\nVertx Apparel and Bags 15% off DIRTYCIVILIAN | https://vertx.com/collections/pro\nDie Free Co 10% discount DIRTYCIVILIAN | https://www.diefree.com/\nZero Gravity | https://www.zerogravityia.com/\nLeupold MK5HD 3.6-18 PR2\nLeupold Mk5 CF-455 Tripod\n\nDirty Civilian Store | https://www.dirtycivilian.com/store\nPatreon | https://www.patreon.com/dirtycivilian\n\n00:00 Watch This\n01:55 You NEED This\n06:05 MRGG-S\n10:31 My Requirements\n14:47 The Dichotomy \n16:14 Bolt Gun?\n21:17 Gas vs Bolt\n24:27 Enablers \n26:20 MRGG as GPR\n27:20 Conclusion\n28:58 A question for you\n29:58 Bubba"
+        },
+        "defaultAudioLanguage": "en"
+      },
+      "status": {
+        "uploadStatus": "processed",
+        "privacyStatus": "public",
+        "license": "youtube",
+        "embeddable": true,
+        "publicStatsViewable": true,
+        "madeForKids": false
+      },
+      "recordingDetails": {}
+    }
+  ],
+  "pageInfo": {
+    "totalResults": 1,
+    "resultsPerPage": 1
+  }
+}

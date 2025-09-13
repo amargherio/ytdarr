@@ -1,0 +1,286 @@
+// curl \
+//   'https://youtube.googleapis.com/youtube/v3/playlistItems?part=id%2Csnippet%2CcontentDetails%2Cstatus&playlistId=UU7X2IY5-ZHKU83nyb6KejgQ&key=[YOUR_API_KEY]' \
+//   --header 'Authorization: Bearer [YOUR_ACCESS_TOKEN]' \
+//   --header 'Accept: application/json' \
+//   --compressed
+{
+  "kind": "youtube#playlistItemListResponse",
+  "etag": "NG-jb4mkxNcjxUIsshQgJSRBy9s",
+  "nextPageToken": "EAAaHlBUOkNBVWlFRFkwT0RoQlJUbENOek5FTWpaRlFUYw",
+  "items": [
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "2e_KLpbAdyEZiylipVsBGtJ5clw",
+      "id": "VVU3WDJJWTUtWkhLVTgzbnliNktlamdRLkJmM1UwZkk2UUxN",
+      "snippet": {
+        "publishedAt": "2025-09-12T15:00:46Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Bloopers Episode 4",
+        "description": "This character comes way too naturally.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/Bf3U0fI6QLM/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/Bf3U0fI6QLM/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/Bf3U0fI6QLM/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/Bf3U0fI6QLM/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/Bf3U0fI6QLM/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "playlistId": "UU7X2IY5-ZHKU83nyb6KejgQ",
+        "position": 0,
+        "resourceId": {
+          "kind": "youtube#video",
+          "videoId": "Bf3U0fI6QLM"
+        },
+        "videoOwnerChannelTitle": "Dirty Civilian",
+        "videoOwnerChannelId": "UC7X2IY5-ZHKU83nyb6KejgQ"
+      },
+      "contentDetails": {
+        "videoId": "Bf3U0fI6QLM",
+        "videoPublishedAt": "2025-09-12T15:00:46Z"
+      },
+      "status": {
+        "privacyStatus": "public"
+      }
+    },
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "FEWfam0LUoyCGfnMfQwKOwarO2U",
+      "id": "VVU3WDJJWTUtWkhLVTgzbnliNktlamdRLnJvSmFnbW1qX0Vz",
+      "snippet": {
+        "publishedAt": "2025-09-11T15:00:28Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Can you justify this purchase with your wife?",
+        "description": "The answer is no.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/roJagmmj_Es/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/roJagmmj_Es/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/roJagmmj_Es/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/roJagmmj_Es/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/roJagmmj_Es/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "playlistId": "UU7X2IY5-ZHKU83nyb6KejgQ",
+        "position": 1,
+        "resourceId": {
+          "kind": "youtube#video",
+          "videoId": "roJagmmj_Es"
+        },
+        "videoOwnerChannelTitle": "Dirty Civilian",
+        "videoOwnerChannelId": "UC7X2IY5-ZHKU83nyb6KejgQ"
+      },
+      "contentDetails": {
+        "videoId": "roJagmmj_Es",
+        "videoPublishedAt": "2025-09-11T15:00:28Z"
+      },
+      "status": {
+        "privacyStatus": "public"
+      }
+    },
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "2HMUijVMazYD9K0Bir39pA5qCxs",
+      "id": "VVU3WDJJWTUtWkhLVTgzbnliNktlamdRLmdYaGlPWUw3bzBz",
+      "snippet": {
+        "publishedAt": "2025-09-10T18:00:21Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Overgassed Fighting Rifles are... gassy.",
+        "description": "Josh and @havoctwoone burning it down and discussing how to find the right suppressor for your rifle.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/gXhiOYL7o0s/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/gXhiOYL7o0s/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/gXhiOYL7o0s/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/gXhiOYL7o0s/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/gXhiOYL7o0s/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "playlistId": "UU7X2IY5-ZHKU83nyb6KejgQ",
+        "position": 2,
+        "resourceId": {
+          "kind": "youtube#video",
+          "videoId": "gXhiOYL7o0s"
+        },
+        "videoOwnerChannelTitle": "Dirty Civilian",
+        "videoOwnerChannelId": "UC7X2IY5-ZHKU83nyb6KejgQ"
+      },
+      "contentDetails": {
+        "videoId": "gXhiOYL7o0s",
+        "videoPublishedAt": "2025-09-10T18:00:21Z"
+      },
+      "status": {
+        "privacyStatus": "public"
+      }
+    },
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "IVTchwNTxALNP4YDM1J-Ibt6zb0",
+      "id": "VVU3WDJJWTUtWkhLVTgzbnliNktlamdRLm85Z1ZhQ3QxZUFr",
+      "snippet": {
+        "publishedAt": "2025-09-09T18:00:33Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Off-Season Tornado Bunker Prep",
+        "description": "The best part about storm shelters is they double as \"guest beds\" for the in-laws. Joking... of course. Or are we?",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/o9gVaCt1eAk/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/o9gVaCt1eAk/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/o9gVaCt1eAk/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/o9gVaCt1eAk/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/o9gVaCt1eAk/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "playlistId": "UU7X2IY5-ZHKU83nyb6KejgQ",
+        "position": 3,
+        "resourceId": {
+          "kind": "youtube#video",
+          "videoId": "o9gVaCt1eAk"
+        },
+        "videoOwnerChannelTitle": "Dirty Civilian",
+        "videoOwnerChannelId": "UC7X2IY5-ZHKU83nyb6KejgQ"
+      },
+      "contentDetails": {
+        "videoId": "o9gVaCt1eAk",
+        "videoPublishedAt": "2025-09-09T18:00:33Z"
+      },
+      "status": {
+        "privacyStatus": "public"
+      }
+    },
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "koLOJhHWC0x5ZkD5OkDda7IaxXk",
+      "id": "VVU3WDJJWTUtWkhLVTgzbnliNktlamdRLkpIVE9fYzNLRWVJ",
+      "snippet": {
+        "publishedAt": "2025-09-09T15:50:56Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Farmer smokes Invader with .300WM",
+        "description": "Farmers & Hunters with budget bolt actions and Nikon scopes have stopped more hearts than you can imagine. The MRGG-S is cool, but is it THAT cool? Full breakdown on YouTube.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/JHTO_c3KEeI/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "playlistId": "UU7X2IY5-ZHKU83nyb6KejgQ",
+        "position": 4,
+        "resourceId": {
+          "kind": "youtube#video",
+          "videoId": "JHTO_c3KEeI"
+        },
+        "videoOwnerChannelTitle": "Dirty Civilian",
+        "videoOwnerChannelId": "UC7X2IY5-ZHKU83nyb6KejgQ"
+      },
+      "contentDetails": {
+        "videoId": "JHTO_c3KEeI",
+        "videoPublishedAt": "2025-09-09T15:50:56Z"
+      },
+      "status": {
+        "privacyStatus": "public"
+      }
+    }
+  ],
+  "pageInfo": {
+    "totalResults": 378,
+    "resultsPerPage": 5
+  }
+}
