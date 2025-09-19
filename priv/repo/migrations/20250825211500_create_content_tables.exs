@@ -55,6 +55,8 @@ defmodule Ytdarr.Repo.Migrations.CreateContentTables do
       add :playlist_id, references(:playlists, on_delete: :delete_all), null: false
       add :video_id, references(:videos, on_delete: :delete_all), null: false
       add :position, :integer # order of the video in the playlist
+      add :added_at, :utc_datetime # When this video was added to the playlist
+      add :youtube_paylist_item_id, :string # unique ID for playlistitem in youtube
 
       timestamps()
     end
@@ -63,9 +65,12 @@ defmodule Ytdarr.Repo.Migrations.CreateContentTables do
     create unique_index(:playlists, [:external_id])
     create unique_index(:videos, [:external_id])
     create unique_index(:playlist_videos, [:playlist_id, :video_id])
+    create unique_index(:playlist_videos, [:youtube_playlist_item_id])
+
     create index(:playlists, [:channel_id])
     create index(:videos, [:channel_id])
     create index(:videos, [:is_downloaded])
     create index(:channels, [:is_monitored])
+    create index(:playlist_videos, [:playlist_id, :position])
   end
 end

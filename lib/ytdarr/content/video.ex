@@ -18,6 +18,11 @@ defmodule Ytdarr.Content.Video do
     field :file_size, :integer # in bytes
     field :download_quality, :string # e.g., "1080p", "720p"
 
+    # discovery tracking
+    field :discovered_from, :string # "uploads, playlist:PLAYLIST_ID, search, etc
+    field :discovered_at, :utc_datetime
+    field :position_in_uploads, :integer # position when first discovered in the uploads playlist
+
     # Relationships
     belongs_to :channel, Ytdarr.Content.Channel
     many_to_many :playlists, Ytdarr.Content.Playlist, join_through: "playlists_videos", join_keys: [video_id: :id, playlist_id: :id]
@@ -31,7 +36,8 @@ defmodule Ytdarr.Content.Video do
     |> cast(attrs, [:title, :external_id, :url, :description, :duration,
                     :upload_date, :thumbnail_url, :is_downloaded,
                     :downloaded_at, :download_path, :file_size,
-                    :download_quality, :channel_id])
+                    :download_quality, :channel_id, :discovered_from,
+                    :discovered_at, :position_in_uploads])
     |> validate_required([:title, :external_id, :url, :channel_id])
     |> unique_constraint(:external_id)
     |> assoc_constraint(:channel)

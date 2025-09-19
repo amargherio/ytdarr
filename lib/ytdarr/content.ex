@@ -165,12 +165,43 @@ defmodule Ytdarr.Content do
     {:ok, playlist}
   end
 
+  def sync_channel_playlists(%Channel{} = channel) do
+    playlists = Client.get_channel_playlists(channel.external_id)
+
+    Enum.each(playlists, fn pl ->
+      existing_pl = get_playlist_by_external_id(pl.id)
+      if is_nil(existing_pl) do
+        # not already monitored, so create a Ytdarr.Content.Playlist struct and
+        # add it to the DB
+        %Playlist{}
+        |> Playlist.changeset(%{
+          external_id: pl.id,
+          title: pl.title,
+          description: pl.description,
+          url: pl.url,
+          thumbnail_url: pl.thumbnail_url,
+          video_count: pl.video_count,
+          channel_id: pl.channel_id,
+          is_monitored: false
+        })
+        |> Repo.insert()
+      else
+        # log that this playlist is already monitored and skip
+        Phoenix.Logger.info("Playlist #{pl.id} is already monitored, skipping")
+      end
+    end)
+
+    {:ok, :synced}
+  end
+
+  @doc """
+  Fetch latest content from external API (e.g., YouTube). Update/create videos and playlists in the database
+
+  Start with playlists, ignoring the "uploads" playlist because it has all videos in it
+  """
   def sync_channel_content(channel_id) do
-    # Fetch latest content from external API (e.g., YouTube)
-    # Update/create videos and playlists in the database
-    #
-    # Start with playlists, ignoring the "uploads" playlist because it has all videos in it
     playlists = Client.get_channel_playlists(channel_id)
+    uploads_playlist = Enum.find(playlists, fn pl -> pl.title == "Uploads" end)
 
     Enum.each(playlists, fn pl ->
       existing_pl = get_playlist_by_external_id(pl.id)
@@ -226,5 +257,12 @@ defmodule Ytdarr.Content do
     end
 
     {:ok, :synced}
+  end
+
+  @doc """
+  Syncs uploads mplaylist for a channel, creating videos as needed
+  """
+  def sync_channel_uploads(%Channel{} = channel) do
+
   end
 end

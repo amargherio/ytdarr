@@ -98,6 +98,29 @@ defmodule Ytdarr.Services.YouTube.API do
     end
   end
 
+  def get_videos_by_ids(video_ids) when is_binary(video_ids) do
+    client = get_yt_client()
+
+    case client |> Req.get(url: "/videos", params: %{
+      part: "snippet,contentDetails,statistics",
+      id: video_ids
+    }) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, Models.APIResponse.from_api(body)}
+      {:ok, %{
+        status: status,
+        body: body
+      }} ->
+        {:error, {:http_error, status, body}}
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def get_videos_by_ids(video_ids) when is_list(video_ids) do
+    get_videos_by_ids(Enum.join(video_ids, ","))
+  end
+
   defp get_yt_client do
     ClientSupervisor.get_client()
   end

@@ -1,0 +1,63 @@
+// curl \
+//   'https://youtube.googleapis.com/youtube/v3/playlists?part=id%2CcontentDetails%2Csnippet&id=UU7X2IY5-ZHKU83nyb6KejgQ&maxResults=50&key=[YOUR_API_KEY]' \
+//   --header 'Authorization: Bearer [YOUR_ACCESS_TOKEN]' \
+//   --header 'Accept: application/json' \
+//   --compressed
+
+{
+  "kind": "youtube#playlistListResponse",
+  "etag": "FyrKAKMsbK8T0RZkGV5k48V4_pU",
+  "pageInfo": {
+    "totalResults": 1,
+    "resultsPerPage": 50
+  },
+  "items": [
+    {
+      "kind": "youtube#playlist",
+      "etag": "P_H7KeudWKu8RN-i3JHkxkD10xI",
+      "id": "UU7X2IY5-ZHKU83nyb6KejgQ",
+      "snippet": {
+        "publishedAt": "2023-02-20T18:30:09.706699Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Uploads from Dirty Civilian",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/pi_44lewTsI/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/pi_44lewTsI/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/pi_44lewTsI/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/pi_44lewTsI/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/pi_44lewTsI/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "defaultLanguage": "en",
+        "localized": {
+          "title": "Uploads from Dirty Civilian",
+          "description": ""
+        }
+      },
+      "contentDetails": {
+        "itemCount": 383
+      }
+    }
+  ]
+}

@@ -1,0 +1,199 @@
+// curl \
+//   'https://youtube.googleapis.com/youtube/v3/playlists?part=id%2CcontentDetails%2Csnippet&channelId=UC7X2IY5-ZHKU83nyb6KejgQ&key=[YOUR_API_KEY]' \
+//   --header 'Authorization: Bearer [YOUR_ACCESS_TOKEN]' \
+//   --header 'Accept: application/json' \
+//   --compressed
+{
+  "kind": "youtube#playlistListResponse",
+  "etag": "GpSG_ux8T36KEisyFwjKrtYJlmI",
+  "pageInfo": {
+    "totalResults": 4,
+    "resultsPerPage": 5
+  },
+  "items": [
+    {
+      "kind": "youtube#playlist",
+      "etag": "EybkRCky2KkCpFxncFRVOo0Kjoo",
+      "id": "PLsiqs19rXW_BQbztEvm6tJX5Jv64jd384",
+      "snippet": {
+        "publishedAt": "2025-03-01T07:51:42.509418Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "All Dirty Civilian Content",
+        "description": "A complete library of all of our videos so you can watch one right after the other.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "All Dirty Civilian Content",
+          "description": "A complete library of all of our videos so you can watch one right after the other."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 142
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "NHzX4gZB7bLymWrNR_Y_e_S-6UQ",
+      "id": "PLsiqs19rXW_CSQbkftlmUzaJJPo5Na9_N",
+      "snippet": {
+        "publishedAt": "2025-03-01T07:32:00.073034Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Skills, Mindset, & Education",
+        "description": "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Skills, Mindset, & Education",
+          "description": "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 63
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "RFCDaOtJ9QfZktiGDyznqolGYnc",
+      "id": "PLsiqs19rXW_C1LUr_8W84fYHuVl76ERGv",
+      "snippet": {
+        "publishedAt": "2025-03-01T07:31:15.245118Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Gear, Kit, & Loadouts",
+        "description": "A collection of our videos that focus primarily on tactical gear, kit, and tech.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Gear, Kit, & Loadouts",
+          "description": "A collection of our videos that focus primarily on tactical gear, kit, and tech."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 60
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "W0ldgu2WjBr_3_TMzhSeXLL5bNQ",
+      "id": "PLsiqs19rXW_DkT98x3FFI-LkQXz9j38Nq",
+      "snippet": {
+        "publishedAt": "2023-03-26T01:24:02.338682Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "The Dirty Civilian Podcast",
+        "description": "Conversations between the Dirty Civilian team with guest appearances from SMEs from various fields in the Preparedness and 2A communities.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "The Dirty Civilian Podcast",
+          "description": "Conversations between the Dirty Civilian team with guest appearances from SMEs from various fields in the Preparedness and 2A communities."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 13
+      }
+    }
+  ]
+}

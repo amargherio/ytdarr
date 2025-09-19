@@ -91,4 +91,132 @@ defmodule Ytdarr.Services.YouTube.Client do
   def get_playlist(playlist_id, opts \\ []) do
 
   end
+
+  @doc"""
+  Gets the uploads playlist ID for a channel
+  """
+  def get_uploads_playlist_id(channel_id) do
+    # Upload playlist ID structure is "UU" + channel_id[2..]
+    "UU" <> String.slice(channel_id, 2..-1//1)
+  end
+
+  @doc """
+  Monitors uploads playlist for new videos since last check.
+  """
+  def check_uploads_for_new_videos(channel_id, since_datetime \\ nil) do
+    uploads_playlist_id = get_uploads_playlist_id(channel_id)
+
+    with {:ok, %{videos: playlist_items}} <- get_playlist_items_detailed(uploads_playlist_id) do
+      new_items = filter_new_items(playlist_items, since_datetime)
+      videos =
+        new_items
+        |> Enum.map(&convert_playlist_item_to_video/1)
+        |> Enum.reject(&is_nil/1)
+
+      {:ok, videos}
+    end
+  end
+
+  def get_playlist_items_detailed(playlist_id, opts \\ []) do
+    max_results = Keyword.get(opts, :limit, 50)
+
+    # Get the playlist items first
+    with {:ok, playlist_response} <- API.get_playlist_items(playlist_id, opts) do
+      items = playlist_response["items"] || []
+
+      # Extract video IDs
+      video_ids = items
+        |> Enum.map(&get_in(&1, ["snippet", "resourceId", "videoId"]))
+        |> Enum.filter(&is_binary/1)
+        |> Enum.join(",")
+
+      if video_ids != "" do
+        case API.get_videos_by_id(video_ids) do
+          {:ok, videos_response} ->
+            videos = videos_response["items"] || []
+
+            # merge playlist info with video details
+            merged_items = merge_playlist_and_video_data(items, videos)
+
+            {:ok, %{
+              videos: merged_items,
+              next_page_token: playlist_response["nextPageToken"],
+              total_results: playlist_response["pageInfo"]["totalResults"]
+            }}
+          {:error, error} -> error
+        end
+      else
+        {:ok, %{videos: [], next_page_token: nil, total_results: 0}}
+      end
+    end
+  end
+
+  defp filter_new_items(items, nil), do: items
+  defp filter_new_items(items, since_datetime) do
+    Enum.filter(items, fn item ->
+      published_at = get_in(item, ["video_details", "snippet", "publishedAt"])
+      case DateTime.from_iso8601(published_at || "") do
+        {:ok, item_datetime, _} -> DateTime.compare(item_datetime, since_datetime) == :gt
+        _ -> false
+      end
+    end)
+  end
+
+  # Builds a Models.Video struct from a merged playlist/video map.
+  # Returns nil if required video id is missing.
+  defp convert_playlist_item_to_video(merged_item) do
+    video_details = merged_item["video_details"] || %{}
+    snippet = get_in(video_details, ["snippet"]) || %{}
+    statistics = get_in(video_details, ["statistics"]) || %{}
+
+    video_id = video_details["id"]
+    if is_nil(video_id) do
+      nil
+    else
+      %Models.Video{
+        id: video_id,
+        title: snippet["title"],
+        description: snippet["description"],
+        url: "https://www.youtube.com/watch?v=#{video_id}",
+        thumbnail_url: get_in(snippet, ["thumbnails", "high", "url"]) ||
+          get_in(snippet, ["thumbnails", "default", "url"]),
+        published_at: parse_date(snippet["publishedAt"]),
+        duration: nil, # not parsed here (ISO8601 duration not requested in this flow)
+        view_count: parse_int(statistics["viewCount"]),
+        channel_id: snippet["channelId"]
+      }
+    end
+  end
+
+  defp merge_playlist_and_video_data(playlist_items, videos) do
+    video_map = Map.new(videos, &{&1["id"], &1})
+
+    Enum.map(playlist_items, fn item ->
+      video_id = get_in(item, ["snippet", "resourceId", "videoId"])
+      video_details = Map.get(video_map, video_id, %{})
+
+      %{
+        "playlist_details" => item,
+        "video_details" => video_details
+      }
+    end)
+  end
+  # Local helpers (duplicated in models for now; could be centralized)
+  defp parse_date(date_string) when is_binary(date_string) do
+    case DateTime.from_iso8601(date_string) do
+      {:ok, dt, _} -> DateTime.to_date(dt)
+      _ -> nil
+    end
+  end
+  defp parse_date(_), do: nil
+
+  defp parse_int(nil), do: nil
+  defp parse_int(str) when is_binary(str) do
+    case Integer.parse(str) do
+      {int, _} -> int
+      :error -> nil
+    end
+  end
+  defp parse_int(int) when is_integer(int), do: int
+  defp parse_int(_), do: nil
 end
