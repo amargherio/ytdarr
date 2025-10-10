@@ -187,7 +187,7 @@ defmodule Ytdarr.Content do
         |> Repo.insert()
       else
         # log that this playlist is already monitored and skip
-        Phoenix.Logger.info("Playlist #{pl.id} is already monitored, skipping")
+        Logger.info("Playlist #{pl.id} is already monitored, skipping")
       end
     end)
 
@@ -222,7 +222,7 @@ defmodule Ytdarr.Content do
         |> Repo.insert()
       else
         # log that this playlist is already monitored and skip
-        Phoenix.Logger.info("Playlist #{pl.id} is already monitored, skipping")
+        Logger.info("Playlist #{pl.id} is already monitored, skipping")
       end
     end)
 
@@ -251,7 +251,7 @@ defmodule Ytdarr.Content do
           |> Repo.insert()
         else
           # log that this video is already monitored and skip
-          Phoenix.Logger.info("Video #{vid.id} is already monitored, skipping")
+          Logger.info("Video #{vid.id} is already monitored, skipping")
         end
       end)
     end

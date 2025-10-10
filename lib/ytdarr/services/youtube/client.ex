@@ -6,6 +6,8 @@ defmodule Ytdarr.Services.YouTube.Client do
   alias Ytdarr.Services.YouTube.{API, Parser, Models}
   alias Ytdarr.Content
 
+  require Logger
+
   def search_channels(query) do
     case API.search_channels(query) do
       {:ok, api_response} ->
@@ -23,7 +25,7 @@ defmodule Ytdarr.Services.YouTube.Client do
               ^channels = [channel | channels]
             else
               # log that this channel is already monitored and skip
-              Phoenix.Logger.info("Channel #{item.id} is already monitored, skipping")
+              Logger.info("Channel #{item.id} is already monitored, skipping")
             end
           end)
           {:ok, Enum.reverse(channels)}
@@ -85,11 +87,23 @@ defmodule Ytdarr.Services.YouTube.Client do
   end
 
   def get_channel_videos(channel_id, opts \\ []) do
-
+    # Strategy: fetch channel to confirm existence, then use search/list if needed.
+    # Placeholder implementation: delegates to uploads playlist detailed fetch.
+    uploads_id = get_uploads_playlist_id(channel_id)
+    case get_playlist_items_detailed(uploads_id, opts) do
+      {:ok, %{videos: merged}} ->
+        videos = Enum.map(merged, &convert_playlist_item_to_video/1) |> Enum.reject(&is_nil/1)
+        {:ok, videos}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   def get_playlist(playlist_id, opts \\ []) do
-
+    # Minimal stub returning playlist videos plus basic playlist metadata if available
+    with {:ok, %{videos: merged, total_results: total}} <- get_playlist_items_detailed(playlist_id, opts) do
+      videos = Enum.map(merged, &convert_playlist_item_to_video/1) |> Enum.reject(&is_nil/1)
+      {:ok, %{id: playlist_id, video_count: total, videos: videos}}
+    end
   end
 
   @doc"""
@@ -180,9 +194,9 @@ defmodule Ytdarr.Services.YouTube.Client do
         url: "https://www.youtube.com/watch?v=#{video_id}",
         thumbnail_url: get_in(snippet, ["thumbnails", "high", "url"]) ||
           get_in(snippet, ["thumbnails", "default", "url"]),
-        published_at: parse_date(snippet["publishedAt"]),
+        published_at: Parser.parse_date(snippet["publishedAt"]),
         duration: nil, # not parsed here (ISO8601 duration not requested in this flow)
-        view_count: parse_int(statistics["viewCount"]),
+        view_count: Parser.parse_int(statistics["viewCount"]),
         channel_id: snippet["channelId"]
       }
     end
@@ -201,22 +215,4 @@ defmodule Ytdarr.Services.YouTube.Client do
       }
     end)
   end
-  # Local helpers (duplicated in models for now; could be centralized)
-  defp parse_date(date_string) when is_binary(date_string) do
-    case DateTime.from_iso8601(date_string) do
-      {:ok, dt, _} -> DateTime.to_date(dt)
-      _ -> nil
-    end
-  end
-  defp parse_date(_), do: nil
-
-  defp parse_int(nil), do: nil
-  defp parse_int(str) when is_binary(str) do
-    case Integer.parse(str) do
-      {int, _} -> int
-      :error -> nil
-    end
-  end
-  defp parse_int(int) when is_integer(int), do: int
-  defp parse_int(_), do: nil
 end
