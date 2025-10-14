@@ -29,9 +29,16 @@ defmodule Ytdarr.Content.Playlist do
   @doc false
   def changeset(playlist, attrs) do
     playlist
-    |> cast(attrs, [:name, :external_id, :url, :description, :video_count,
-                    :monitored, :monitored_since, :last_checked_at,
-                    :download_path, :channel_id])
+    |> cast(attrs, [
+      :name,
+      :external_id,
+      :url,
+      :description,
+      :video_count,
+      :is_monitored,
+      :last_checked_at,
+      :channel_id
+    ])
     |> validate_required([:name, :external_id, :url, :channel_id])
     |> unique_constraint(:external_id)
     |> assoc_constraint(:channel)
@@ -51,7 +58,7 @@ defmodule Ytdarr.Content.Playlist do
 
   defp maybe_set_monitored_timestamp(changeset) do
     case get_change(changeset, :is_monitored) do
-      true -> put_change(changeset, :is_monitored_since, DateTime.utc_now())
+      true -> put_change(changeset, :is_monitored_since, DateTime.utc_now() |> DateTime.truncate(:second))
       _ -> changeset
     end
   end

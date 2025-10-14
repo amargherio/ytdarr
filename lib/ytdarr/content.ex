@@ -6,6 +6,9 @@ defmodule Ytdarr.Content do
   import Ecto.Query
   alias Ytdarr.Repo
   alias Ytdarr.Content.{Channel, Video, Playlist}
+  alias Ytdarr.Services.YouTube.Client
+
+  require Logger
 
   ## Channels
   def list_channels do

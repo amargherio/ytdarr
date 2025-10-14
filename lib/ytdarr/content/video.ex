@@ -25,7 +25,9 @@ defmodule Ytdarr.Content.Video do
 
     # Relationships
     belongs_to :channel, Ytdarr.Content.Channel
-    many_to_many :playlists, Ytdarr.Content.Playlist, join_through: "playlists_videos", join_keys: [video_id: :id, playlist_id: :id]
+    many_to_many :playlists, Ytdarr.Content.Playlist,
+      join_through: "playlist_videos",
+      join_keys: [video_id: :id, playlist_id: :id]
 
     timestamps()
   end
@@ -42,11 +44,29 @@ defmodule Ytdarr.Content.Video do
     |> unique_constraint(:external_id)
     |> assoc_constraint(:channel)
     |> maybe_set_downloaded_timestamp()
+    |> maybe_set_discovered_fields()
   end
 
   defp maybe_set_downloaded_timestamp(changeset) do
     case get_change(changeset, :is_downloaded) do
-      true -> put_change(changeset, :downloaded_at, DateTime.utc_now())
+      true -> put_change(changeset, :downloaded_at, DateTime.utc_now() |> DateTime.truncate(:second))
+      _ -> changeset
+    end
+  end
+
+  defp maybe_set_discovered_fields(changeset) do
+    discovered_from? = get_change(changeset, :discovered_from)
+
+    changeset =
+      case {discovered_from?, get_field(changeset, :discovered_at)} do
+        {val, nil} when is_binary(val) and byte_size(val) > 0 ->
+          put_change(changeset, :discovered_at, DateTime.utc_now() |> DateTime.truncate(:second))
+        _ -> changeset
+      end
+
+    # If discovered_from indicates uploads playlist, attempt to set position if unset
+    case {discovered_from?, get_change(changeset, :position_in_uploads)} do
+      {"uploads" <> _rest, nil} -> put_change(changeset, :position_in_uploads, 0)
       _ -> changeset
     end
   end

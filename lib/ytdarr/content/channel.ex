@@ -31,13 +31,22 @@ defmodule Ytdarr.Content.Channel do
   @doc false
   def changeset(channel, attrs) do
     channel
-    |> cast(attrs, [:name, :external_id, :url, :description, :platform,
-                    :avatar_url, :watched, :watched_since, :base_path, :videos_path])
+    |> cast(attrs, [
+      :name,
+      :external_id,
+      :url,
+      :description,
+      :platform,
+      :avatar_url,
+      :banner_url,
+      :is_monitored,
+      :last_checked_at
+    ])
     |> validate_required([:name, :external_id, :url, :platform])
     |> unique_constraint(:external_id)
     |> validate_url(:url)
     |> maybe_set_filesystem_paths()
-    |> maybe_set_watched_timestamp()
+    |> maybe_set_monitored_timestamp()
   end
 
   defp maybe_set_filesystem_paths(changeset) do
@@ -46,17 +55,25 @@ defmodule Ytdarr.Content.Channel do
       name ->
         sanitized_name = sanitize_filename(name)
         base_path = Path.join(["/downloads/channels", sanitized_name])
-        videos_path = Path.join([base_path, "videos"])
+        generic_video_path = Path.join([base_path, "videos"])
 
         changeset
         |> put_change(:base_path, base_path)
-        |> put_change(:videos_path, videos_path)
+        # programmatically set; not user-cast
+        |> put_change(:generic_video_path, generic_video_path)
     end
   end
 
-  defp maybe_set_watched_timestamp(changeset) do
+  defp maybe_set_monitored_timestamp(changeset) do
     case get_change(changeset, :is_monitored) do
-      true -> put_change(changeset, :is_monitored_since, DateTime.utc_now())
+      true ->
+        # only set when transitioning to monitored
+        changeset
+        |> get_field(:is_monitored_since)
+        |> case do
+          nil -> put_change(changeset, :is_monitored_since, DateTime.utc_now() |> DateTime.truncate(:second))
+          _existing -> changeset
+        end
       _ -> changeset
     end
   end
