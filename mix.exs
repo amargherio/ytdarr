@@ -85,7 +85,7 @@ defmodule Ytdarr.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind ytdarr", "esbuild ytdarr"],
+      "assets.build": ["compile", "tailwind ytdarr", "esbuild ytdarr"],
       "assets.deploy": [
         "tailwind ytdarr --minify",
         "esbuild ytdarr --minify",
