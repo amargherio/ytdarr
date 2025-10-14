@@ -15,6 +15,8 @@ defmodule Ytdarr.Application do
       {DNSCluster, query: Application.get_env(:ytdarr, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Ytdarr.PubSub},
       {Finch, name: Ytdarr.Finch}, # Starting the HTTP client for Req
+      # Registry used for caching/storing singleton service processes (e.g. YouTube client)
+      {Registry, keys: :unique, name: Ytdarr.Services.Registry},
       Ytdarr.Services.YouTube.ClientSupervisor,
       # Start Oban for background job processing
       #{Oban, Application.fetch_env!(:ytdarr, Oban)},

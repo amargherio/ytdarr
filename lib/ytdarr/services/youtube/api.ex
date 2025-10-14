@@ -3,7 +3,7 @@ defmodule Ytdarr.Services.YouTube.API do
   Low-level wrapper implementation for the YouTube v3 Data API
   """
 
-  alias VideoDownloader.Services.YouTube.ClientSupervisor
+  alias Ytdarr.Services.YouTube.{ClientSupervisor, Models}
 
   def search_channels(query) do
     # TODO: Differentiate between channel IDs and search terms here

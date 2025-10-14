@@ -91,8 +91,8 @@ defmodule Ytdarr.Services.YouTube.Models do
       from_api(%{"id" => video_id, "snippet" => snippet})
     end
 
-    # delegate to outer helper
-    defp parse_date(d), do: Ytdarr.Services.YouTube.Models.send(:parse_date, d)
+    # delegate to Parser for date parsing (avoids reflective send/2 usage)
+    defp parse_date(d), do: Ytdarr.Services.YouTube.Parser.parse_date(d)
   end
 
   defmodule Playlist do
@@ -195,7 +195,7 @@ defmodule Ytdarr.Services.YouTube.Models do
     def from_api(_), do: nil
 
     # Local date parsing duplicated from Video module; may be refactored.
-    defp parse_date(d), do: Ytdarr.Services.YouTube.Models.send(:parse_date, d)
+    defp parse_date(d), do: Ytdarr.Services.YouTube.Parser.parse_date(d)
   end
 
   defmodule DownloadInfo do
