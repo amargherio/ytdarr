@@ -12,15 +12,6 @@
 alias Ytdarr.Repo
 alias Ytdarr.Content.{Channel, Playlist, Video}
 
-# Insert two tracked channels if they don't already exist
-# Repo.insert!(%Channel{
-#   name: "Example Channel 1",
-#   external_id: "UC_x5XG1OV2P6uZZ5FSM9Ttw", # Example YouTube channel ID
-#   is_monitored: true,
-#   is_monitored_since: DateTime.truncate(DateTime.utc_now(), :second)
-# }, on_conflict: :nothing, conflict_target: :external_id)
-
-
 channel_attrs = %{
   name: "Dirty Civilian",
   external_id: "UC7X2IY5-ZHKU83nyb6KejgQ",
@@ -29,6 +20,7 @@ channel_attrs = %{
   avatar_url: "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s800-c-k-c0x00ffffff-no-rj",
   banner_url: "https://yt3.googleusercontent.com/7nfUr0b3CNS01SeLm63TJhU1cdME-OkFgVDPGnE0-R1UgSuW7dODJnjX1osYOAQcfhIzlMvORw",
   description: "Our mission is to inspire and inform capable men to build strong families and resilient communities.\nWe cover a variety of topics and subjects involving survival, bushcraft, modern military tech, and marksmanship fundamentals.\nMerch and resources available at https://www.dirtycivilian.com\n\nHosts: Drew Hopkins & Josh Lowry\nVideographer: Chad Barber (RIP Nick Jones)\nScript & Research: Jonathan Fisher\n",
+  username: "@dirty-civilian",
   is_monitored: true,
   last_checked_at: DateTime.truncate(DateTime.utc_now(), :second)
 }
@@ -99,7 +91,8 @@ if channel do
     list_videos_path = Path.expand("../../scratch-output/list-video.yt.json", __DIR__)
 
     with true <- File.exists?(list_videos_path),
-         {:ok, body} <- File.read(list_videos_path),
+         {:ok, raw} <- File.read(list_videos_path),
+         body <- raw |> String.split("\n") |> Enum.drop(6) |> Enum.join("\n"),
          {:ok, %{"items" => items}} <- Jason.decode(body) do
       items
       |> Enum.take(4)

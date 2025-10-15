@@ -68,7 +68,8 @@ defmodule Ytdarr.MixProject do
       {:bandit, "~> 1.5"},
       {:oban, "~> 2.20"},
       {:oban_web, "~> 2.11"},
-      {:igniter, "~> 0.5", only: [:dev]}
+      {:igniter, "~> 0.5", only: [:dev]},
+      {:ecto_sqlite3_extras, "~> 1.2.0"}
     ]
   end
 

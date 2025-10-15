@@ -16,22 +16,28 @@ defmodule YtdarrWeb.ChannelLive.Index do
         </:actions>
       </.header>
 
+      <ul class="menu bg-base-200 rounded-box w-56">
+        <li><a>Overview</a></li>
+        <li><a>Card</a></li>
+        <li><a>Table</a></li>
+      </ul>
+
       <.table
         id="channels"
         rows={@streams.channels}
         row_click={fn {_id, channel} -> JS.navigate(~p"/channels/#{channel}") end}
       >
+        <:col :let={{_id, channel}} label="Avatar">
+          <img src={channel.avatar_url} alt="Avatar" class="w-10 h-10 rounded-full" />
+        </:col>
         <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
-        <:col :let={{_id, channel}} label="External">{channel.external_id}</:col>
-        <:col :let={{_id, channel}} label="Url">{channel.url}</:col>
         <:col :let={{_id, channel}} label="Description">{channel.description}</:col>
-        <:col :let={{_id, channel}} label="Platform">{channel.platform}</:col>
-        <:col :let={{_id, channel}} label="Avatar url">{channel.avatar_url}</:col>
-        <:col :let={{_id, channel}} label="Is monitored">{channel.is_monitored}</:col>
-        <:col :let={{_id, channel}} label="Is monitored since">{channel.is_monitored_since}</:col>
-        <:col :let={{_id, channel}} label="Last checked at">{channel.last_checked_at}</:col>
-        <:col :let={{_id, channel}} label="Base path">{channel.base_path}</:col>
-        <:col :let={{_id, channel}} label="Generic video path">{channel.generic_video_path}</:col>
+        <:col :let={{_id, channel}} label="Channel Stats">
+          <div>Monitored: {channel.is_monitored}</div>
+          <div>Last Checked: {channel.last_checked_at}</div>
+          <div>Platform: {channel.platform}</div>
+          <div>Channel URL: <a href={channel.url}>{channel.platform_username}</a></div>
+        </:col>
         <:action :let={{_id, channel}}>
           <div class="sr-only">
             <.link navigate={~p"/channels/#{channel}"}>Show</.link>
@@ -46,6 +52,20 @@ defmodule YtdarrWeb.ChannelLive.Index do
             Delete
           </.link>
         </:action>
+
+
+
+        <%!-- <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
+        <:col :let={{_id, channel}} label="External">{channel.external_id}</:col>
+        <:col :let={{_id, channel}} label="Url">{channel.url}</:col>
+        <:col :let={{_id, channel}} label="Description">{channel.description}</:col>
+        <:col :let={{_id, channel}} label="Platform">{channel.platform}</:col>
+        <:col :let={{_id, channel}} label="Avatar url">{channel.avatar_url}</:col>
+        <:col :let={{_id, channel}} label="Is monitored">{channel.is_monitored}</:col>
+        <:col :let={{_id, channel}} label="Is monitored since">{channel.is_monitored_since}</:col>
+        <:col :let={{_id, channel}} label="Last checked at">{channel.last_checked_at}</:col>
+        <:col :let={{_id, channel}} label="Base path">{channel.base_path}</:col>
+        <:col :let={{_id, channel}} label="Generic video path">{channel.generic_video_path}</:col> --%>
       </.table>
     </Layouts.app>
     """

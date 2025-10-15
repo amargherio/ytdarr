@@ -100,6 +100,16 @@ defmodule Ytdarr.Content do
     |> Repo.insert()
   end
 
+  def change_channel(%Channel{} = channel, attrs \\ %{}) do
+    Channel.changeset(channel, attrs)
+  end
+
+  def update_channel(%Channel{} = channel, attrs) do
+    channel
+    |> Channel.changeset(attrs)
+    |> Repo.update()
+  end
+
   def monitor_channel(%Channel{} = channel) do
     case channel
     |> Channel.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})

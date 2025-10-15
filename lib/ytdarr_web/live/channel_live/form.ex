@@ -20,6 +20,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
         <.input field={@form[:description]} type="text" label="Description" />
         <.input field={@form[:platform]} type="text" label="Platform" />
         <.input field={@form[:avatar_url]} type="text" label="Avatar url" />
+        <.input field={@form[:platform_username]} type="text" label="Platform Username" />
         <.input field={@form[:is_monitored]} type="checkbox" label="Is monitored" />
         <.input field={@form[:is_monitored_since]} type="datetime-local" label="Is monitored since" />
         <.input field={@form[:last_checked_at]} type="datetime-local" label="Last checked at" />
