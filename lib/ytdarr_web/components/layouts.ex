@@ -74,6 +74,9 @@ defmodule YtdarrWeb.Layouts do
               <a href={~p"/queue"} class={[@nav == :queue_view && "active font-semibold"]}>Download Queue</a>
             </li>
             <li>
+              <a href={~p"/settings"} class={[@nav == :settings && "active font-semibold"]}>Settings</a>
+            </li>
+            <li>
               <a href={~p"/oban"} target="_blank">Oban Jobs</a>
             </li>
           </ul>
