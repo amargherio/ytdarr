@@ -2,6 +2,100 @@ defmodule YtdarrWeb.CustomComponents do
   use Phoenix.Component
   use Gettext, backend: YtdarrWeb.Gettext
 
+  attr :variant, :string, values: ~w(primary secondary info success warning error), default: "primary"
+  attr :size, :string, values: ~w(sm md lg), default: "md"
+  attr :rest, :global, include: ~w(href navigate patch disabled)
+  slot :inner_block, required: true
+
+  def data_pill(assigns) do
+    variants = %{
+      "primary" => [
+        "btn-primary",
+        "text-primary-content bg-primary border-primary",
+        "hover:bg-primary/90 hover:border-primary/90",
+        "dark:bg-primary dark:border-primary dark:text-primary-content",
+        "dark:hover:bg-primary/90 dark:hover:border-primary/90"
+      ],
+      "secondary" => [
+        "btn-secondary",
+        "text-secondary-content bg-secondary border-secondary",
+        "hover:bg-secondary/90 hover:border-secondary/90",
+        "dark:bg-secondary dark:border-secondary dark:text-secondary-content",
+        "dark:hover:bg-secondary/90 dark:hover:border-secondary/90"
+      ],
+      "info" => [
+        "btn-info",
+        "text-info-content bg-info border-info",
+        "hover:bg-info/90 hover:border-info/90",
+        "dark:bg-info dark:border-info dark:text-info-content",
+        "dark:hover:bg-info/90 dark:hover:border-info/90"
+      ],
+      "success" => [
+        "btn-success",
+        "text-success-content bg-success border-success",
+        "hover:bg-success/90 hover:border-success/90",
+        "dark:bg-success dark:border-success dark:text-success-content",
+        "dark:hover:bg-success/90 dark:hover:border-success/90"
+      ],
+      "warning" => [
+        "btn-warning",
+        "text-warning-content bg-warning border-warning",
+        "hover:bg-warning/90 hover:border-warning/90",
+        "dark:bg-warning dark:border-warning dark:text-warning-content",
+        "dark:hover:bg-warning/90 dark:hover:border-warning/90"
+      ],
+      "error" => [
+        "btn-error",
+        "text-error-content bg-error border-error",
+        "hover:bg-error/90 hover:border-error/90",
+        "dark:bg-error dark:border-error dark:text-error-content",
+        "dark:hover:bg-error/90 dark:hover:border-error/90"
+      ],
+      nil => [
+        "btn-primary btn-soft",
+        "text-base-content bg-base-200 border-base-300",
+        "hover:bg-base-300 hover:border-base-300",
+        "dark:text-base-content dark:bg-base-200 dark:border-base-300",
+        "dark:hover:bg-base-300 dark:hover:border-base-300"
+      ]
+    }
+
+    sizes = %{
+      "sm" => "btn-sm px-2 py-1 text-xs",
+      "md" => "btn-md px-3 py-2 text-sm",
+      "lg" => "btn-lg px-4 py-3 text-base"
+    }
+
+    assigns =
+      assign_new(assigns, :class, fn ->
+        [
+          "btn",
+          "rounded-full",
+          "border",
+          "font-medium",
+          "transition-all duration-200",
+          "focus:outline-none focus:ring-2 focus:ring-offset-2",
+          "dark:focus:ring-offset-base-100",
+          Map.fetch!(variants, assigns[:variant]),
+          Map.fetch!(sizes, assigns[:size])
+        ]
+      end)
+
+    if assigns.rest[:href] || assigns.rest[:navigate] || assigns.rest[:patch] do
+      ~H"""
+      <.link class={@class} {@rest}>
+        {render_slot(@inner_block)}
+      </.link>
+      """
+    else
+      ~H"""
+      <button class={@class} {@rest}>
+        {render_slot(@inner_block)}
+      </button>
+      """
+    end
+  end
+
   @doc """
   Renders a header with hero styling, containing an avatar image, channel name, and description.
   """

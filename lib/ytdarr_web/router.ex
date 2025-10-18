@@ -25,6 +25,7 @@ defmodule YtdarrWeb.Router do
     # Channel management
     live "/content/add", ContentLive.Add, :add
     live "/channels", ChannelLive.Index, :index
+    live "/channels/add", ChannelLive.Add, :add
     live "/channels/:id/edit", ChannelLive.Form, :edit
     live "/channels/:id", ChannelLive.Show, :show
 

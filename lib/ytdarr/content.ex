@@ -125,6 +125,13 @@ defmodule Ytdarr.Content do
     |> Repo.update()
   end
 
+  def toggle_channel_monitor_status(id) do
+    channel = get_channel!(id)
+    channel
+    |> Channel.changeset(%{is_monitored: not channel.is_monitored})
+    |> Repo.update()
+  end
+
   ## Playlists
   def list_playlists_for_channel(channel_id) do
     Playlist

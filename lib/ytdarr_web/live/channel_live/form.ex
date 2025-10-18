@@ -9,23 +9,31 @@ defmodule YtdarrWeb.ChannelLive.Form do
     ~H"""
     <Layouts.app flash={@flash} nav={:channels}>
       <.header>
-        {@page_title}
-        <:subtitle>Use this form to manage channel records in your database.</:subtitle>
+        Editing Channel: {@channel.name}
       </.header>
 
       <.form for={@form} id="channel-form" phx-change="validate" phx-submit="save">
-        <.input field={@form[:name]} type="text" label="Name" />
-        <.input field={@form[:external_id]} type="text" label="External" />
-        <.input field={@form[:url]} type="text" label="Url" />
-        <.input field={@form[:description]} type="text" label="Description" />
-        <.input field={@form[:platform]} type="text" label="Platform" />
-        <.input field={@form[:avatar_url]} type="text" label="Avatar url" />
-        <.input field={@form[:platform_username]} type="text" label="Platform Username" />
+
+        <div class="bg-slate-200 p-4 rounded-md">
+          <h2>Metadata</h2>
+
+          <.input field={@form[:name]} type="text" label="Name" />
+          <.input field={@form[:url]} type="text" label="Url" />
+          <.input field={@form[:description]} type="text" label="Description" />
+          <.input field={@form[:platform]} type="text" label="Platform" />
+          <.input field={@form[:avatar_url]} type="text" label="Avatar url" />
+          <.input field={@form[:platform_username]} type="text" label="Platform Username" />
+        </div>
+
+        <div class="p-4 rounded-md">
+          <h2>File Information</h2>
+
+          <.input field={@form[:base_path]} type="text" label="Base path" />
+          <.input field={@form[:generic_video_path]} type="text" label="Generic video path" />
+        </div>
+
         <.input field={@form[:is_monitored]} type="checkbox" label="Is monitored" />
-        <.input field={@form[:is_monitored_since]} type="datetime-local" label="Is monitored since" />
-        <.input field={@form[:last_checked_at]} type="datetime-local" label="Last checked at" />
-        <.input field={@form[:base_path]} type="text" label="Base path" />
-        <.input field={@form[:generic_video_path]} type="text" label="Generic video path" />
+
         <footer>
           <.button phx-disable-with="Saving..." variant="primary">Save Channel</.button>
           <.button navigate={return_path(@return_to, @channel)}>Cancel</.button>
