@@ -20,7 +20,8 @@ defmodule Ytdarr.Application do
       {Registry, keys: :unique, name: Ytdarr.Services.Registry},
       Ytdarr.Services.YouTube.ClientSupervisor,
       # Start Oban for background job processing
-      # {Oban, Application.fetch_env!(:ytdarr, Oban)},
+      {Oban, Application.fetch_env!(:ytdarr, Oban)},
+      Oban.Telemetry.attach_default_logger(),
       # Start a worker by calling: Ytdarr.Worker.start_link(arg)
       # {Ytdarr.Worker, arg},
       # Start to serve requests, typically the last entry

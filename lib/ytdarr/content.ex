@@ -197,6 +197,15 @@ defmodule Ytdarr.Content do
   end
 
   ## Complex operations
+  def queue_video_download(video_id) do
+    %Oban.Job{
+      worker: Ytdarr.ObanWorkers.VideoDownloader,
+      args: %{"video_id" => video_id, "channel_id" => channel_id}
+    }
+    |> Oban.insert()
+  end
+
+
   def queue_playlist_download(playlist_id) do
     playlist = get_playlist_with_videos(playlist_id)
     # TODO:  queue all videos in the playlist for download - integration point with Oban workers
