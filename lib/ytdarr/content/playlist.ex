@@ -73,6 +73,7 @@ defmodule Ytdarr.Content.Playlist do
 
       _ ->
         changeset
+        |> put_change(:is_monitored_since, nil)
     end
   end
 

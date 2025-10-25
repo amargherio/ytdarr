@@ -94,6 +94,7 @@ defmodule Ytdarr.Content.Channel do
 
       _ ->
         changeset
+        |> put_change(:is_monitored_since, nil)
     end
   end
 
