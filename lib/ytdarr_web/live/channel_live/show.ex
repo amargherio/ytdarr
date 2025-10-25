@@ -52,7 +52,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
           </div>
         </:actions>
       </.hero_header>
-      
+
     <!-- channel metadata -->
       <div class="flex flex-wrap justify-start gap-4">
         <div class="bg-slate-300 p-2 rounded">
@@ -65,6 +65,11 @@ defmodule YtdarrWeb.ChannelLive.Show do
             <.icon name="hero-bookmark" /> Not Monitored
           <% end %>
         </div>
+        <%= if @channel.is_monitored do %>
+          <div class="bg-slate-300 p-2 rounded">
+            <.icon name="hero-clock" /> Monitored since: {@channel.is_monitored_since}
+          </div>
+        <% end %>
         <div class="bg-slate-300 p-2 rounded">
           <.icon name="hero-clock" /> Last checked at: {@channel.last_checked_at}
         </div>
@@ -80,7 +85,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
             <div class="flex flex-wrap justify-center md:justify-end gap-2 md:min-w-[12rem]">
               <.button
                 title={"#{if playlist.is_monitored, do: "Unmonitor", else: "Monitor"} playlist"}
-                phx-click="toggle-playlist-monitor"
+                phx-click="toggle-monitor"
                 phx-value-id={playlist.id}
                 phx-value-type="playlist"
               >
@@ -93,7 +98,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
               <.button
                 title="Delete playlist files"
                 phx-click="delete-playlist-files"
-                phx-value-id={playlist.id}
+                phx-value-id={playlist.external_id}
               >
                 <.icon name="hero-trash" />
               </.button>
@@ -112,6 +117,14 @@ defmodule YtdarrWeb.ChannelLive.Show do
       <div tabindex="0" class="collapse collapse-arrow bg-base-100 border-base-300 border">
         <div class="collapse-title text-xl font-medium after:start-5 after:end-auto pe-4 ps-12">
           Videos
+          <div class="flex flex-wrap justify-center md:justify-end gap-2 md:min-w-[12rem]">
+            <.button
+              title="Delete all video files"
+              phx-click="delete-video-files"
+            >
+              <.icon name="hero-trash" />
+              </.button>
+          </div>
         </div>
         <div class="collapse-content">
           <.table id="videos" rows={@videos}>
@@ -154,11 +167,12 @@ defmodule YtdarrWeb.ChannelLive.Show do
       |> Enum.map(fn playlist -> Content.get_playlist_with_videos(playlist.id) end)
 
     videos = Content.list_videos_for_channel(id)
+    channel = Content.get_channel!(id)
 
     {:ok,
      socket
-     |> assign(:page_title, "Show Channel")
-     |> assign(:channel, Content.get_channel!(id))
+     |> assign(:page_title, channel.name)
+     |> assign(:channel, channel)
      |> assign(:playlists, playlists)
      |> assign(:videos, videos)}
   end
@@ -183,19 +197,21 @@ defmodule YtdarrWeb.ChannelLive.Show do
       "playlist" ->
         case Content.toggle_playlist_monitor_status(id) do
           {:ok, playlist} ->
-            {
-              :noreply,
-              socket
-              |> assign(:playlist, playlist)
-              |> put_flash(:info, "Playlist status updated.")
-            }
+            # Update the specific playlist in the list
+            updated_playlists = 
+              Enum.map(socket.assigns.playlists, fn p ->
+                if p.id == playlist.id, do: playlist, else: p
+              end)
+            
+            {:noreply,
+             socket
+             |> assign(:playlists, updated_playlists)
+             |> put_flash(:info, "Playlist status updated.")}
 
           _ ->
-            {
-              :noreply,
-              socket
-              |> put_flash(:error, "Failed to update playlist status.")
-            }
+            {:noreply,
+             socket
+             |> put_flash(:error, "Failed to update playlist status.")}
         end
 
       _ ->

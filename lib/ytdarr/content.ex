@@ -116,7 +116,7 @@ defmodule Ytdarr.Content do
 
   def monitor_channel(%Channel{} = channel) do
     case channel
-         |> Channel.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})
+         |> Channel.changeset(%{is_monitored: true})
          |> Repo.update(channel) do
       {:ok, updated_channel} -> sync_channel_content(updated_channel.external_id)
       {:error, change} -> {:error, change}
@@ -125,7 +125,7 @@ defmodule Ytdarr.Content do
 
   def unmonitor_channel(%Channel{} = channel) do
     channel
-    |> Channel.changeset(%{is_monitored: false, is_monitored_since: nil})
+    |> Channel.changeset(%{is_monitored: false})
     |> Repo.update()
   end
 
@@ -138,6 +138,8 @@ defmodule Ytdarr.Content do
   end
 
   ## Playlists
+  def get_playlist!(id), do: Repo.get!(Playlist, id)
+
   def list_playlists_for_channel(channel_id) do
     Playlist
     |> where([p], p.channel_id == ^channel_id)
@@ -172,6 +174,17 @@ defmodule Ytdarr.Content do
   def unmonitor_playlist(%Playlist{} = playlist) do
     playlist
     |> Playlist.changeset(%{is_monitored: false, is_monitored_since: nil})
+    |> Repo.update()
+  end
+
+  def toggle_playlist_monitor_status(id) do
+    playlist = Playlist
+      |> where([p], p.id == ^id)
+      |> preload([:channel, :videos])
+      |> Repo.one()
+
+    playlist
+    |> Playlist.changeset(%{is_monitored: not playlist.is_monitored})
     |> Repo.update()
   end
 
