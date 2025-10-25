@@ -4,9 +4,45 @@ defmodule YtdarrWeb.ChannelLiveTest do
   import Phoenix.LiveViewTest
   import Ytdarr.ContentFixtures
 
-  @create_attrs %{name: "some name", description: "some description", base_path: "some base_path", url: "some url", external_id: "some external_id", platform: "some platform", avatar_url: "some avatar_url", is_monitored: true, is_monitored_since: "2025-08-27T03:13:00Z", last_checked_at: "2025-08-27T03:13:00Z", generic_video_path: "some generic_video_path"}
-  @update_attrs %{name: "some updated name", description: "some updated description", base_path: "some updated base_path", url: "some updated url", external_id: "some updated external_id", platform: "some updated platform", avatar_url: "some updated avatar_url", is_monitored: false, is_monitored_since: "2025-08-28T03:13:00Z", last_checked_at: "2025-08-28T03:13:00Z", generic_video_path: "some updated generic_video_path"}
-  @invalid_attrs %{name: nil, description: nil, base_path: nil, url: nil, external_id: nil, platform: nil, avatar_url: nil, is_monitored: false, is_monitored_since: nil, last_checked_at: nil, generic_video_path: nil}
+  @create_attrs %{
+    name: "some name",
+    description: "some description",
+    base_path: "some base_path",
+    url: "some url",
+    external_id: "some external_id",
+    platform: "some platform",
+    avatar_url: "some avatar_url",
+    is_monitored: true,
+    is_monitored_since: "2025-08-27T03:13:00Z",
+    last_checked_at: "2025-08-27T03:13:00Z",
+    generic_video_path: "some generic_video_path"
+  }
+  @update_attrs %{
+    name: "some updated name",
+    description: "some updated description",
+    base_path: "some updated base_path",
+    url: "some updated url",
+    external_id: "some updated external_id",
+    platform: "some updated platform",
+    avatar_url: "some updated avatar_url",
+    is_monitored: false,
+    is_monitored_since: "2025-08-28T03:13:00Z",
+    last_checked_at: "2025-08-28T03:13:00Z",
+    generic_video_path: "some updated generic_video_path"
+  }
+  @invalid_attrs %{
+    name: nil,
+    description: nil,
+    base_path: nil,
+    url: nil,
+    external_id: nil,
+    platform: nil,
+    avatar_url: nil,
+    is_monitored: false,
+    is_monitored_since: nil,
+    last_checked_at: nil,
+    generic_video_path: nil
+  }
   defp create_channel(_) do
     channel = channel_fixture()
 

@@ -20,14 +20,15 @@ defmodule YtdarrWeb.ChannelLive.Show do
             <%!-- <.button navigate={~p"/channels"}>
               <.icon name="hero-arrow-left" />
             </.button> --%>
-            <.button title="Edit channel" navigate={~p"/channels/#{@channel}/edit?return_to=show"} >
+            <.button title="Edit channel" navigate={~p"/channels/#{@channel}/edit?return_to=show"}>
               <.icon name="hero-pencil-square" /> Edit channel
             </.button>
             <.button
               title={"#{if @channel.is_monitored, do: "Unmonitor", else: "Monitor"} channel"}
               phx-click="toggle-monitor"
               phx-value-id={@channel.id}
-              phx-value-type="channel">
+              phx-value-type="channel"
+            >
               <%= if @channel.is_monitored do %>
                 <.icon name="hero-bookmark-solid" /> Unmonitor channel
               <% else %>
@@ -35,22 +36,24 @@ defmodule YtdarrWeb.ChannelLive.Show do
               <% end %>
             </.button>
             <.button
-              title={"Refresh channel data"}
+              title="Refresh channel data"
               phx-click="refresh-channel-data"
-              phx-value-id={@channel.id}>
+              phx-value-id={@channel.id}
+            >
               <.icon name="hero-arrow-path" /> Refresh channel data
             </.button>
             <.button
-              title={"Delete downloaded videos"}
+              title="Delete downloaded videos"
               phx-click="delete-channel-files"
-              phx-value-id={@channel.id}>
+              phx-value-id={@channel.id}
+            >
               <.icon name="hero-trash" /> Delete downloaded videos
             </.button>
           </div>
         </:actions>
       </.hero_header>
-
-      <!-- channel metadata -->
+      
+    <!-- channel metadata -->
       <div class="flex flex-wrap justify-start gap-4">
         <div class="bg-slate-300 p-2 rounded">
           <.icon name="hero-folder-arrow-down" /> {@channel.base_path}
@@ -70,52 +73,60 @@ defmodule YtdarrWeb.ChannelLive.Show do
         </div>
       </div>
 
-
       <%= for playlist <- @playlists do %>
-      <div tabindex="0" class="collapse collapse-arrow bg-base-100 border-base-300 border">
-        <div class="collapse-title text-xl font-medium after:start-5 after:end-auto pe-4 ps-12">
-          {playlist.name}
-          <div class="flex flex-wrap justify-center md:justify-end gap-2 md:min-w-[12rem]">
-            <.button
-              title={"#{if playlist.is_monitored, do: "Unmonitor", else: "Monitor"} playlist"}
-              phx-click="toggle-playlist-monitor"
-              phx-value-id={playlist.id}
-              phx-value-type="playlist">
-              <%= if playlist.is_monitored do %>
-                <.icon name="hero-bookmark-solid" />
-              <% else %>
-                <.icon name="hero-bookmark" />
-              <% end %>
-            </.button>
-            <.button title={"Delete playlist files"} phx-click="delete-playlist-files" phx-value-id={playlist.id}>
-              <.icon name="hero-trash" />
-            </.button>
+        <div tabindex="0" class="collapse collapse-arrow bg-base-100 border-base-300 border">
+          <div class="collapse-title text-xl font-medium after:start-5 after:end-auto pe-4 ps-12">
+            {playlist.name}
+            <div class="flex flex-wrap justify-center md:justify-end gap-2 md:min-w-[12rem]">
+              <.button
+                title={"#{if playlist.is_monitored, do: "Unmonitor", else: "Monitor"} playlist"}
+                phx-click="toggle-playlist-monitor"
+                phx-value-id={playlist.id}
+                phx-value-type="playlist"
+              >
+                <%= if playlist.is_monitored do %>
+                  <.icon name="hero-bookmark-solid" />
+                <% else %>
+                  <.icon name="hero-bookmark" />
+                <% end %>
+              </.button>
+              <.button
+                title="Delete playlist files"
+                phx-click="delete-playlist-files"
+                phx-value-id={playlist.id}
+              >
+                <.icon name="hero-trash" />
+              </.button>
+            </div>
+          </div>
+          <div class="collapse-content">
+            <.table id={"videos-#{playlist.id}"} rows={playlist.videos}>
+              <:col :let={video} label="Title">{video.title}</:col>
+              <:col :let={video} label="Upload Date">{video.upload_date}</:col>
+              <:col :let={video} label="Download Status">{video.is_downloaded}</:col>
+            </.table>
           </div>
         </div>
-        <div class="collapse-content">
-          <.table id={"videos-#{playlist.id}"} rows={playlist.videos}>
-            <:col :let={video} label="Title"><%= video.title %></:col>
-            <:col :let={video} label="Upload Date"><%= video.upload_date %></:col>
-            <:col :let={video} label="Download Status"><%= video.is_downloaded %></:col>
-          </.table>
-        </div>
-      </div>
       <% end %>
 
       <div tabindex="0" class="collapse collapse-arrow bg-base-100 border-base-300 border">
-        <div class="collapse-title text-xl font-medium after:start-5 after:end-auto pe-4 ps-12">Videos</div>
+        <div class="collapse-title text-xl font-medium after:start-5 after:end-auto pe-4 ps-12">
+          Videos
+        </div>
         <div class="collapse-content">
           <.table id="videos" rows={@videos}>
-            <:col :let={video} label="Title"><%= video.title %></:col>
-            <:col :let={video} label="Upload Date"><%= video.upload_date %></:col>
-            <:col :let={video} label="Download Status"><%= video.is_downloaded %></:col>
+            <:col :let={video} label="Title">{video.title}</:col>
+            <:col :let={video} label="Upload Date">{video.upload_date}</:col>
+            <:col :let={video} label="Download Status">{video.is_downloaded}</:col>
             <:col :let={video} label="Actions">
               <%= if video.is_downloaded do %>
                 <.button
-                  title={"Delete downloaded video"}s
+                  title="Delete downloaded video"
+                  s
                   phx-click="delete-video"
                   phx-value-id={video.id}
-                  class={["btn-sm"]}>
+                  class={["btn-sm"]}
+                >
                   <.icon name="hero-trash" />
                 </.button>
               <% else %>
@@ -162,28 +173,34 @@ defmodule YtdarrWeb.ChannelLive.Show do
              socket
              |> assign(:channel, channel)
              |> put_flash(:info, "Channel status updated.")}
+
           _ ->
             {:noreply,
              socket
              |> put_flash(:error, "Failed to update channel status.")}
         end
+
       "playlist" ->
         case Content.toggle_playlist_monitor_status(id) do
-        {:ok, playlist} -> {
-            :noreply,
-            socket
-            |> assign(:playlist, playlist)
-            |> put_flash(:info, "Playlist status updated.")
-        }
-        _ -> {
-            :noreply,
-            socket
-            |> put_flash(:error, "Failed to update playlist status.")
-        }
-      end
-      _ -> { :noreply, socket }
-    end
+          {:ok, playlist} ->
+            {
+              :noreply,
+              socket
+              |> assign(:playlist, playlist)
+              |> put_flash(:info, "Playlist status updated.")
+            }
 
+          _ ->
+            {
+              :noreply,
+              socket
+              |> put_flash(:error, "Failed to update playlist status.")
+            }
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   @impl true

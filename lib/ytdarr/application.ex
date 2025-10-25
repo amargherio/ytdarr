@@ -14,12 +14,13 @@ defmodule Ytdarr.Application do
        repos: Application.fetch_env!(:ytdarr, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:ytdarr, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Ytdarr.PubSub},
-      {Finch, name: Ytdarr.Finch}, # Starting the HTTP client for Req
+      # Starting the HTTP client for Req
+      {Finch, name: Ytdarr.Finch},
       # Registry used for caching/storing singleton service processes (e.g. YouTube client)
       {Registry, keys: :unique, name: Ytdarr.Services.Registry},
       Ytdarr.Services.YouTube.ClientSupervisor,
       # Start Oban for background job processing
-      #{Oban, Application.fetch_env!(:ytdarr, Oban)},
+      # {Oban, Application.fetch_env!(:ytdarr, Oban)},
       # Start a worker by calling: Ytdarr.Worker.start_link(arg)
       # {Ytdarr.Worker, arg},
       # Start to serve requests, typically the last entry

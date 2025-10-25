@@ -55,26 +55,44 @@ defmodule YtdarrWeb.Layouts do
               </a>
             </li>
             <li>
-              <a href={~p"/content/add"} class={[@nav == :content_add && "active font-semibold"]}>Add Content</a>
+              <a href={~p"/content/add"} class={[@nav == :content_add && "active font-semibold"]}>
+                Add Content
+              </a>
             </li>
             <li>
               <details open={@nav in [:channels, :channel_add]}>
-                <summary class={[@nav == :channels && "active font-semibold", @nav == :channel_add && "font-semibold"]}>Channels</summary>
+                <summary class={[
+                  @nav == :channels && "active font-semibold",
+                  @nav == :channel_add && "font-semibold"
+                ]}>
+                  Channels
+                </summary>
                 <ul>
                   <li>
-                    <a href={~p"/channels"} class={[@nav == :channels && "active font-semibold"]}>All Channels</a>
+                    <a href={~p"/channels"} class={[@nav == :channels && "active font-semibold"]}>
+                      All Channels
+                    </a>
                   </li>
                   <li>
-                    <a href={~p"/channels/add"} class={[@nav == :channel_add && "active font-semibold"]}>Add Channel</a>
+                    <a
+                      href={~p"/channels/add"}
+                      class={[@nav == :channel_add && "active font-semibold"]}
+                    >
+                      Add Channel
+                    </a>
                   </li>
                 </ul>
               </details>
             </li>
             <li>
-              <a href={~p"/queue"} class={[@nav == :queue_view && "active font-semibold"]}>Download Queue</a>
+              <a href={~p"/queue"} class={[@nav == :queue_view && "active font-semibold"]}>
+                Download Queue
+              </a>
             </li>
             <li>
-              <a href={~p"/settings"} class={[@nav == :settings && "active font-semibold"]}>Settings</a>
+              <a href={~p"/settings"} class={[@nav == :settings && "active font-semibold"]}>
+                Settings
+              </a>
             </li>
             <li>
               <a href={~p"/oban"} target="_blank">Oban Jobs</a>

@@ -4,12 +4,16 @@ defmodule Ytdarr.Content.Channel do
 
   schema "channels" do
     field :name, :string
-    field :external_id, :string # YouTube channel id, etc.
+    # YouTube channel id, etc.
+    field :external_id, :string
     field :url, :string
     field :description, :string
-    field :platform, :string # e.g., "YouTube", "Twitch"
-    field :avatar_url, :string # e.g., YouTube thumbnail url - as high def as we can get?
-    field :banner_url, :string # e.g., YouTube banner url
+    # e.g., "YouTube", "Twitch"
+    field :platform, :string
+    # e.g., YouTube thumbnail url - as high def as we can get?
+    field :avatar_url, :string
+    # e.g., YouTube banner url
+    field :banner_url, :string
     field :platform_username, :string
 
     # monitoring status
@@ -18,8 +22,10 @@ defmodule Ytdarr.Content.Channel do
     field :last_checked_at, :utc_datetime
 
     # filesystem stuff
-    field :base_path, :string # "/downloads/channels/channel_name"
-    field :generic_video_path, :string # "/downloads/channels/channel_name/videos"
+    # "/downloads/channels/channel_name"
+    field :base_path, :string
+    # "/downloads/channels/channel_name/videos"
+    field :generic_video_path, :string
 
     # relationships
     has_many :videos, Ytdarr.Content.Video
@@ -53,7 +59,9 @@ defmodule Ytdarr.Content.Channel do
 
   defp maybe_set_filesystem_paths(changeset) do
     case get_change(changeset, :name) do
-      nil -> changeset
+      nil ->
+        changeset
+
       name ->
         sanitized_name = sanitize_filename(name)
         base_path = Path.join(["/downloads/channels", sanitized_name])
@@ -73,10 +81,19 @@ defmodule Ytdarr.Content.Channel do
         changeset
         |> get_field(:is_monitored_since)
         |> case do
-          nil -> put_change(changeset, :is_monitored_since, DateTime.utc_now() |> DateTime.truncate(:second))
-          _existing -> changeset
+          nil ->
+            put_change(
+              changeset,
+              :is_monitored_since,
+              DateTime.utc_now() |> DateTime.truncate(:second)
+            )
+
+          _existing ->
+            changeset
         end
-      _ -> changeset
+
+      _ ->
+        changeset
     end
   end
 

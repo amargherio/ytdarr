@@ -17,9 +17,12 @@ channel_attrs = %{
   external_id: "UC7X2IY5-ZHKU83nyb6KejgQ",
   url: "https://www.youtube.com/@dirty-civilian",
   platform: "YouTube",
-  avatar_url: "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s800-c-k-c0x00ffffff-no-rj",
-  banner_url: "https://yt3.googleusercontent.com/7nfUr0b3CNS01SeLm63TJhU1cdME-OkFgVDPGnE0-R1UgSuW7dODJnjX1osYOAQcfhIzlMvORw",
-  description: "Our mission is to inspire and inform capable men to build strong families and resilient communities.\nWe cover a variety of topics and subjects involving survival, bushcraft, modern military tech, and marksmanship fundamentals.\nMerch and resources available at https://www.dirtycivilian.com\n\nHosts: Drew Hopkins & Josh Lowry\nVideographer: Chad Barber (RIP Nick Jones)\nScript & Research: Jonathan Fisher\n",
+  avatar_url:
+    "https://yt3.ggpht.com/6wKGx6egmT19yKwew0Ij8O7wlI0DRFMLcA95tfKUnHioR-JX48hTSZ1A5NAB7lfZ7Fqraz9jrJ4=s800-c-k-c0x00ffffff-no-rj",
+  banner_url:
+    "https://yt3.googleusercontent.com/7nfUr0b3CNS01SeLm63TJhU1cdME-OkFgVDPGnE0-R1UgSuW7dODJnjX1osYOAQcfhIzlMvORw",
+  description:
+    "Our mission is to inspire and inform capable men to build strong families and resilient communities.\nWe cover a variety of topics and subjects involving survival, bushcraft, modern military tech, and marksmanship fundamentals.\nMerch and resources available at https://www.dirtycivilian.com\n\nHosts: Drew Hopkins & Josh Lowry\nVideographer: Chad Barber (RIP Nick Jones)\nScript & Research: Jonathan Fisher\n",
   username: "@dirty-civilian",
   is_monitored: true,
   last_checked_at: DateTime.truncate(DateTime.utc_now(), :second)
@@ -34,7 +37,6 @@ channel =
     {:ok, _struct} -> Repo.get_by!(Channel, external_id: channel_attrs.external_id)
     {:error, cs} -> raise "Failed to insert channel: #{inspect(cs.errors)}"
   end
-
 
 # Insert uploads playlists for Dirty Civilian
 if channel do
@@ -66,7 +68,8 @@ if channel do
     name: "Skills, Mindset, & Education",
     external_id: "PLsiqs19rXW_CSQbkftlmUzaJJPo5Na9_N",
     url: "https://www.youtube.com/playlist?list=PLsiqs19rXW_CSQbkftlmUzaJJPo5Na9_N",
-    description: "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects.",
+    description:
+      "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects.",
     video_count: 63,
     is_monitored: true,
     last_checked_at: now,
@@ -103,17 +106,20 @@ if channel do
         title = snippet["title"] || "(no title)"
         description = snippet["description"]
         published_at = snippet["publishedAt"]
+
         upload_date =
           case DateTime.from_iso8601(published_at || "") do
             {:ok, dt, _} -> DateTime.to_date(dt)
             _ -> nil
           end
+
+        # preference order, falling back if needed
         thumb_url =
           get_in(snippet, ["thumbnails", "high", "url"]) ||
             get_in(snippet, ["thumbnails", "default", "url"]) ||
             get_in(snippet, ["thumbnails", "medium", "url"]) ||
             get_in(snippet, ["thumbnails", "standard", "url"]) ||
-            get_in(snippet, ["thumbnails", "maxres", "url"]) # preference order, falling back if needed
+            get_in(snippet, ["thumbnails", "maxres", "url"])
 
         video_attrs = %{
           title: title,
@@ -127,7 +133,10 @@ if channel do
 
         # Insert the video if it does not exist
         {:ok, video} =
-          case Repo.insert(Video.changeset(%Video{}, video_attrs), on_conflict: :nothing, conflict_target: :external_id) do
+          case Repo.insert(Video.changeset(%Video{}, video_attrs),
+                 on_conflict: :nothing,
+                 conflict_target: :external_id
+               ) do
             {:ok, struct} -> {:ok, struct}
             {:error, changeset} -> raise "Video insert failed: #{inspect(changeset.errors)}"
           end
@@ -143,7 +152,8 @@ if channel do
             %{
               playlist_id: uploads_playlist.id,
               video_id: video.id,
-              position: idx, # position in uploads ordering (best effort)
+              # position in uploads ordering (best effort)
+              position: idx,
               added_at: DateTime.truncate(DateTime.utc_now(), :second),
               inserted_at: DateTime.truncate(DateTime.utc_now(), :second),
               updated_at: DateTime.truncate(DateTime.utc_now(), :second)

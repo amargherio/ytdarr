@@ -17,7 +17,8 @@ defmodule YtdarrWeb.DashboardLive.Index do
      socket
      |> assign(:page_title, "Dashboard")
      |> assign(:search, "")
-     |> assign(:page, 1) # 1-based
+     # 1-based
+     |> assign(:page, 1)
      |> assign(:channels_cache, full_list)
      |> assign(:end_of_list?, length(full_list) <= @page_size)
      |> stream(:channels, first_slice)}
@@ -61,7 +62,10 @@ defmodule YtdarrWeb.DashboardLive.Index do
     {:noreply,
      socket
      |> assign(:page, next_page)
-     |> assign(:end_of_list?, already_loaded + length(next_slice) >= length(socket.assigns.channels_cache))
+     |> assign(
+       :end_of_list?,
+       already_loaded + length(next_slice) >= length(socket.assigns.channels_cache)
+     )
      |> stream(:channels, next_slice)}
   end
 
@@ -108,7 +112,9 @@ defmodule YtdarrWeb.DashboardLive.Index do
           <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
           <:col :let={{_id, channel}} label="Platform">{channel.platform}</:col>
           <:col :let={{_id, channel}} label="Videos">{length(channel.videos || [])}</:col>
-          <:col :let={{_id, channel}} label="Monitored Since">{format_datetime(channel.is_monitored_since)}</:col>
+          <:col :let={{_id, channel}} label="Monitored Since">
+            {format_datetime(channel.is_monitored_since)}
+          </:col>
           <:action :let={{_id, channel}}>
             <.link navigate={~p"/channels/#{channel}"} class="link link-primary">View</.link>
           </:action>

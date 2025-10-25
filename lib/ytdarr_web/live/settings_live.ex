@@ -11,7 +11,7 @@ defmodule YtdarrWeb.SettingsLive do
     {:ok,
      socket
      |> assign(:page_title, "Settings")
-    |> assign(:current_scope, nil)
+     |> assign(:current_scope, nil)
      |> assign(:tab, tab_from(params))
      |> load_data()}
   end
@@ -20,7 +20,9 @@ defmodule YtdarrWeb.SettingsLive do
     {:noreply, assign(socket, :tab, tab_from(params))}
   end
 
-  defp tab_from(%{"tab" => t}) when t in ~w(media profiles youtube downloader), do: String.to_existing_atom(t)
+  defp tab_from(%{"tab" => t}) when t in ~w(media profiles youtube downloader),
+    do: String.to_existing_atom(t)
+
   defp tab_from(_), do: :media
 
   # -----------------
@@ -33,9 +35,12 @@ defmodule YtdarrWeb.SettingsLive do
     media_form = to_form(media_changeset, as: :media)
 
     youtube_changeset = Settings.youtube_settings_changeset()
+
     youtube_form =
       youtube_changeset
-      |> Map.update!(:changes, fn ch -> Map.put(ch, :api_key, mask_api_key(youtube_changeset.data.api_key)) end)
+      |> Map.update!(:changes, fn ch ->
+        Map.put(ch, :api_key, mask_api_key(youtube_changeset.data.api_key))
+      end)
       |> to_form(as: :youtube)
 
     profile_form =
@@ -73,8 +78,11 @@ defmodule YtdarrWeb.SettingsLive do
   # -----------------
   def handle_event("save-media", %{"media" => params}, socket) do
     changeset = Settings.media_settings_changeset(params)
+
     if changeset.valid? do
-      Settings.put_setting("media.file_naming_template", params["file_naming_template"]) |> ok_ignore()
+      Settings.put_setting("media.file_naming_template", params["file_naming_template"])
+      |> ok_ignore()
+
       Settings.put_setting("media.move_strategy", params["move_strategy"]) |> ok_ignore()
       Settings.put_setting("media.clean_orphans", truthy?(params["clean_orphans"])) |> ok_ignore()
       {:noreply, socket |> put_flash(:info, "Media settings saved") |> load_data()}
@@ -98,7 +106,10 @@ defmodule YtdarrWeb.SettingsLive do
   def handle_event("save-youtube", %{"youtube" => params}, socket) do
     masked = params["api_key"]
     real_api_key = if masked == "********", do: nil, else: masked
-    changeset = Settings.youtube_settings_changeset(%{api_key: real_api_key, region: params["region"]})
+
+    changeset =
+      Settings.youtube_settings_changeset(%{api_key: real_api_key, region: params["region"]})
+
     if changeset.valid? do
       maybe_set_api_key(params["api_key"]) |> ok_ignore()
       Settings.put_setting("youtube.region", params["region"]) |> ok_ignore()
@@ -110,6 +121,7 @@ defmodule YtdarrWeb.SettingsLive do
 
   def handle_event("create-profile", %{"profile" => params}, socket) do
     attrs = normalize_profile_params(params)
+
     case Settings.create_quality_profile(attrs) do
       {:ok, _} -> {:noreply, socket |> put_flash(:info, "Profile created") |> load_data()}
       {:error, cs} -> {:noreply, assign(socket, :profile_form, to_form(cs, as: :profile))}
@@ -166,16 +178,32 @@ defmodule YtdarrWeb.SettingsLive do
       </.header>
 
       <div class="tabs tabs-boxed mb-4">
-        <.link patch={~p"/settings?tab=media"} class={["tab", @tab == :media && "tab-active"]}>Media</.link>
-        <.link patch={~p"/settings?tab=profiles"} class={["tab", @tab == :profiles && "tab-active"]}>Profiles</.link>
-        <.link patch={~p"/settings?tab=youtube"} class={["tab", @tab == :youtube && "tab-active"]}>YouTube</.link>
-        <.link patch={~p"/settings?tab=downloader"} class={["tab", @tab == :downloader && "tab-active"]}>Downloader</.link>
+        <.link patch={~p"/settings?tab=media"} class={["tab", @tab == :media && "tab-active"]}>
+          Media
+        </.link>
+        <.link patch={~p"/settings?tab=profiles"} class={["tab", @tab == :profiles && "tab-active"]}>
+          Profiles
+        </.link>
+        <.link patch={~p"/settings?tab=youtube"} class={["tab", @tab == :youtube && "tab-active"]}>
+          YouTube
+        </.link>
+        <.link
+          patch={~p"/settings?tab=downloader"}
+          class={["tab", @tab == :downloader && "tab-active"]}
+        >
+          Downloader
+        </.link>
       </div>
 
       <div :if={@tab == :media} id="media" class="space-y-8">
         <.form for={@media_form} id="media-form" phx-submit="save-media">
           <.input field={@media_form[:file_naming_template]} type="text" label="File Naming Template" />
-          <.input field={@media_form[:move_strategy]} type="select" label="Move Strategy" options={["copy", "move", "hardlink"]} />
+          <.input
+            field={@media_form[:move_strategy]}
+            type="select"
+            label="Move Strategy"
+            options={["copy", "move", "hardlink"]}
+          />
           <.input field={@media_form[:clean_orphans]} type="checkbox" label="Clean Orphans" />
           <.button type="submit" class="mt-2">Save Media Settings</.button>
         </.form>
@@ -183,16 +211,37 @@ defmodule YtdarrWeb.SettingsLive do
         <div>
           <h3 class="font-semibold mb-2">Root Folders</h3>
           <ul id="root-folders" class="space-y-1" phx-update="replace">
-            <li :for={rf <- @root_folders} id={"root-folder-#{rf.id}"} class="flex justify-between items-center gap-4 border p-2 rounded">
+            <li
+              :for={rf <- @root_folders}
+              id={"root-folder-#{rf.id}"}
+              class="flex justify-between items-center gap-4 border p-2 rounded"
+            >
               <code class="text-sm break-all">{rf.path}</code>
               <div class="flex items-center gap-2">
                 <span :if={!rf.active} class="badge badge-neutral">inactive</span>
-                <.button phx-click="delete-root-folder" phx-value-id={rf.id} class="btn-xs" variant="primary">Remove</.button>
+                <.button
+                  phx-click="delete-root-folder"
+                  phx-value-id={rf.id}
+                  class="btn-xs"
+                  variant="primary"
+                >
+                  Remove
+                </.button>
               </div>
             </li>
           </ul>
-          <.form for={@root_folder_form} id="root-folder-form" phx-submit="add-root-folder" class="mt-4 flex gap-2">
-            <.input field={@root_folder_form[:path]} type="text" placeholder="/data/videos" class="flex-1" />
+          <.form
+            for={@root_folder_form}
+            id="root-folder-form"
+            phx-submit="add-root-folder"
+            class="mt-4 flex gap-2"
+          >
+            <.input
+              field={@root_folder_form[:path]}
+              type="text"
+              placeholder="/data/videos"
+              class="flex-1"
+            />
             <.button type="submit" class="btn-sm">Add</.button>
           </.form>
         </div>
@@ -205,7 +254,13 @@ defmodule YtdarrWeb.SettingsLive do
             <table class="table table-sm">
               <thead>
                 <tr>
-                  <th>Name</th><th>Max Height</th><th>Bitrate</th><th>Codecs</th><th>HDR</th><th>Default</th><th></th>
+                  <th>Name</th>
+                  <th>Max Height</th>
+                  <th>Bitrate</th>
+                  <th>Codecs</th>
+                  <th>HDR</th>
+                  <th>Default</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -214,9 +269,18 @@ defmodule YtdarrWeb.SettingsLive do
                   <td>{p.max_height || "-"}</td>
                   <td>{p.max_bitrate_kbps || "-"}</td>
                   <td>{Enum.join(p.preferred_codecs, ", ")}</td>
-                  <td>{p.allow_hdr && "Yes" || "No"}</td>
+                  <td>{(p.allow_hdr && "Yes") || "No"}</td>
                   <td>{p.is_default && "✓"}</td>
-                  <td><.button phx-click="delete-profile" phx-value-id={p.id} class="btn-xs" variant="primary">Delete</.button></td>
+                  <td>
+                    <.button
+                      phx-click="delete-profile"
+                      phx-value-id={p.id}
+                      class="btn-xs"
+                      variant="primary"
+                    >
+                      Delete
+                    </.button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -225,13 +289,26 @@ defmodule YtdarrWeb.SettingsLive do
 
         <div>
           <h3 class="font-semibold mb-2">Add Profile</h3>
-          <.form for={@profile_form} id="profile-form" phx-submit="create-profile" class="grid md:grid-cols-3 gap-4">
+          <.form
+            for={@profile_form}
+            id="profile-form"
+            phx-submit="create-profile"
+            class="grid md:grid-cols-3 gap-4"
+          >
             <.input field={@profile_form[:name]} type="text" label="Name" />
             <.input field={@profile_form[:max_height]} type="number" label="Max Height" />
             <.input field={@profile_form[:max_bitrate_kbps]} type="number" label="Max Bitrate (kbps)" />
-            <.input field={@profile_form[:preferred_codecs]} type="text" label="Preferred Codecs (comma sep)" />
+            <.input
+              field={@profile_form[:preferred_codecs]}
+              type="text"
+              label="Preferred Codecs (comma sep)"
+            />
             <.input field={@profile_form[:allow_hdr]} type="checkbox" label="Allow HDR" />
-            <.input field={@profile_form[:format_selector]} type="text" label="Format Selector (yt-dlp)" />
+            <.input
+              field={@profile_form[:format_selector]}
+              type="text"
+              label="Format Selector (yt-dlp)"
+            />
             <.input field={@profile_form[:is_default]} type="checkbox" label="Default" />
             <div class="md:col-span-3"><.button type="submit">Create Profile</.button></div>
           </.form>
@@ -244,7 +321,9 @@ defmodule YtdarrWeb.SettingsLive do
           <.input field={@youtube_form[:region]} type="text" label="Region" />
           <.button type="submit" class="mt-2">Save YouTube Settings</.button>
         </.form>
-        <p class="text-xs opacity-70">API key may be overridden by environment variable YTDARR_YOUTUBE_API_KEY.</p>
+        <p class="text-xs opacity-70">
+          API key may be overridden by environment variable YTDARR_YOUTUBE_API_KEY.
+        </p>
       </div>
 
       <div :if={@tab == :downloader} id="downloader" class="space-y-6">
@@ -253,7 +332,14 @@ defmodule YtdarrWeb.SettingsLive do
           <div class="overflow-x-auto">
             <table class="table table-sm">
               <thead>
-                <tr><th>Name</th><th>Format</th><th>Rate Limit</th><th>Concurrency</th><th>Default</th><th></th></tr>
+                <tr>
+                  <th>Name</th>
+                  <th>Format</th>
+                  <th>Rate Limit</th>
+                  <th>Concurrency</th>
+                  <th>Default</th>
+                  <th></th>
+                </tr>
               </thead>
               <tbody>
                 <tr :for={s <- @param_sets} id={"param-set-#{s.id}"}>
@@ -262,7 +348,16 @@ defmodule YtdarrWeb.SettingsLive do
                   <td>{s.rate_limit_kbps || "-"}</td>
                   <td>{s.concurrency || "-"}</td>
                   <td>{s.is_default && "✓"}</td>
-                  <td><.button phx-click="delete-param-set" phx-value-id={s.id} class="btn-xs" variant="primary">Delete</.button></td>
+                  <td>
+                    <.button
+                      phx-click="delete-param-set"
+                      phx-value-id={s.id}
+                      class="btn-xs"
+                      variant="primary"
+                    >
+                      Delete
+                    </.button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -271,10 +366,19 @@ defmodule YtdarrWeb.SettingsLive do
 
         <div>
           <h3 class="font-semibold mb-2">Add Param Set</h3>
-          <.form for={@param_set_form} id="param-set-form" phx-submit="create-param-set" class="grid md:grid-cols-3 gap-4">
+          <.form
+            for={@param_set_form}
+            id="param-set-form"
+            phx-submit="create-param-set"
+            class="grid md:grid-cols-3 gap-4"
+          >
             <.input field={@param_set_form[:name]} type="text" label="Name" />
             <.input field={@param_set_form[:format]} type="text" label="Format (override)" />
-            <.input field={@param_set_form[:extra_args]} type="text" label="Extra Args (space separated)" />
+            <.input
+              field={@param_set_form[:extra_args]}
+              type="text"
+              label="Extra Args (space separated)"
+            />
             <.input field={@param_set_form[:rate_limit_kbps]} type="number" label="Rate Limit (kbps)" />
             <.input field={@param_set_form[:concurrency]} type="number" label="Concurrency" />
             <.input field={@param_set_form[:is_default]} type="checkbox" label="Default" />

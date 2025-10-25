@@ -31,8 +31,8 @@ defmodule Ytdarr.Services.YouTube.ClientSupervisor do
       auth: {:bearer, @api_key || ""},
       finch: Ytdarr.Finch
       # adding in logging for non-prod or debug level output
-      #request_steps: request_steps(),
-      #response_steps: response_steps()
+      # request_steps: request_steps(),
+      # response_steps: response_steps()
     )
   end
 

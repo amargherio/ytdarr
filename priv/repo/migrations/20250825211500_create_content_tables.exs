@@ -54,9 +54,12 @@ defmodule Ytdarr.Repo.Migrations.CreateContentTables do
     create table(:playlist_videos) do
       add :playlist_id, references(:playlists, on_delete: :delete_all), null: false
       add :video_id, references(:videos, on_delete: :delete_all), null: false
-      add :position, :integer # order of the video in the playlist
-      add :added_at, :utc_datetime # When this video was added to the playlist
-      add :youtube_playlist_item_id, :string # unique ID for playlist item in YouTube
+      # order of the video in the playlist
+      add :position, :integer
+      # When this video was added to the playlist
+      add :added_at, :utc_datetime
+      # unique ID for playlist item in YouTube
+      add :youtube_playlist_item_id, :string
 
       timestamps()
     end

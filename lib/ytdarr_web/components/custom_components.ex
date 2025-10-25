@@ -2,7 +2,10 @@ defmodule YtdarrWeb.CustomComponents do
   use Phoenix.Component
   use Gettext, backend: YtdarrWeb.Gettext
 
-  attr :variant, :string, values: ~w(primary secondary info success warning error), default: "primary"
+  attr :variant, :string,
+    values: ~w(primary secondary info success warning error),
+    default: "primary"
+
   attr :size, :string, values: ~w(sm md lg), default: "md"
   attr :rest, :global, include: ~w(href navigate patch disabled)
   slot :inner_block, required: true
@@ -103,10 +106,12 @@ defmodule YtdarrWeb.CustomComponents do
   slot :subtitle
   slot :actions
   attr :banner_url, :string, required: true
+
   # Optional Tailwind height classes to control the banner height (defaults to ~256-320px responsive)
   attr :height_class, :string, default: "h-64 md:h-80"
   # Optional overlay opacity class override (e.g. "bg-black/30"). Provided for flexibility.
   attr :overlay_class, :string, default: "bg-black/40"
+
   # Banner sizing strategy: "static" (use height_class), "fluid" (viewport clamp), "ratio" (aspect box)
   attr :mode, :string, values: ~w(static fluid ratio), default: "static"
   # Aspect ratio (only used when mode=="ratio") expressed as width/height, e.g. "21/5"
@@ -114,6 +119,7 @@ defmodule YtdarrWeb.CustomComponents do
 
   def hero_header(assigns) do
     assigns = assign(assigns, :banner_box_class, banner_box_class(assigns))
+
     ~H"""
     <header class={[@actions != [] && "flex flex-row items-center justify-between gap-6", "pb-4"]}>
       <div class={["w-full relative overflow-hidden rounded-lg", @banner_box_class]}>
@@ -146,5 +152,7 @@ defmodule YtdarrWeb.CustomComponents do
   # -- Private helpers -------------------------------------------------------
   defp banner_box_class(%{mode: "static", height_class: hc}), do: hc
   defp banner_box_class(%{mode: "fluid"}), do: "h-[clamp(16rem,40vh,30rem)]"
-  defp banner_box_class(%{mode: "ratio", ratio: ratio}), do: "relative aspect-[#{ratio}] max-h-[30rem] min-h-[16rem]"
+
+  defp banner_box_class(%{mode: "ratio", ratio: ratio}),
+    do: "relative aspect-[#{ratio}] max-h-[30rem] min-h-[16rem]"
 end

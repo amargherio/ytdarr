@@ -15,7 +15,15 @@ defmodule Ytdarr.Settings.QualityProfile do
 
   def changeset(profile, attrs) do
     profile
-    |> cast(attrs, [:name, :max_height, :max_bitrate_kbps, :preferred_codecs, :allow_hdr, :format_selector, :is_default])
+    |> cast(attrs, [
+      :name,
+      :max_height,
+      :max_bitrate_kbps,
+      :preferred_codecs,
+      :allow_hdr,
+      :format_selector,
+      :is_default
+    ])
     |> validate_required([:name])
     |> unique_constraint(:name)
   end

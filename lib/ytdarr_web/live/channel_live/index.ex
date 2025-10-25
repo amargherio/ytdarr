@@ -53,8 +53,6 @@ defmodule YtdarrWeb.ChannelLive.Index do
           </.link>
         </:action>
 
-
-
         <%!-- <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
         <:col :let={{_id, channel}} label="External">{channel.external_id}</:col>
         <:col :let={{_id, channel}} label="Url">{channel.url}</:col>

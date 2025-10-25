@@ -11,6 +11,7 @@ defmodule Ytdarr.Services.YouTube.Models do
       _ -> nil
     end
   end
+
   defp parse_date(_), do: nil
 
   defmodule APIResponse do
@@ -29,8 +30,19 @@ defmodule Ytdarr.Services.YouTube.Models do
 
   defmodule Channel do
     @enforce_keys [:id, :title, :url]
-  defstruct [:id, :title, :description, :url, :thumbnail_url,
-         :subscriber_count, :video_count, :view_count, :banner_url, :status, :contentDetails]
+    defstruct [
+      :id,
+      :title,
+      :description,
+      :url,
+      :thumbnail_url,
+      :subscriber_count,
+      :video_count,
+      :view_count,
+      :banner_url,
+      :status,
+      :contentDetails
+    ]
 
     def from_api(%{"id" => id, "snippet" => snippet} = data) do
       brandSettings = Map.get(data, "brandingSettings", %{}) || %{}
@@ -67,8 +79,17 @@ defmodule Ytdarr.Services.YouTube.Models do
 
   defmodule Video do
     @enforce_keys [:id, :title, :url]
-    defstruct [:id, :title, :description, :url, :thumbnail_url,
-               :published_at, :duration, :view_count, :channel_id]
+    defstruct [
+      :id,
+      :title,
+      :description,
+      :url,
+      :thumbnail_url,
+      :published_at,
+      :duration,
+      :view_count,
+      :channel_id
+    ]
 
     def from_api(%{"id" => id_data, "snippet" => snippet}) when is_map(id_data) do
       video_id = id_data["videoId"]
@@ -97,8 +118,7 @@ defmodule Ytdarr.Services.YouTube.Models do
 
   defmodule Playlist do
     @enforce_keys [:id, :title, :url]
-    defstruct [:id, :title, :description, :url, :thumbnail_url,
-               :video_count, :channel_id]
+    defstruct [:id, :title, :description, :url, :thumbnail_url, :video_count, :channel_id]
 
     def from_api(%{"id" => id, "snippet" => snippet} = data) do
       content_details = Map.get(data, "contentDetails", %{})
@@ -125,6 +145,7 @@ defmodule Ytdarr.Services.YouTube.Models do
     defstruct [:default, :medium, :high, :standard, :maxres]
 
     def from_api(nil), do: %__MODULE__{}
+
     def from_api(data) when is_map(data) do
       %__MODULE__{
         default: Map.get(data, "default"),
@@ -134,6 +155,7 @@ defmodule Ytdarr.Services.YouTube.Models do
         maxres: Map.get(data, "maxres")
       }
     end
+
     def from_api(_), do: %__MODULE__{}
   end
 
@@ -179,8 +201,13 @@ defmodule Ytdarr.Services.YouTube.Models do
         title: snippet["title"],
         description: snippet["description"],
         position: snippet["position"],
-        url: if(video_id, do: "https://www.youtube.com/watch?v=#{video_id}&list=#{playlist_id}", else: nil),
-        thumbnail_url: get_in(thumbnails, ["high", "url"]) || get_in(thumbnails, ["default", "url"]),
+        url:
+          if(video_id,
+            do: "https://www.youtube.com/watch?v=#{video_id}&list=#{playlist_id}",
+            else: nil
+          ),
+        thumbnail_url:
+          get_in(thumbnails, ["high", "url"]) || get_in(thumbnails, ["default", "url"]),
         published_at: parse_date(snippet["publishedAt"]),
         video_published_at: parse_date(content_details["videoPublishedAt"]),
         channel_id: snippet["channelId"],
@@ -213,7 +240,8 @@ defmodule Ytdarr.Services.YouTube.Models do
 
     defp parse_formats(formats) when is_list(formats) do
       formats
-      |> Enum.filter(&(&1["vcodec"] != "none"))  # Video formats only
+      # Video formats only
+      |> Enum.filter(&(&1["vcodec"] != "none"))
       |> Enum.map(fn format ->
         %{
           format_id: format["format_id"],
@@ -223,6 +251,7 @@ defmodule Ytdarr.Services.YouTube.Models do
         }
       end)
     end
+
     defp parse_formats(_), do: []
 
     defp get_best_format_filesize(formats) when is_list(formats) do
@@ -231,6 +260,7 @@ defmodule Ytdarr.Services.YouTube.Models do
       |> Enum.max_by(&(&1["height"] || 0), fn -> %{"filesize" => nil} end)
       |> Map.get("filesize")
     end
+
     defp get_best_format_filesize(_), do: nil
   end
 end

@@ -13,7 +13,6 @@ defmodule YtdarrWeb.ChannelLive.Form do
       </.header>
 
       <.form for={@form} id="channel-form" phx-change="validate" phx-submit="save">
-
         <div class="bg-slate-200 p-4 rounded-md">
           <h2>Metadata</h2>
 

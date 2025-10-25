@@ -90,7 +90,8 @@ defmodule Ytdarr.Settings do
 
   def create_quality_profile(attrs) do
     Repo.transaction(fn ->
-      with {:ok, profile} <- %QualityProfile{} |> QualityProfile.changeset(attrs) |> Repo.insert(),
+      with {:ok, profile} <-
+             %QualityProfile{} |> QualityProfile.changeset(attrs) |> Repo.insert(),
            :ok <- maybe_clear_other_profile_defaults(profile) do
         profile
       else
@@ -122,9 +123,13 @@ defmodule Ytdarr.Settings do
   end
 
   defp maybe_clear_other_profile_defaults(%QualityProfile{is_default: true, id: id}) do
-    Repo.update_all(from(p in QualityProfile, where: p.id != ^id and p.is_default), set: [is_default: false])
+    Repo.update_all(from(p in QualityProfile, where: p.id != ^id and p.is_default),
+      set: [is_default: false]
+    )
+
     :ok
   end
+
   defp maybe_clear_other_profile_defaults(_), do: :ok
 
   def get_default_profile do
@@ -178,9 +183,13 @@ defmodule Ytdarr.Settings do
   end
 
   defp maybe_clear_other_param_set_defaults(%YtDlpParamSet{is_default: true, id: id}) do
-    Repo.update_all(from(s in YtDlpParamSet, where: s.id != ^id and s.is_default), set: [is_default: false])
+    Repo.update_all(from(s in YtDlpParamSet, where: s.id != ^id and s.is_default),
+      set: [is_default: false]
+    )
+
     :ok
   end
+
   defp maybe_clear_other_param_set_defaults(_), do: :ok
 
   # -----------------
@@ -188,7 +197,8 @@ defmodule Ytdarr.Settings do
   # -----------------
   def effective_config do
     media = %{
-      file_naming_template: get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
+      file_naming_template:
+        get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
       move_strategy: get_setting_value("media.move_strategy", "hardlink"),
       clean_orphans: get_setting_value("media.clean_orphans", true),
       root_folders: list_media_root_folders()
@@ -203,7 +213,8 @@ defmodule Ytdarr.Settings do
     param_sets = list_yt_dlp_param_sets()
 
     downloader = %{
-      default_param_set: get_setting_value("yt_dlp.default_param_set_name", default_param_set_name(param_sets)),
+      default_param_set:
+        get_setting_value("yt_dlp.default_param_set_name", default_param_set_name(param_sets)),
       param_sets: param_sets
     }
 
@@ -233,7 +244,8 @@ defmodule Ytdarr.Settings do
     }
 
     data = %{
-      file_naming_template: get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
+      file_naming_template:
+        get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
       move_strategy: get_setting_value("media.move_strategy", "hardlink"),
       clean_orphans: get_setting_value("media.clean_orphans", true)
     }

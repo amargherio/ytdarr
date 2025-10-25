@@ -20,8 +20,10 @@ defmodule Ytdarr.Content do
   Returns all channels when the query is blank or nil.
   """
   def list_channels_search(query) when query in [nil, ""], do: list_channels()
+
   def list_channels_search(query) do
     like = "%#{query}%"
+
     Channel
     |> where([c], ilike(c.name, ^like) or ilike(c.external_id, ^like))
     |> Repo.all()
@@ -62,9 +64,11 @@ defmodule Ytdarr.Content do
   When query is blank, falls back to `list_monitored_channels_paginated/1`.
   """
   def search_monitored_channels_paginated(query_string, opts \\ [])
+
   def search_monitored_channels_paginated(query_string, opts) when query_string in [nil, ""] do
     list_monitored_channels_paginated(opts)
   end
+
   def search_monitored_channels_paginated(query_string, opts) do
     page = Keyword.get(opts, :page, 1)
     page_size = Keyword.get(opts, :page_size, 20)
@@ -112,8 +116,8 @@ defmodule Ytdarr.Content do
 
   def monitor_channel(%Channel{} = channel) do
     case channel
-    |> Channel.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})
-    |> Repo.update(channel) do
+         |> Channel.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})
+         |> Repo.update(channel) do
       {:ok, updated_channel} -> sync_channel_content(updated_channel.external_id)
       {:error, change} -> {:error, change}
     end
@@ -127,6 +131,7 @@ defmodule Ytdarr.Content do
 
   def toggle_channel_monitor_status(id) do
     channel = get_channel!(id)
+
     channel
     |> Channel.changeset(%{is_monitored: not channel.is_monitored})
     |> Repo.update()
@@ -181,7 +186,7 @@ defmodule Ytdarr.Content do
   ## Complex operations
   def queue_playlist_download(playlist_id) do
     playlist = get_playlist_with_videos(playlist_id)
-    #TODO:  queue all videos in the playlist for download - integration point with Oban workers
+    # TODO:  queue all videos in the playlist for download - integration point with Oban workers
     {:ok, playlist}
   end
 
@@ -190,6 +195,7 @@ defmodule Ytdarr.Content do
 
     Enum.each(playlists, fn pl ->
       existing_pl = get_playlist_by_external_id(pl.id)
+
       if is_nil(existing_pl) do
         # not already monitored, so create a Ytdarr.Content.Playlist struct and
         # add it to the DB
@@ -225,6 +231,7 @@ defmodule Ytdarr.Content do
 
     Enum.each(playlists, fn pl ->
       existing_pl = get_playlist_by_external_id(pl.id)
+
       if is_nil(existing_pl) do
         # not already monitored, so create a Ytdarr.Content.Playlist struct and
         # add it to the DB
@@ -248,10 +255,13 @@ defmodule Ytdarr.Content do
 
     # Now handle videos by pulling from the "uploads" playlist
     uploads_playlist = Enum.find(playlists, fn pl -> pl.title == "Uploads" end)
+
     if uploads_playlist do
       videos = Client.get_playlist_videos(uploads_playlist.id)
+
       Enum.each(videos, fn vid ->
         existing_vid = Repo.get_by(Video, external_id: vid.id)
+
         if is_nil(existing_vid) do
           # not already monitored, so create a Ytdarr.Content.Video struct and
           # add it to the DB
@@ -283,6 +293,5 @@ defmodule Ytdarr.Content do
   Syncs uploads mplaylist for a channel, creating videos as needed
   """
   def sync_channel_uploads(%Channel{} = channel) do
-
   end
 end

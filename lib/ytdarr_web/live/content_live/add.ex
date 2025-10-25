@@ -6,23 +6,25 @@ defmodule YtdarrWeb.ContentLive.Add do
 
   @impl true
   def mount(_params, _session, socket) do
-  {:ok,
-   socket
-   |> assign(:page_title, "Add Channel or Playlist")
-   |> assign(:search, "")
-   |> assign(:results, [])
-   |> assign(:loading?, false)
-   |> assign(:mode, :channels)
-    |> assign(:channels_lookup, preload_channels_map())
-    |> assign(:monitored_channel_ids, monitored_channel_ids())
-    |> assign(:monitored_playlist_ids, monitored_playlist_ids())
-    |> assign(:adding_ids, MapSet.new())
-    |> assign(:search_ref, nil)}
+    {:ok,
+     socket
+     |> assign(:page_title, "Add Channel or Playlist")
+     |> assign(:search, "")
+     |> assign(:results, [])
+     |> assign(:loading?, false)
+     |> assign(:mode, :channels)
+     |> assign(:channels_lookup, preload_channels_map())
+     |> assign(:monitored_channel_ids, monitored_channel_ids())
+     |> assign(:monitored_playlist_ids, monitored_playlist_ids())
+     |> assign(:adding_ids, MapSet.new())
+     |> assign(:search_ref, nil)}
   end
 
   @impl true
-  def handle_event("set-mode", %{"mode" => mode}, socket) when mode in ["channels", "playlists"] do
+  def handle_event("set-mode", %{"mode" => mode}, socket)
+      when mode in ["channels", "playlists"] do
     mode_atom = String.to_existing_atom(mode)
+
     {:noreply,
      socket
      |> assign(:mode, mode_atom)
@@ -43,6 +45,7 @@ defmodule YtdarrWeb.ContentLive.Add do
           :channels -> mock_channel_search(q)
           :playlists -> mock_playlist_search(q, chan_map)
         end
+
       send(self(), {:async_search_result, ref, q, results})
     end)
 
@@ -58,24 +61,33 @@ defmodule YtdarrWeb.ContentLive.Add do
     {:noreply, assign(socket, search: q, loading?: true)}
   end
 
-  def handle_event("add", %{"external_id" => external_id, "name" => name, "url" => url}, %{assigns: %{mode: :channels}} = socket) do
+  def handle_event(
+        "add",
+        %{"external_id" => external_id, "name" => name, "url" => url},
+        %{assigns: %{mode: :channels}} = socket
+      ) do
     attrs = %{
       name: name,
       external_id: external_id,
       url: url,
       platform: "YouTube"
     }
+
     id = external_id
+
     cond do
       MapSet.member?(socket.assigns.monitored_channel_ids, external_id) ->
         {:noreply, put_flash(socket, :info, "Channel already monitored")}
+
       Content.get_channel_by_external_id(external_id) ->
         {:noreply,
          socket
          |> update(:monitored_channel_ids, &MapSet.put(&1, external_id))
          |> put_flash(:info, "Channel already existed and is now marked as monitored")}
+
       true ->
         socket = update(socket, :adding_ids, &MapSet.put(&1, id))
+
         case Content.create_channel(attrs) do
           {:ok, channel} ->
             {:noreply,
@@ -84,6 +96,7 @@ defmodule YtdarrWeb.ContentLive.Add do
              |> update(:adding_ids, &MapSet.delete(&1, id))
              |> put_flash(:info, "Channel added")
              |> push_navigate(to: ~p"/channels/#{channel}")}
+
           {:error, changeset} ->
             {:noreply,
              socket
@@ -93,22 +106,35 @@ defmodule YtdarrWeb.ContentLive.Add do
     end
   end
 
-  def handle_event("add", %{"external_id" => external_id, "name" => name, "url" => url, "channel_id" => channel_id}, %{assigns: %{mode: :playlists}} = socket) do
+  def handle_event(
+        "add",
+        %{"external_id" => external_id, "name" => name, "url" => url, "channel_id" => channel_id},
+        %{assigns: %{mode: :playlists}} = socket
+      ) do
     # Ensure channel exists (should from lookup). If not, abort.
     cond do
       MapSet.member?(socket.assigns.monitored_playlist_ids, external_id) ->
         {:noreply, put_flash(socket, :info, "Playlist already monitored")}
+
       Content.get_playlist_by_external_id(external_id) ->
         {:noreply,
          socket
          |> update(:monitored_playlist_ids, &MapSet.put(&1, external_id))
          |> put_flash(:info, "Playlist already exists")}
+
       channel_monitored_and_includes_playlist?(channel_id, external_id) ->
         {:noreply, put_flash(socket, :info, "Playlist implicitly monitored via channel")}
+
       true ->
         id = external_id
         socket = update(socket, :adding_ids, &MapSet.put(&1, id))
-        case Content.create_playlist(%{name: name, external_id: external_id, url: url, channel_id: channel_id}) do
+
+        case Content.create_playlist(%{
+               name: name,
+               external_id: external_id,
+               url: url,
+               channel_id: channel_id
+             }) do
           {:ok, playlist} ->
             {:noreply,
              socket
@@ -116,6 +142,7 @@ defmodule YtdarrWeb.ContentLive.Add do
              |> update(:adding_ids, &MapSet.delete(&1, id))
              |> put_flash(:info, "Playlist added")
              |> push_navigate(to: ~p"/channels/#{playlist.channel_id}")}
+
           {:error, changeset} ->
             {:noreply,
              socket
@@ -126,13 +153,17 @@ defmodule YtdarrWeb.ContentLive.Add do
   end
 
   @impl true
-  def handle_info({:async_search_result, ref, q, results}, %{assigns: %{search_ref: ref}} = socket) do
+  def handle_info(
+        {:async_search_result, ref, q, results},
+        %{assigns: %{search_ref: ref}} = socket
+      ) do
     {:noreply,
      socket
      |> assign(:results, results)
      |> assign(:loading?, false)
      |> assign(:search, q)}
   end
+
   def handle_info({:async_search_result, _old_ref, _q, _results}, socket) do
     # stale result ignored
     {:noreply, socket}
@@ -157,20 +188,26 @@ defmodule YtdarrWeb.ContentLive.Add do
             phx-click="set-mode"
             phx-value-mode="channels"
             class={["btn btn-sm", @mode == :channels && "btn-primary"]}
-          >Channels</button>
+          >
+            Channels
+          </button>
           <button
             type="button"
             phx-click="set-mode"
             phx-value-mode="playlists"
             class={["btn btn-sm", @mode == :playlists && "btn-primary"]}
-          >Playlists</button>
+          >
+            Playlists
+          </button>
         </div>
         <form phx-keyup="search" phx-submit="noop" class="flex flex-col gap-2" autocomplete="off">
           <input
             type="text"
             name="q"
             value={@search}
-            placeholder={@mode == :channels && "Search YouTube channels..." || "Search YouTube playlists..."}
+            placeholder={
+              (@mode == :channels && "Search YouTube channels...") || "Search YouTube playlists..."
+            }
             class="input input-bordered"
             phx-debounce="300"
           />
@@ -205,7 +242,12 @@ defmodule YtdarrWeb.ContentLive.Add do
                 <td><code>{r.external_id}</code></td>
                 <td>{r.subscriber_count}</td>
                 <td>
-                  <span :if={MapSet.member?(@monitored_channel_ids, r.external_id)} class="badge badge-success">Monitored</span>
+                  <span
+                    :if={MapSet.member?(@monitored_channel_ids, r.external_id)}
+                    class="badge badge-success"
+                  >
+                    Monitored
+                  </span>
                   <.button
                     :if={!MapSet.member?(@monitored_channel_ids, r.external_id)}
                     phx-click="add"
@@ -216,8 +258,11 @@ defmodule YtdarrWeb.ContentLive.Add do
                     class="btn-xs"
                     disabled={MapSet.member?(@adding_ids, r.external_id)}
                   >
-                    <span :if={MapSet.member?(@adding_ids, r.external_id)} class="loading loading-spinner loading-xs mr-1" />
-                    {MapSet.member?(@adding_ids, r.external_id) && "Adding..." || "Add"}
+                    <span
+                      :if={MapSet.member?(@adding_ids, r.external_id)}
+                      class="loading loading-spinner loading-xs mr-1"
+                    />
+                    {(MapSet.member?(@adding_ids, r.external_id) && "Adding...") || "Add"}
                   </.button>
                 </td>
               </tr>
@@ -243,7 +288,12 @@ defmodule YtdarrWeb.ContentLive.Add do
                 <td>{r.video_count}</td>
                 <td>{Map.get(@channels_lookup, r.channel_id).name}</td>
                 <td>
-                  <span :if={MapSet.member?(@monitored_playlist_ids, r.external_id)} class="badge badge-success">Monitored</span>
+                  <span
+                    :if={MapSet.member?(@monitored_playlist_ids, r.external_id)}
+                    class="badge badge-success"
+                  >
+                    Monitored
+                  </span>
                   <.button
                     :if={!MapSet.member?(@monitored_playlist_ids, r.external_id)}
                     phx-click="add"
@@ -255,8 +305,11 @@ defmodule YtdarrWeb.ContentLive.Add do
                     class="btn-xs"
                     disabled={MapSet.member?(@adding_ids, r.external_id)}
                   >
-                    <span :if={MapSet.member?(@adding_ids, r.external_id)} class="loading loading-spinner loading-xs mr-1" />
-                    {MapSet.member?(@adding_ids, r.external_id) && "Adding..." || "Add"}
+                    <span
+                      :if={MapSet.member?(@adding_ids, r.external_id)}
+                      class="loading loading-spinner loading-xs mr-1"
+                    />
+                    {(MapSet.member?(@adding_ids, r.external_id) && "Adding...") || "Add"}
                   </.button>
                 </td>
               </tr>
@@ -271,8 +324,10 @@ defmodule YtdarrWeb.ContentLive.Add do
   # Mock search helpers (to be replaced with real API integration)
   defp mock_channel_search(""), do: []
   defp mock_channel_search(nil), do: []
+
   defp mock_channel_search(query) do
     base = String.replace(query, ~r/\s+/, "-") |> String.downcase()
+
     for i <- 1..min(5, String.length(query)) do
       %{
         name: "#{String.capitalize(query)} Channel #{i}",
@@ -287,18 +342,22 @@ defmodule YtdarrWeb.ContentLive.Add do
   defp mock_playlist_search("", _map), do: []
   defp mock_playlist_search(nil, _map), do: []
   defp mock_playlist_search(_query, channels_map) when map_size(channels_map) == 0, do: []
+
   defp mock_playlist_search(query, channels_map) do
     channel_ids = Map.keys(channels_map)
     base = String.replace(query, ~r/\s+/, "-") |> String.downcase()
+
     for i <- 1..min(5, String.length(query)) do
       ch_id = Enum.at(channel_ids, rem(i, length(channel_ids)))
+
       %{
         name: "#{String.capitalize(query)} Playlist #{i}",
         external_id: "mock-pl-#{base}-#{i}",
         url: "https://www.youtube.com/playlist?list=#{base}#{i}",
         video_count: Enum.random(5..200),
         channel_id: ch_id,
-        implicitly_monitored?: MapSet.member?(monitored_channel_ids(), Map.get(channels_map, ch_id).external_id)
+        implicitly_monitored?:
+          MapSet.member?(monitored_channel_ids(), Map.get(channels_map, ch_id).external_id)
       }
     end
   end
