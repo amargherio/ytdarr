@@ -87,5 +87,8 @@ config :swoosh, :api_client, false
 # Dev Oban
 config :ytdarr, Oban,
   engine: Oban.Engines.Lite,
-  queues: [video_downloader: 2],
+  queues: [
+    video_downloader: 2,
+    sync_worker: 5,
+  ],
   repo: Ytdarr.Repo

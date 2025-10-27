@@ -118,7 +118,11 @@ defmodule Ytdarr.Content do
     case channel
          |> Channel.changeset(%{is_monitored: true})
          |> Repo.update(channel) do
-      {:ok, updated_channel} -> sync_channel_content(updated_channel.external_id)
+      #{:ok, updated_channel} -> sync_channel_content(updated_channel.external_id)
+      {:ok, updated_channel} -> Oban.insert(%Oban.Job{
+        worker: Ytdarr.ObanWorkers.SyncWorker,
+        args: %{"source_type" => "channel", "source_id" => updated_channel.id}
+      })
       {:error, change} -> {:error, change}
     end
   end
@@ -132,9 +136,18 @@ defmodule Ytdarr.Content do
   def toggle_channel_monitor_status(id) do
     channel = get_channel!(id)
 
-    channel
+    case channel
     |> Channel.changeset(%{is_monitored: not channel.is_monitored})
-    |> Repo.update()
+    |> Repo.update() do
+      {:ok, updated_channel} ->
+        if updated_channel.is_monitored do
+          Oban.insert(%Oban.Job{
+            worker: Ytdarr.ObanWorkers.SyncWorker,
+            args: %{"source_type" => "channel", "source_id" => updated_channel.id}
+          })
+        end
+      {:error, change} -> {:error, change}
+    end
   end
 
   ## Playlists
@@ -166,9 +179,15 @@ defmodule Ytdarr.Content do
   end
 
   def monitor_playlist(%Playlist{} = playlist) do
-    playlist
-    |> Playlist.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})
-    |> Repo.update()
+    case playlist
+         |> Playlist.changeset(%{is_monitored: true, is_monitored_since: DateTime.utc_now()})
+         |> Repo.update() do
+      {:ok, updated_playlist} -> Oban.insert(%Oban.Job{
+        worker: Ytdarr.ObanWorkers.SyncWorker,
+        args: %{"source_type" => "playlist", "source_id" => updated_playlist.id}
+      })
+      {:error, change} -> {:error, change}
+    end
   end
 
   def unmonitor_playlist(%Playlist{} = playlist) do
@@ -183,9 +202,18 @@ defmodule Ytdarr.Content do
       |> preload([:channel, :videos])
       |> Repo.one()
 
-    playlist
+    case playlist
     |> Playlist.changeset(%{is_monitored: not playlist.is_monitored})
-    |> Repo.update()
+    |> Repo.update() do
+      {:ok, updated_playlist} ->
+        if updated_playlist.is_monitored do
+          Oban.insert(%Oban.Job{
+            worker: Ytdarr.ObanWorkers.SyncWorker,
+            args: %{"source_type" => "playlist", "source_id" => updated_playlist.id}
+          })
+        end
+      {:error, change} -> {:error, change}
+    end
   end
 
   ## Videos
@@ -210,6 +238,28 @@ defmodule Ytdarr.Content do
     playlist = get_playlist_with_videos(playlist_id)
     # TODO:  queue all videos in the playlist for download - integration point with Oban workers
     {:ok, playlist}
+  end
+
+  @doc"""
+  Sync channel or playlist content with the latest from the source, persisting new videos/playlists as needed.
+  """
+  def sync_content(target_type, target_id) do
+    case target_type do
+      "channel" ->
+        Oban.insert(%Oban.Job{
+          worker: Ytdarr.ObanWorkers.SyncWorker,
+          args: %{"source_type" => "channel", "source_id" => target_id}
+        })
+
+      "playlist" ->
+        Oban.insert(%Oban.Job{
+          worker: Ytdarr.ObanWorkers.SyncWorker,
+          args: %{"source_type" => "playlist", "source_id" => target_id}
+        })
+
+      _ ->
+        {:error, :unknown_target_type}
+    end
   end
 
   def sync_channel_playlists(%Channel{} = channel) do
@@ -312,7 +362,7 @@ defmodule Ytdarr.Content do
   end
 
   @doc """
-  Syncs uploads mplaylist for a channel, creating videos as needed
+  Syncs uploads playlist for a channel, creating videos as needed
   """
   def sync_channel_uploads(%Channel{} = channel) do
   end
