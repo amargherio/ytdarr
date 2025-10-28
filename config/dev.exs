@@ -83,3 +83,12 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Dev Oban
+config :ytdarr, Oban,
+  engine: Oban.Engines.Lite,
+  queues: [
+    video_downloader: 2,
+    sync_worker: 5,
+  ],
+  repo: Ytdarr.Repo

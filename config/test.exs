@@ -35,3 +35,6 @@ config :phoenix_live_view,
 
 # Disable YouTube client supervisor to avoid external HTTP client setup in tests
 config :ytdarr, :enable_youtube_client, false
+
+# Oban
+config :ytdarr, Oban, testing: :manual

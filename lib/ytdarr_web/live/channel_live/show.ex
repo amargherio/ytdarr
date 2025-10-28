@@ -198,11 +198,11 @@ defmodule YtdarrWeb.ChannelLive.Show do
         case Content.toggle_playlist_monitor_status(id) do
           {:ok, playlist} ->
             # Update the specific playlist in the list
-            updated_playlists = 
+            updated_playlists =
               Enum.map(socket.assigns.playlists, fn p ->
                 if p.id == playlist.id, do: playlist, else: p
               end)
-            
+
             {:noreply,
              socket
              |> assign(:playlists, updated_playlists)
@@ -227,5 +227,14 @@ defmodule YtdarrWeb.ChannelLive.Show do
   @impl true
   def handle_event("delete-video", _params, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("refresh-channel-data", _params, socket) do
+    Content.sync_content("channel", socket.assigns.channel.id)
+    {:noreply,
+     socket
+     |> put_flash(:info, "Channel data refresh in progress.")
+    }
   end
 end
