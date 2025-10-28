@@ -99,6 +99,21 @@ defmodule Ytdarr.Content do
   end
 
   def create_channel(attrs \\ %{}) do
+    case Client.get_channel(attrs["external_id"]) do
+      {:ok, channel} ->
+        # flip the is_monitored flag to true and persist
+        monitored = Channel.changeset(channel, %{is_monitored: true})
+        case Repo.insert(monitored) do
+          {:ok, chan} ->
+            sync_channel_content(chan.external_id)
+            {:ok, chan}
+          {:error, changeset} -> {:error, changeset}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+
     %Channel{}
     |> Channel.changeset(attrs)
     |> Repo.insert()
@@ -150,6 +165,10 @@ defmodule Ytdarr.Content do
     end
   end
 
+  def delete_channel(%Channel{} = channel) do
+    Repo.delete(channel)
+  end
+
   ## Playlists
   def get_playlist!(id), do: Repo.get!(Playlist, id)
 
@@ -157,10 +176,6 @@ defmodule Ytdarr.Content do
     Playlist
     |> where([p], p.channel_id == ^channel_id)
     |> Repo.all()
-  end
-
-  def list_playlists do
-    Repo.all(Playlist)
   end
 
   def get_playlist_with_videos(id) do
@@ -190,12 +205,18 @@ defmodule Ytdarr.Content do
     end
   end
 
+  @doc """
+  Stop monitoring a playlist.
+  """
   def unmonitor_playlist(%Playlist{} = playlist) do
     playlist
     |> Playlist.changeset(%{is_monitored: false, is_monitored_since: nil})
     |> Repo.update()
   end
 
+  @doc """
+  Toggle the monitored status of a playlist by its internal ID.
+  """
   def toggle_playlist_monitor_status(id) do
     playlist = Playlist
       |> where([p], p.id == ^id)
@@ -217,6 +238,13 @@ defmodule Ytdarr.Content do
   end
 
   ## Videos
+
+  @doc """
+  List all videos for a given channel, ordered by upload date descending.
+
+  ## Parameters
+    - channel_id: Internal ID of the channel
+  """
   def list_videos_for_channel(channel_id) do
     Video
     |> where([v], v.channel_id == ^channel_id)
@@ -225,7 +253,16 @@ defmodule Ytdarr.Content do
   end
 
   ## Complex operations
+
+  @doc """
+  For a given video, queue it for download via Oban.
+
+  ## Parameters
+    - video_id: Internal ID of the video to queue for download
+  """
   def queue_video_download(video_id) do
+    vid = Repo.get!(Video, video_id) |> Repo.preload(:channel)
+    channel_id = vid.channel.id
     %Oban.Job{
       worker: Ytdarr.ObanWorkers.VideoDownloader,
       args: %{"video_id" => video_id, "channel_id" => channel_id}
@@ -234,6 +271,12 @@ defmodule Ytdarr.Content do
   end
 
 
+  @doc """
+  For a given playlist, iterate through all playlist items and queue each video for download.
+
+  ## Parameters
+    - playlist_id: Internal ID of the playlist to queue downloads for
+  """
   def queue_playlist_download(playlist_id) do
     playlist = get_playlist_with_videos(playlist_id)
     # TODO:  queue all videos in the playlist for download - integration point with Oban workers
@@ -242,6 +285,10 @@ defmodule Ytdarr.Content do
 
   @doc"""
   Sync channel or playlist content with the latest from the source, persisting new videos/playlists as needed.
+
+  ## Parameters
+    - target_type: "channel" or "playlist"
+    - target_id: Internal ID of the channel or playlist to sync
   """
   def sync_content(target_type, target_id) do
     case target_type do
@@ -262,6 +309,12 @@ defmodule Ytdarr.Content do
     end
   end
 
+  @doc """
+  Syncs playlists for a channel, creating any new playlists as needed
+
+  ## Parameters
+    - channel: The Ytdarr.Content.Channel struct to sync playlists for
+  """
   def sync_channel_playlists(%Channel{} = channel) do
     playlists = Client.get_channel_playlists(channel.external_id)
 
@@ -296,6 +349,9 @@ defmodule Ytdarr.Content do
   Fetch latest content from external API (e.g., YouTube). Update/create videos and playlists in the database
 
   Start with playlists, ignoring the "uploads" playlist because it has all videos in it
+
+  ## Parameters
+    - channel_id: The external ID of the channel to sync
   """
   def sync_channel_content(channel_id) do
     playlists = Client.get_channel_playlists(channel_id)
@@ -348,7 +404,6 @@ defmodule Ytdarr.Content do
             duration: vid.duration,
             view_count: vid.view_count,
             channel_id: vid.channel_id,
-            is_monitored: false
           })
           |> Repo.insert()
         else
@@ -365,5 +420,43 @@ defmodule Ytdarr.Content do
   Syncs uploads playlist for a channel, creating videos as needed
   """
   def sync_channel_uploads(%Channel{} = channel) do
+  end
+
+  @doc"""
+  Associate playlists and videos
+
+  ## Parameters
+    - playlist_id: Internal ID of the playlist to associate videos for
+  """
+  def associate_playlists_and_videos(playlist_id) do
+    playlist = Repo.get(Playlist, playlist_id)
+    videos = Client.get_playlist_videos(playlist.external_id)
+
+    # For each video, query if it's in the DB. If it is, verify the association exists, if not create it
+    Enum.each(videos, fn vid ->
+      existing_vid = Repo.get_by(Video, external_id: vid.id)
+
+      if existing_vid do
+        # Check if association exists
+        assoc_exists = Repo.exists?(
+          from pv in "playlist_videos",
+          where: pv.playlist_id == ^playlist.id and pv.video_id == ^existing_vid.id
+        )
+
+        unless assoc_exists do
+          # Create association
+          Repo.insert_all("playlist_videos", [%{playlist_id: playlist.id, video_id: existing_vid.id}])
+        end
+      end
+    end)
+
+    {:ok, :associated}
+  end
+
+  def create_jellyfin_collection_from_playlist(playlist_id) do
+    Oban.insert(%Oban.Job{
+      worker: Ytdarr.ObanWorkers.JellyfinCollectionCreator,
+      args: %{"playlist_id" => playlist_id}
+    })
   end
 end

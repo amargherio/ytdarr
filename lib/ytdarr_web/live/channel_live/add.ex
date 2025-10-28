@@ -70,6 +70,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
     id = external_id
 
     cond do
+      # Revisit the MapSet use here
       MapSet.member?(socket.assigns.monitored_channel_ids, external_id) ->
         {:noreply, put_flash(socket, :info, "Channel already monitored")}
 
@@ -313,7 +314,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
   end
 
   defp monitored_playlist_ids do
-    Content.list_playlists() |> Enum.map(& &1.external_id) |> MapSet.new()
+    Content.list_playlists_for_channel() |> Enum.map(& &1.external_id) |> MapSet.new()
   end
 
   defp channel_monitored_and_includes_playlist?(channel_id, _playlist_external_id) do

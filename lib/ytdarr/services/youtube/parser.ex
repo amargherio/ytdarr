@@ -23,6 +23,19 @@ defmodule Ytdarr.Services.YouTube.Parser do
     }
   end
 
+  def create_ytdarr_playlist(%Models.Playlist{} = yt_playlist, channel_id) do
+    %Content.Playlist{
+      external_id: yt_playlist.id,
+      name: yt_playlist.title,
+      url: yt_playlist.url,
+      description: yt_playlist.description,
+      video_count: yt_playlist.video_count,
+      is_monitored: false,
+      last_checked_at: nil,
+      channel_id: channel_id
+    }
+  end
+
   # ------------------------
   # Shared parsing utilities
   # ------------------------

@@ -42,8 +42,10 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
       Content.sync_channel_content(channel.external_id)
 
       # schedule the next check for new content based on user settings
-      interval_minutes = Settings.get_setting(:sync_interval_minutes, 60)
-      Oban.schedule_in(interval_minutes, __MODULE__, %{source_type: "channel", source_id: channel.id})
+      interval_minutes = Settings.get_setting_value(:sync_interval_minutes, 60)
+      %{source_type: "channel", source_id: channel.id}
+      |> __MODULE__.new(schedule_in: interval_minutes)
+      |> Oban.insert()
     else
       Logger.info("Channel #{channel.name} is not monitored, skipping full sync")
     end
@@ -61,8 +63,10 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
       Content.sync_playlist_content(playlist.external_id)
 
       # schedule the next check for new content based on user settings
-      interval_minutes = Settings.get_setting(:sync_interval_minutes, 60)
-      Oban.schedule_in(interval_minutes, __MODULE__, %{source_type: "channel", source_id: channel.id})
+      interval_minutes = Settings.get_setting_value(:sync_interval_minutes, 60)
+      %{source_type: "playlist", source_id: playlist.id}
+      |> __MODULE__.new(schedule_in: interval_minutes)
+      |> Oban.insert()
     else
       Logger.info("Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is not monitored, skipping full sync")
     end

@@ -9,6 +9,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
   use Oban.Worker, queue: :video_downloader
 
+  require Logger
   alias Ytdarr.Services.YouTube.Client
   alias Ytdarr.Content.{Channel, Playlist, Video}
   alias Ytdarr.{Content, Settings}
@@ -28,25 +29,22 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       "--mtime"
     ]
 
-    ytdlp_out = "%(title)s.%(ext)s"
-
+    ytdlp_out = "#{channel.base_path}/%(title)s.%(ext)s"
 
 
     # trigger yt-dlp to the target URL and out to the correct output file
-    System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
-
-
-    case Client.download_video(video_url) do
-      {:ok, file_path} ->
-        # Handle successful download (e.g., move file, update DB, etc.)
-        IO.puts("Video downloaded successfully: #{file_path}")
-        :ok
-
-      {:error, reason} ->
-        # Handle download failure
-        IO.puts("Failed to download video: #{reason}")
-        {:error, reason}
+    {output, exit_status} = System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
+    if exit_status != 0 do
+      Logger.warn("yt-dlp failed with status #{exit_status}: #{output}")
+      {:error, :download_failed}
     end
+
+    Logger.info("Video downloaded successfully to #{ytdlp_out}. Updating video details in database")
+    Content.update_video(vid, %{
+      is_downloaded: true,
+      download_path: ytdlp_out
+    })
+    :ok
   end
 
   def generate_output_filename() do
