@@ -19,6 +19,15 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     # Retrieve video details and settings
     video = Content.get_video!(vid)
     channel = Content.get_channel!(cid)
+
+    # Get the current episode count for the year so we can number the episode.
+    # The episode should already have a record in the database, so we need to determine
+    # what the episode number is based on existing records for that channel and year.
+    year = Integer.to_string(video.upload_date.year)
+    episode_number = calculate_episode_number(channel, video.upload_date.year, video)
+
+
+
     #ytdlp_params = retrieve_ytdlp_parameters()
     ytdlp_params = [
       "--embed-chapters",
@@ -29,8 +38,8 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       "--mtime"
     ]
 
-    ytdlp_out = "#{channel.base_path}/%(title)s.%(ext)s"
-
+    #ytdlp_out = "#{channel.name} - S#{video.upload_date.year}E11111 - #{video.title}.mp4"
+    ytdlp_out = "#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
 
     # trigger yt-dlp to the target URL and out to the correct output file
     {output, exit_status} = System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
@@ -47,10 +56,31 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     :ok
   end
 
-  def generate_output_filename() do
+  def calculate_episode_number(%Channel{} = channel, year, %Video{} = video) do
+    previous_count =
+      from(v in Video,
+        where: v.channel_id == ^video.channel_id,
+        where: fragment("strftime('%Y', ?)", v.upload_date) == ^Integer.to_string(year),
+        where:
+          v.uploade_date < ^video.upload_date or
+            (v.upload_date == ^video.upload_date and v.id < ^video.id),
+        select: count(v.id)
+        )
+      |> Ytdarr.Repo.one()
+
+      previous_count + 1
+  end
+
+  def generate_output_filename(channel, video) do
   end
 
   def retrieve_ytdlp_parameters() do
 
+  end
+
+  defp sanitize_filename(name) do
+    name
+    |> String.replace(~r/[\/\\?%*:|"<>]/, "_")
+    |> String.trim()
   end
 end

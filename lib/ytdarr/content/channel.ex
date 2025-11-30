@@ -63,9 +63,9 @@ defmodule Ytdarr.Content.Channel do
         changeset
 
       name ->
+        configured_base_path = Ytdarr.Settings.get_app_media_root_folder!()
         sanitized_name = sanitize_filename(name)
-        base_path = Path.join(["/downloads/channels", sanitized_name])
-        generic_video_path = Path.join([base_path, "videos"])
+        base_path = Path.join([configured_base_path, sanitized_name])
 
         changeset
         |> put_change(:base_path, base_path)

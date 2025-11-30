@@ -10,6 +10,8 @@ defmodule Ytdarr.Content do
 
   require Logger
 
+  import Path
+
   ## Channels
   def list_channels do
     Repo.all(Channel)
@@ -103,9 +105,18 @@ defmodule Ytdarr.Content do
       {:ok, channel} ->
         # flip the is_monitored flag to true and persist
         monitored = Channel.changeset(channel, %{is_monitored: true})
+
         case Repo.insert(monitored) do
           {:ok, chan} ->
+            case File.mkdir_p!(chan.base_path) do
+              {:ok} ->
+                Logger.info("Created channel base path #{chan.base_path}")
+              {:error, reason} ->
+                Logger.error("Failed to create channel base path #{chan.base_path}: #{reason}")
+            end
+
             sync_channel_content(chan.external_id)
+
             {:ok, chan}
           {:error, changeset} -> {:error, changeset}
         end
@@ -255,7 +266,11 @@ defmodule Ytdarr.Content do
   ## Complex operations
 
   @doc """
-  For a given video, queue it for download via Oban.
+  For a given video, queue it for download via Oban. Validate the target directory structure
+  exists, creating as needed. Update the video record with the target
+  download path since it isn't going to change after this point.
+
+  Then...push an Oban job to download the video.
 
   ## Parameters
     - video_id: Internal ID of the video to queue for download
@@ -263,6 +278,27 @@ defmodule Ytdarr.Content do
   def queue_video_download(video_id) do
     vid = Repo.get!(Video, video_id) |> Repo.preload(:channel)
     channel_id = vid.channel.id
+
+    # Work through the directory structure creation flow
+    if !File.exists?(channel.base_path) do
+      case File.mkdir_p!(channel.base_path) do
+        {:ok} -> :ok
+        {:error, reason} ->
+          Logger.error("Failed to create channel base path #{channel.base_path}: #{reason}")
+      end
+    end
+
+    # The channel path exists, so let's do the video-specific path
+    year = video.published_at |> DateTime.to_date() |> Date.to_iso8601() |> String.slice(0, 4)
+    dest_path = Path.join([channel.base_path, "Season" ++ year])
+    if !File.exists?(dest_path) do
+      case File.mkdir_p!(dest_path) do
+        {:ok} -> vid |> Video.changeset(%{download_path: dest_path}) |> Repo.update()
+        {:error, reason} ->
+          Logger.error("Failed to create video destination path #{dest_path}: #{reason}")
+      end
+    end
+
     %Oban.Job{
       worker: Ytdarr.ObanWorkers.VideoDownloader,
       args: %{"video_id" => video_id, "channel_id" => channel_id}
