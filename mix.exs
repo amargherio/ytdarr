@@ -53,7 +53,7 @@ defmodule Ytdarr.MixProject do
       {:ash_sqlite, "~> 0.2"},
       {:ash_phoenix, "~> 2.0"},
       {:ash, "~> 3.0"},
-      {:phoenix, "~> 1.8.1"},
+      {:phoenix, "~> 1.8.3"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
       {:ecto_sqlite3, ">= 0.0.0"},
