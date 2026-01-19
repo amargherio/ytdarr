@@ -1,99 +1,206 @@
 defmodule Ytdarr.Content.Video do
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Ash.Resource,
+    otp_app: :ytdarr,
+    domain: Ytdarr.Content,
+    data_layer: AshSqlite.DataLayer,
+    extensions: [AshAdmin.Resource]
 
-  schema "videos" do
-    field :title, :string
-    # YouTube video id, etc.
-    field :external_id, :string
-    field :url, :string
-    field :description, :string
-    # in seconds
-    field :duration, :integer
-    field :upload_date, :date
-    field :thumbnail_url, :string
+  sqlite do
+    table "videos"
+    repo Ytdarr.Repo
+  end
+
+  admin do
+    table_columns [:id, :title, :external_id, :is_downloaded, :upload_date, :inserted_at]
+  end
+
+  attributes do
+    integer_primary_key :id
+
+    attribute :title, :string do
+      allow_nil? false
+      public? true
+    end
+
+    attribute :external_id, :string do
+      allow_nil? false
+      public? true
+      description "YouTube video id, etc."
+    end
+
+    attribute :url, :string do
+      allow_nil? false
+      public? true
+    end
+
+    attribute :description, :string do
+      public? true
+    end
+
+    attribute :duration, :integer do
+      public? true
+      description "Duration in seconds"
+    end
+
+    attribute :upload_date, :date do
+      public? true
+    end
+
+    attribute :thumbnail_url, :string do
+      public? true
+    end
 
     # Download tracking
-    field :is_downloaded, :boolean, default: false
-    field :downloaded_at, :utc_datetime
-    # "/downloads/channels/channel_name/videos/video_id.mp4"
-    field :download_path, :string
-    # in bytes
-    field :file_size, :integer
-    # e.g., "1080p", "720p"
-    field :download_quality, :string
+    attribute :is_downloaded, :boolean do
+      allow_nil? false
+      default false
+      public? true
+    end
 
-    # discovery tracking
-    # "uploads, playlist:PLAYLIST_ID, search, etc
-    field :discovered_from, :string
-    field :discovered_at, :utc_datetime
-    # position when first discovered in the uploads playlist
-    field :position_in_uploads, :integer
+    attribute :downloaded_at, :utc_datetime do
+      public? true
+    end
 
-    # Relationships
-    belongs_to :channel, Ytdarr.Content.Channel
+    attribute :download_path, :string do
+      public? true
+      description "e.g., /downloads/channels/channel_name/videos/video_id.mp4"
+    end
 
-    many_to_many :playlists, Ytdarr.Content.Playlist,
-      join_through: "playlist_videos",
-      join_keys: [video_id: :id, playlist_id: :id]
+    attribute :file_size, :integer do
+      public? true
+      description "File size in bytes"
+    end
 
-    timestamps()
+    attribute :download_quality, :string do
+      public? true
+      description "e.g., 1080p, 720p"
+    end
+
+    # Discovery tracking
+    attribute :discovered_from, :string do
+      public? true
+      description "uploads, playlist:PLAYLIST_ID, search, etc"
+    end
+
+    attribute :discovered_at, :utc_datetime do
+      public? true
+    end
+
+    attribute :position_in_uploads, :integer do
+      public? true
+      description "Position when first discovered in the uploads playlist"
+    end
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
   end
 
-  @doc false
-  def changeset(video, attrs) do
-    video
-    |> cast(attrs, [
-      :title,
-      :external_id,
-      :url,
-      :description,
-      :duration,
-      :upload_date,
-      :thumbnail_url,
-      :is_downloaded,
-      :downloaded_at,
-      :download_path,
-      :file_size,
-      :download_quality,
-      :channel_id,
-      :discovered_from,
-      :discovered_at,
-      :position_in_uploads
-    ])
-    |> validate_required([:title, :external_id, :url, :channel_id])
-    |> unique_constraint(:external_id)
-    |> assoc_constraint(:channel)
-    |> maybe_set_downloaded_timestamp()
-    |> maybe_set_discovered_fields()
+  relationships do
+    belongs_to :channel, Ytdarr.Content.Channel do
+      attribute_type :integer
+      allow_nil? false
+    end
+
+    many_to_many :playlists, Ytdarr.Content.Playlist do
+      through Ytdarr.Content.PlaylistVideo
+      source_attribute_on_join_resource :video_id
+      destination_attribute_on_join_resource :playlist_id
+    end
   end
 
-  defp maybe_set_downloaded_timestamp(changeset) do
-    case get_change(changeset, :is_downloaded) do
-      true ->
-        put_change(changeset, :downloaded_at, DateTime.utc_now() |> DateTime.truncate(:second))
+  identities do
+    identity :unique_external_id, [:external_id]
+  end
+
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [
+        :title,
+        :external_id,
+        :url,
+        :description,
+        :duration,
+        :upload_date,
+        :thumbnail_url,
+        :is_downloaded,
+        :download_path,
+        :file_size,
+        :download_quality,
+        :discovered_from,
+        :position_in_uploads
+      ]
+
+      argument :channel_id, :integer do
+        allow_nil? false
+      end
+
+      change manage_relationship(:channel_id, :channel, type: :append)
+      change Ytdarr.Content.Video.Changes.SetDiscoveredFields
+    end
+
+    update :update do
+      accept [
+        :title,
+        :description,
+        :duration,
+        :upload_date,
+        :thumbnail_url,
+        :is_downloaded,
+        :download_path,
+        :file_size,
+        :download_quality,
+        :discovered_from,
+        :position_in_uploads
+      ]
+    end
+
+    update :mark_downloaded do
+      accept [:download_path, :file_size, :download_quality]
+
+      change set_attribute(:is_downloaded, true)
+      change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
+    end
+  end
+end
+
+defmodule Ytdarr.Content.Video.Changes.SetDiscoveredFields do
+  @moduledoc "Sets discovered_at and position_in_uploads based on discovered_from"
+  use Ash.Resource.Change
+
+  @impl true
+  def change(changeset, _opts, _context) do
+    discovered_from = Ash.Changeset.get_attribute(changeset, :discovered_from)
+    discovered_at = Ash.Changeset.get_attribute(changeset, :discovered_at)
+    position = Ash.Changeset.get_attribute(changeset, :position_in_uploads)
+
+    changeset =
+      if is_binary(discovered_from) and byte_size(discovered_from) > 0 and is_nil(discovered_at) do
+        Ash.Changeset.force_change_attribute(
+          changeset,
+          :discovered_at,
+          DateTime.utc_now() |> DateTime.truncate(:second)
+        )
+      else
+        changeset
+      end
+
+    # If discovered_from indicates uploads playlist, set position if unset
+    case {discovered_from, position} do
+      {"uploads" <> _rest, nil} ->
+        Ash.Changeset.force_change_attribute(changeset, :position_in_uploads, 0)
 
       _ ->
         changeset
     end
   end
+end
 
-  defp maybe_set_discovered_fields(changeset) do
-    discovered_from? = get_change(changeset, :discovered_from)
+defmodule Ytdarr.Content.Video.Changes do
+  @moduledoc "Helper functions for Video changes"
 
-    changeset =
-      case {discovered_from?, get_field(changeset, :discovered_at)} do
-        {val, nil} when is_binary(val) and byte_size(val) > 0 ->
-          put_change(changeset, :discovered_at, DateTime.utc_now() |> DateTime.truncate(:second))
-
-        _ ->
-          changeset
-      end
-
-    # If discovered_from indicates uploads playlist, attempt to set position if unset
-    case {discovered_from?, get_change(changeset, :position_in_uploads)} do
-      {"uploads" <> _rest, nil} -> put_change(changeset, :position_in_uploads, 0)
-      _ -> changeset
-    end
+  def utc_now_truncated do
+    DateTime.utc_now() |> DateTime.truncate(:second)
   end
 end

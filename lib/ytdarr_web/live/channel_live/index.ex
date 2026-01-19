@@ -74,13 +74,13 @@ defmodule YtdarrWeb.ChannelLive.Index do
     {:ok,
      socket
      |> assign(:page_title, "Listing Channels")
-     |> stream(:channels, Content.list_channels())}
+     |> stream(:channels, Content.list_channels!())}
   end
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     channel = Content.get_channel!(id)
-    {:ok, _} = Content.delete_channel(channel)
+    {:ok, _} = Content.destroy_channel(channel)
 
     {:noreply, stream_delete(socket, :channels, channel)}
   end

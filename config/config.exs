@@ -52,7 +52,7 @@ config :spark,
 config :ytdarr,
   ecto_repos: [Ytdarr.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [Ytdarr.Accounts],
+  ash_domains: [Ytdarr.Accounts, Ytdarr.Content],
   ash_authentication: [return_error_on_invalid_magic_link_token?: true]
 
 # Configures the endpoint

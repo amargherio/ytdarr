@@ -9,9 +9,9 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
 
   use Oban.Worker, queue: :sync_worker
 
-  alias Ytdarr.Services.YouTube.Client
-  alias Ytdarr.Content.{Channel, Playlist, Video}
-  alias Ytdarr.{Content, Settings}
+  alias Ytdarr.Content
+  alias Ytdarr.Content.{Channel, Playlist}
+  alias Ytdarr.Settings
 
   require Logger
 
@@ -31,9 +31,6 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
     end
   end
 
-  @doc """
-  Syncs channel content, creating any new playlists and videos as needed
-  """
   defp sync_channel(%Channel{} = channel) do
     Logger.info("Synchronizing channel: #{channel.name}")
     # Fetch latest videos and update local database
@@ -42,12 +39,11 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
       Content.sync_channel_content(channel.external_id)
 
       # schedule the next check for new content based on user settings
-      interval_minutes = Settings.get_setting(:sync_interval_minutes, 60)
+      interval_minutes = Settings.get_setting_value(:sync_interval_minutes, 60)
 
-      Oban.schedule_in(interval_minutes, __MODULE__, %{
-        source_type: "channel",
-        source_id: channel.id
-      })
+      %{source_type: "channel", source_id: channel.id}
+      |> __MODULE__.new(schedule_in: {interval_minutes, :minutes})
+      |> Oban.insert()
     else
       Logger.info("Channel #{channel.name} is not monitored, skipping full sync")
     end
@@ -55,9 +51,6 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
     :ok
   end
 
-  @doc """
-  Syncs playlists for a channel, creating any new playlists as needed
-  """
   defp sync_playlist(%Playlist{} = playlist) do
     Logger.info(
       "Starting playlist sync task for playlist: #{playlist.name} (ID: #{playlist.external_id})"
@@ -66,18 +59,14 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
     # Fetch latest videos and update local database
     if playlist.is_monitored do
       Logger.info(
-        "Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is monitored, syncing full channel contents"
+        "Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is monitored, syncing"
       )
 
-      Content.sync_playlist_content(playlist.external_id)
-
-      # schedule the next check for new content based on user settings
-      interval_minutes = Settings.get_setting(:sync_interval_minutes, 60)
-
-      # Oban.schedule_in(interval_minutes, __MODULE__, %{source_type: "channel", source_id: channel.id})
+      # TODO: implement Content.sync_playlist_content/1
+      # Content.sync_playlist_content(playlist.external_id)
     else
       Logger.info(
-        "Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is not monitored, skipping full sync"
+        "Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is not monitored, skipping"
       )
     end
 

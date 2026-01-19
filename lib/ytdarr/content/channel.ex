@@ -1,64 +1,214 @@
 defmodule Ytdarr.Content.Channel do
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Ash.Resource,
+    otp_app: :ytdarr,
+    domain: Ytdarr.Content,
+    data_layer: AshSqlite.DataLayer,
+    extensions: [AshAdmin.Resource]
 
-  schema "channels" do
-    field :name, :string
-    # YouTube channel id, etc.
-    field :external_id, :string
-    field :url, :string
-    field :description, :string
-    # e.g., "YouTube", "Twitch"
-    field :platform, :string
-    # e.g., YouTube thumbnail url - as high def as we can get?
-    field :avatar_url, :string
-    # e.g., YouTube banner url
-    field :banner_url, :string
-    field :platform_username, :string
+  sqlite do
+    table "channels"
+    repo Ytdarr.Repo
+  end
 
-    # monitoring status
-    field :is_monitored, :boolean, default: false
-    field :is_monitored_since, :utc_datetime
-    field :last_checked_at, :utc_datetime
+  admin do
+    table_columns [:id, :name, :external_id, :platform, :is_monitored, :inserted_at]
+  end
 
-    # filesystem stuff
-    # "/downloads/channels/channel_name"
-    field :base_path, :string
-    # "/downloads/channels/channel_name/videos"
-    field :generic_video_path, :string
+  attributes do
+    integer_primary_key :id
 
-    # relationships
+    attribute :name, :string do
+      allow_nil? false
+      public? true
+    end
+
+    attribute :external_id, :string do
+      allow_nil? false
+      public? true
+      description "YouTube channel id, etc."
+    end
+
+    attribute :url, :string do
+      allow_nil? false
+      public? true
+    end
+
+    attribute :description, :string do
+      public? true
+    end
+
+    attribute :platform, :string do
+      allow_nil? false
+      public? true
+      default "YouTube"
+      description "e.g., YouTube, Twitch"
+    end
+
+    attribute :avatar_url, :string do
+      public? true
+      description "Platform thumbnail/avatar url"
+    end
+
+    attribute :banner_url, :string do
+      public? true
+      description "Platform banner url"
+    end
+
+    attribute :platform_username, :string do
+      public? true
+    end
+
+    # Monitoring status
+    attribute :is_monitored, :boolean do
+      allow_nil? false
+      default false
+      public? true
+    end
+
+    attribute :is_monitored_since, :utc_datetime do
+      public? true
+    end
+
+    attribute :last_checked_at, :utc_datetime do
+      public? true
+    end
+
+    # Filesystem paths
+    attribute :base_path, :string do
+      public? true
+      description "e.g., /downloads/channels/channel_name"
+    end
+
+    attribute :generic_video_path, :string do
+      public? true
+      description "e.g., /downloads/channels/channel_name/videos"
+    end
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
+  end
+
+  relationships do
     has_many :videos, Ytdarr.Content.Video
     has_many :playlists, Ytdarr.Content.Playlist
-    has_many :playlist_videos, through: [:playlists, :videos]
-
-    timestamps()
   end
 
-  @doc false
-  def changeset(channel, attrs) do
-    channel
-    |> cast(attrs, [
-      :name,
-      :external_id,
-      :url,
-      :description,
-      :platform,
-      :avatar_url,
-      :banner_url,
-      :platform_username,
-      :is_monitored,
-      :last_checked_at
-    ])
-    |> validate_required([:name, :external_id, :url, :platform])
-    |> unique_constraint(:external_id)
-    |> validate_url(:url)
-    |> maybe_set_filesystem_paths()
-    |> maybe_set_monitored_timestamp()
+  identities do
+    identity :unique_external_id, [:external_id]
   end
 
-  defp maybe_set_filesystem_paths(changeset) do
-    case get_change(changeset, :name) do
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [
+        :name,
+        :external_id,
+        :url,
+        :description,
+        :platform,
+        :avatar_url,
+        :banner_url,
+        :platform_username,
+        :is_monitored
+      ]
+
+      change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+    end
+
+    update :update do
+      require_atomic? false
+
+      accept [
+        :name,
+        :external_id,
+        :url,
+        :description,
+        :platform,
+        :avatar_url,
+        :banner_url,
+        :platform_username,
+        :is_monitored,
+        :last_checked_at
+      ]
+
+      change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+    end
+
+    update :monitor do
+      require_atomic? false
+      accept []
+      change set_attribute(:is_monitored, true)
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+      change Ytdarr.Content.Channel.Changes.QueueSync
+    end
+
+    update :unmonitor do
+      require_atomic? false
+      accept []
+      change set_attribute(:is_monitored, false)
+      change set_attribute(:is_monitored_since, nil)
+    end
+
+    update :toggle_monitor do
+      require_atomic? false
+      accept []
+      change Ytdarr.Content.Channel.Changes.ToggleMonitor
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+    end
+
+    update :mark_checked do
+      require_atomic? false
+      accept []
+      change set_attribute(:last_checked_at, &DateTime.utc_now/0)
+    end
+  end
+
+  validations do
+    validate {Ytdarr.Content.Channel.Validations.ValidUrl, attribute: :url}
+  end
+end
+
+defmodule Ytdarr.Content.Channel.Validations.ValidUrl do
+  @moduledoc "Validates that the URL is a valid http or https URL"
+  use Ash.Resource.Validation
+
+  @impl true
+  def init(opts), do: {:ok, opts}
+
+  @impl true
+  def validate(changeset, opts, _context) do
+    url = Ash.Changeset.get_attribute(changeset, opts[:attribute])
+
+    if is_nil(url) do
+      :ok
+    else
+      case URI.parse(url) do
+        %URI{scheme: nil} ->
+          {:error, field: opts[:attribute], message: "must have a scheme (http or https)"}
+
+        %URI{host: nil} ->
+          {:error, field: opts[:attribute], message: "must have a host"}
+
+        %URI{scheme: scheme} when scheme in ["http", "https"] ->
+          :ok
+
+        _ ->
+          {:error, field: opts[:attribute], message: "must be a valid http or https URL"}
+      end
+    end
+  end
+end
+
+defmodule Ytdarr.Content.Channel.Changes.SetFilesystemPaths do
+  @moduledoc "Sets base_path and generic_video_path when name changes"
+  use Ash.Resource.Change
+
+  @impl true
+  def change(changeset, _opts, _context) do
+    case Ash.Changeset.get_attribute(changeset, :name) do
       nil ->
         changeset
 
@@ -68,45 +218,9 @@ defmodule Ytdarr.Content.Channel do
         generic_video_path = Path.join([base_path, "videos"])
 
         changeset
-        |> put_change(:base_path, base_path)
-        # programmatically set; not user-cast
-        |> put_change(:generic_video_path, generic_video_path)
+        |> Ash.Changeset.force_change_attribute(:base_path, base_path)
+        |> Ash.Changeset.force_change_attribute(:generic_video_path, generic_video_path)
     end
-  end
-
-  defp maybe_set_monitored_timestamp(changeset) do
-    case get_change(changeset, :is_monitored) do
-      true ->
-        # only set when transitioning to monitored
-        changeset
-        |> get_field(:is_monitored_since)
-        |> case do
-          nil ->
-            put_change(
-              changeset,
-              :is_monitored_since,
-              DateTime.utc_now() |> DateTime.truncate(:second)
-            )
-
-          _existing ->
-            changeset
-        end
-
-      _ ->
-        changeset
-        |> put_change(:is_monitored_since, nil)
-    end
-  end
-
-  defp validate_url(changeset, field) do
-    validate_change(changeset, field, fn _, url ->
-      case URI.parse(url) do
-        %URI{scheme: nil} -> [{field, "must have a scheme (http or https)"}]
-        %URI{host: nil} -> [{field, "must have a host"}]
-        %URI{scheme: scheme} when scheme in ["http", "https"] -> []
-        _ -> [{field, "must be a valid http or https URL"}]
-      end
-    end)
   end
 
   defp sanitize_filename(name) do
@@ -114,5 +228,75 @@ defmodule Ytdarr.Content.Channel do
     |> String.replace(~r/[^\w\s-]/, "")
     |> String.replace(~r/\s+/, "_")
     |> String.downcase()
+  end
+end
+
+defmodule Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp do
+  @moduledoc "Sets is_monitored_since when transitioning to monitored"
+  use Ash.Resource.Change
+
+  @impl true
+  def change(changeset, _opts, _context) do
+    is_monitored = Ash.Changeset.get_attribute(changeset, :is_monitored)
+    existing_since = Ash.Changeset.get_attribute(changeset, :is_monitored_since)
+
+    cond do
+      is_monitored == true and is_nil(existing_since) ->
+        Ash.Changeset.force_change_attribute(
+          changeset,
+          :is_monitored_since,
+          DateTime.utc_now() |> DateTime.truncate(:second)
+        )
+
+      is_monitored == false ->
+        Ash.Changeset.force_change_attribute(changeset, :is_monitored_since, nil)
+
+      true ->
+        changeset
+    end
+  end
+end
+
+defmodule Ytdarr.Content.Channel.Changes.ToggleMonitor do
+  @moduledoc "Toggles the is_monitored status"
+  use Ash.Resource.Change
+
+  @impl true
+  def change(changeset, _opts, _context) do
+    current = Ash.Changeset.get_attribute(changeset, :is_monitored)
+    new_value = not current
+
+    changeset =
+      Ash.Changeset.force_change_attribute(changeset, :is_monitored, new_value)
+
+    if new_value do
+      Ash.Changeset.after_action(changeset, fn _changeset, result ->
+        Oban.insert(%Oban.Job{
+          worker: Ytdarr.ObanWorkers.SyncWorker,
+          args: %{"source_type" => "channel", "source_id" => result.id}
+        })
+
+        {:ok, result}
+      end)
+    else
+      changeset
+    end
+  end
+end
+
+defmodule Ytdarr.Content.Channel.Changes.QueueSync do
+  @moduledoc "Queues a sync job after the channel is monitored"
+  use Ash.Resource.Change
+
+  @impl true
+  def change(changeset, _opts, _context) do
+    Ash.Changeset.after_action(changeset, fn _changeset, result ->
+      Oban.insert(%Oban.Job{
+        worker: Ytdarr.ObanWorkers.SyncWorker,
+        args: %{"source_type" => "channel", "source_id" => result.id}
+      })
+
+      {:ok, result}
+    end)
   end
 end

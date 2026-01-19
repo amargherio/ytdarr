@@ -59,7 +59,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
     socket
     |> assign(:page_title, "Edit Channel")
     |> assign(:channel, channel)
-    |> assign(:form, to_form(Content.change_channel(channel)))
+    |> assign(:form, Content.form_to_update_channel(channel) |> to_form())
   end
 
   defp apply_action(socket, :new, _params) do
@@ -68,42 +68,42 @@ defmodule YtdarrWeb.ChannelLive.Form do
     socket
     |> assign(:page_title, "New Channel")
     |> assign(:channel, channel)
-    |> assign(:form, to_form(Content.change_channel(channel)))
+    |> assign(:form, Content.form_to_create_channel() |> to_form())
   end
 
   @impl true
-  def handle_event("validate", %{"channel" => channel_params}, socket) do
-    changeset = Content.change_channel(socket.assigns.channel, channel_params)
-    {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
+  def handle_event("validate", %{"form" => params}, socket) do
+    form = AshPhoenix.Form.validate(socket.assigns.form, params)
+    {:noreply, assign(socket, form: form)}
   end
 
-  def handle_event("save", %{"channel" => channel_params}, socket) do
-    save_channel(socket, socket.assigns.live_action, channel_params)
+  def handle_event("save", %{"form" => params}, socket) do
+    save_channel(socket, socket.assigns.live_action, params)
   end
 
-  defp save_channel(socket, :edit, channel_params) do
-    case Content.update_channel(socket.assigns.channel, channel_params) do
+  defp save_channel(socket, :edit, params) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
       {:ok, channel} ->
         {:noreply,
          socket
          |> put_flash(:info, "Channel updated successfully")
          |> push_navigate(to: return_path(socket.assigns.return_to, channel))}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, form: to_form(changeset))}
+      {:error, form} ->
+        {:noreply, assign(socket, form: form)}
     end
   end
 
-  defp save_channel(socket, :new, channel_params) do
-    case Content.create_channel(channel_params) do
+  defp save_channel(socket, :new, params) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
       {:ok, channel} ->
         {:noreply,
          socket
          |> put_flash(:info, "Channel created successfully")
          |> push_navigate(to: return_path(socket.assigns.return_to, channel))}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, form: to_form(changeset))}
+      {:error, form} ->
+        {:noreply, assign(socket, form: form)}
     end
   end
 

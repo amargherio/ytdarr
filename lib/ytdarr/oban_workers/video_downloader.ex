@@ -9,9 +9,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
   use Oban.Worker, queue: :video_downloader
 
-  alias Ytdarr.Services.YouTube.Client
-  alias Ytdarr.Content.{Channel, Playlist, Video}
-  alias Ytdarr.{Content, Settings}
+  alias Ytdarr.Content
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"video_id" => vid, "channel_id" => cid}}) do
@@ -37,17 +35,6 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       0 -> :ok
       _ -> {:error, :download_failed}
     end
-
-    #   case Client.download_video(video_url) do
-    #     {:ok, file_path} ->
-    #       # Handle successful download (e.g., move file, update DB, etc.)
-    #       IO.puts("Video downloaded successfully: #{file_path}")
-    #       :ok
-
-    #     {:error, reason} ->
-    #       # Handle download failure
-    #       IO.puts("Failed to download video: #{reason}")
-    #       {:error, reason}
     #   end
   end
 

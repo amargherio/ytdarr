@@ -2,7 +2,8 @@ defmodule YtdarrWeb.ChannelLive.Add do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Content
-  alias Ytdarr.Repo
+
+  require Ash.Query
 
   @impl true
   def mount(_params, _session, socket) do
@@ -35,8 +36,8 @@ defmodule YtdarrWeb.ChannelLive.Add do
   def handle_event("search", %{"q" => q}, socket) do
     # Cancel previous pending by ignoring its message when ref doesn't match
     ref = make_ref()
-    mode = socket.assigns.mode
-    chan_map = socket.assigns.channels_lookup
+    _mode = socket.assigns.mode
+    _chan_map = socket.assigns.channels_lookup
 
     Task.start(fn ->
       results = mock_channel_search(q)
@@ -73,7 +74,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
       MapSet.member?(socket.assigns.monitored_channel_ids, external_id) ->
         {:noreply, put_flash(socket, :info, "Channel already monitored")}
 
-      Content.get_channel_by_external_id(external_id) ->
+      match?({:ok, %Content.Channel{}}, Content.get_channel_by_external_id(external_id)) ->
         {:noreply,
          socket
          |> update(:monitored_channel_ids, &MapSet.put(&1, external_id))
@@ -91,11 +92,11 @@ defmodule YtdarrWeb.ChannelLive.Add do
              |> put_flash(:info, "Channel added")
              |> push_navigate(to: ~p"/channels/#{channel}")}
 
-          {:error, changeset} ->
+          {:error, error} ->
             {:noreply,
              socket
              |> update(:adding_ids, &MapSet.delete(&1, id))
-             |> put_flash(:error, friendly_errors(changeset))}
+             |> put_flash(:error, friendly_errors(error))}
         end
     end
   end
@@ -303,31 +304,33 @@ defmodule YtdarrWeb.ChannelLive.Add do
   end
 
   defp preload_channels_map do
-    Content.list_monitored_channels()
-    |> Repo.preload([])
+    Content.list_channels!(query: [filter: [is_monitored: true]])
     |> Map.new(fn ch -> {ch.id, ch} end)
   end
 
   defp monitored_channel_ids do
-    Content.list_monitored_channels() |> Enum.map(& &1.external_id) |> MapSet.new()
+    Content.list_channels!(query: [filter: [is_monitored: true]])
+    |> Enum.map(& &1.external_id)
+    |> MapSet.new()
   end
 
   defp monitored_playlist_ids do
-    Content.list_playlists() |> Enum.map(& &1.external_id) |> MapSet.new()
+    Content.list_playlists!() |> Enum.map(& &1.external_id) |> MapSet.new()
   end
 
   defp channel_monitored_and_includes_playlist?(channel_id, _playlist_external_id) do
-    case Content.get_channel!(channel_id) do
-      %{is_monitored: true} -> true
+    case Content.get_channel(channel_id) do
+      {:ok, %{is_monitored: true}} -> true
       _ -> false
     end
-  rescue
-    _ -> false
   end
 
-  defp friendly_errors(%Ecto.Changeset{errors: errors}) do
-    errors
-    |> Enum.map(fn {f, {m, _}} -> "#{Phoenix.Naming.humanize(f)} #{m}" end)
+  defp friendly_errors(%Ash.Error.Invalid{} = error) do
+    error.errors
+    |> Enum.map(fn err -> err.message || "Validation error" end)
     |> Enum.join(", ")
   end
+
+  defp friendly_errors(error) when is_binary(error), do: error
+  defp friendly_errors(_error), do: "An error occurred"
 end

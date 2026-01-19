@@ -52,7 +52,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
           </div>
         </:actions>
       </.hero_header>
-      
+
     <!-- channel metadata -->
       <div class="flex flex-wrap justify-start gap-4">
         <div class="bg-slate-300 p-2 rounded">
@@ -161,46 +161,54 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    playlists =
-      id
-      |> Content.list_playlists_for_channel()
-      |> Enum.map(fn playlist -> Content.get_playlist_with_videos(playlist.id) end)
+    require Ash.Query
 
-    videos = Content.list_videos_for_channel(id)
-    channel = Content.get_channel!(id)
+    channel = Content.get_channel!(id, load: [:playlists, :videos])
+
+    # Load videos for each playlist
+    playlists =
+      Enum.map(channel.playlists, fn playlist ->
+        Content.get_playlist!(playlist.id, load: [:videos])
+      end)
 
     {:ok,
      socket
      |> assign(:page_title, channel.name)
      |> assign(:channel, channel)
      |> assign(:playlists, playlists)
-     |> assign(:videos, videos)}
+     |> assign(:videos, channel.videos)}
   end
 
   @impl true
   def handle_event("toggle-monitor", %{"id" => id, "type" => type}, socket) do
     case type do
       "channel" ->
-        case Content.toggle_channel_monitor_status(id) do
-          {:ok, channel} ->
+        channel = Content.get_channel!(id)
+
+        case Content.toggle_channel_monitor(channel) do
+          {:ok, updated_channel} ->
             {:noreply,
              socket
-             |> assign(:channel, channel)
+             |> assign(:channel, updated_channel)
              |> put_flash(:info, "Channel status updated.")}
 
-          _ ->
+          {:error, _} ->
             {:noreply,
              socket
              |> put_flash(:error, "Failed to update channel status.")}
         end
 
       "playlist" ->
-        case Content.toggle_playlist_monitor_status(id) do
-          {:ok, playlist} ->
-            # Update the specific playlist in the list
+        playlist = Content.get_playlist!(id)
+
+        case Content.toggle_playlist_monitor(playlist) do
+          {:ok, updated_playlist} ->
+            # Update the specific playlist in the list - need to reload with videos
+            updated_playlist_with_videos = Content.get_playlist!(updated_playlist.id, load: [:videos])
+
             updated_playlists =
               Enum.map(socket.assigns.playlists, fn p ->
-                if p.id == playlist.id, do: playlist, else: p
+                if p.id == updated_playlist.id, do: updated_playlist_with_videos, else: p
               end)
 
             {:noreply,
@@ -208,7 +216,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
              |> assign(:playlists, updated_playlists)
              |> put_flash(:info, "Playlist status updated.")}
 
-          _ ->
+          {:error, _} ->
             {:noreply,
              socket
              |> put_flash(:error, "Failed to update playlist status.")}

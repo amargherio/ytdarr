@@ -2,7 +2,8 @@ defmodule YtdarrWeb.DashboardLive.Index do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Content
-  alias Ytdarr.Repo
+
+  require Ash.Query
 
   @page_size 25
 
@@ -10,7 +11,7 @@ defmodule YtdarrWeb.DashboardLive.Index do
   def mount(_params, _session, socket) do
     if connected?(socket), do: :ok
 
-    full_list = Content.list_monitored_channels() |> Repo.preload(:videos)
+    full_list = list_monitored_channels_with_videos()
     first_slice = Enum.take(full_list, @page_size)
 
     {:ok,
@@ -31,13 +32,7 @@ defmodule YtdarrWeb.DashboardLive.Index do
 
   @impl true
   def handle_event("search", %{"q" => q}, socket) do
-    # Fetch all matching channels (case-insensitive) then filter to monitored ones
-    full_list =
-      q
-      |> Content.list_channels_search()
-      |> Enum.filter(& &1.is_monitored)
-      |> Repo.preload(:videos)
-
+    full_list = search_monitored_channels_with_videos(q)
     first_slice = Enum.take(full_list, @page_size)
 
     {:noreply,
@@ -136,4 +131,26 @@ defmodule YtdarrWeb.DashboardLive.Index do
   defp format_datetime(nil), do: "—"
   defp format_datetime(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
   defp format_datetime(_), do: "—"
+
+  defp list_monitored_channels_with_videos do
+    Content.list_channels!(
+      query: [filter: [is_monitored: true], sort: [name: :asc]],
+      load: [:videos]
+    )
+  end
+
+  defp search_monitored_channels_with_videos(query) when query in [nil, ""] do
+    list_monitored_channels_with_videos()
+  end
+
+  defp search_monitored_channels_with_videos(query) do
+    like = "%#{query}%"
+
+    Content.Channel
+    |> Ash.Query.filter(is_monitored == true)
+    |> Ash.Query.filter(contains(name, ^like) or contains(external_id, ^like))
+    |> Ash.Query.sort(name: :asc)
+    |> Ash.Query.load([:videos])
+    |> Ash.read!()
+  end
 end
