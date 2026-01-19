@@ -9,10 +9,10 @@ defmodule Ytdarr.Repo.Migrations.InitializeAndAddAuthenticationResourcesAndAddPa
 
   def up do
     create table(:users, primary_key: false) do
-      add :confirmed_at, :utc_datetime_usec
-      add :hashed_password, :text
-      add :email, :citext, null: false
       add :id, :uuid, null: false, primary_key: true
+      add :email, :text, null: false
+      add :hashed_password, :text
+      add :confirmed_at, :utc_datetime_usec
     end
 
     create unique_index(:users, [:email], name: "users_unique_email_index")

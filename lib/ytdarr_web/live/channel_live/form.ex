@@ -73,7 +73,11 @@ defmodule YtdarrWeb.ChannelLive.Form do
 
   @impl true
   def handle_event("validate", %{"form" => params}, socket) do
-    form = AshPhoenix.Form.validate(socket.assigns.form, params)
+    form =
+      socket.assigns.form.source
+      |> AshPhoenix.Form.validate(params)
+      |> to_form()
+
     {:noreply, assign(socket, form: form)}
   end
 
@@ -82,7 +86,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
   end
 
   defp save_channel(socket, :edit, params) do
-    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
+    case AshPhoenix.Form.submit(socket.assigns.form.source, params: params) do
       {:ok, channel} ->
         {:noreply,
          socket
@@ -90,12 +94,12 @@ defmodule YtdarrWeb.ChannelLive.Form do
          |> push_navigate(to: return_path(socket.assigns.return_to, channel))}
 
       {:error, form} ->
-        {:noreply, assign(socket, form: form)}
+        {:noreply, assign(socket, form: to_form(form))}
     end
   end
 
   defp save_channel(socket, :new, params) do
-    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
+    case AshPhoenix.Form.submit(socket.assigns.form.source, params: params) do
       {:ok, channel} ->
         {:noreply,
          socket
@@ -103,7 +107,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
          |> push_navigate(to: return_path(socket.assigns.return_to, channel))}
 
       {:error, form} ->
-        {:noreply, assign(socket, form: form)}
+        {:noreply, assign(socket, form: to_form(form))}
     end
   end
 

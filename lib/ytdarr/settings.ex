@@ -1,51 +1,100 @@
 defmodule Ytdarr.Settings do
   @moduledoc """
-  Central settings context for application configuration (DB-backed).
-  Provides CRUD for settings-related entities and an aggregated effective_config/0 for runtime use.
+  Domain for application settings configuration.
+  Provides Ash resources for managing settings, media folders, quality profiles, and yt-dlp parameters.
   """
-  import Ecto.Query
-  alias Ytdarr.Repo
+  use Ash.Domain,
+    otp_app: :ytdarr,
+    extensions: [AshAdmin.Domain]
+
   alias __MODULE__.{AppSetting, MediaRootFolder, QualityProfile, YtDlpParamSet}
-  alias Ecto.Changeset
 
-  # -----------------
-  # Generic App Settings (key/value with typed value wrapper)
-  # -----------------
-  def list_app_settings, do: Repo.all(from s in AppSetting, order_by: s.key)
-
-  def get_app_setting(key) when is_binary(key) do
-    Repo.get_by(AppSetting, key: key)
+  admin do
+    show? true
   end
 
-  def get_setting_value(key, default \\ nil) do
-    env_override(key) ||
-      case get_app_setting(key) do
-        nil -> default
-        %AppSetting{value: value} -> unwrap_value(value)
-      end
-  end
+  resources do
+    resource AppSetting do
+      define :list_app_settings, action: :read
+      define :get_app_setting_by_key, action: :by_key, args: [:key]
+      define :create_app_setting, action: :create
+      define :update_app_setting, action: :update
+      define :upsert_app_setting, action: :upsert
+      define :destroy_app_setting, action: :destroy
+    end
 
-  # note: default type derived from provided value when not explicitly passed
-  def put_setting(key, value, type \\ nil) when is_binary(key) do
-    type = type || infer_type(value)
-    attrs = %{key: key, value: wrap_value(value), type: type}
+    resource MediaRootFolder do
+      define :list_media_root_folders, action: :read
+      define :list_active_media_folders, action: :active_folders
+      define :get_media_root_folder, action: :read, get_by: [:id]
+      define :create_media_root_folder, action: :create
+      define :update_media_root_folder, action: :update
+      define :activate_media_root_folder, action: :activate
+      define :deactivate_media_root_folder, action: :deactivate
+      define :destroy_media_root_folder, action: :destroy
+    end
 
-    case get_app_setting(key) do
-      nil -> %AppSetting{} |> AppSetting.changeset(attrs) |> Repo.insert()
-      setting -> setting |> AppSetting.changeset(attrs) |> Repo.update()
+    resource QualityProfile do
+      define :list_quality_profiles, action: :read
+      define :get_quality_profile, action: :read, get_by: [:id]
+      define :get_default_quality_profile, action: :default_profile
+      define :create_quality_profile, action: :create
+      define :update_quality_profile, action: :update
+      define :set_default_quality_profile, action: :set_as_default
+      define :destroy_quality_profile, action: :destroy
+    end
+
+    resource YtDlpParamSet do
+      define :list_yt_dlp_param_sets, action: :read
+      define :get_yt_dlp_param_set, action: :read, get_by: [:id]
+      define :get_default_yt_dlp_param_set, action: :default_param_set
+      define :create_yt_dlp_param_set, action: :create
+      define :update_yt_dlp_param_set, action: :update
+      define :set_default_yt_dlp_param_set, action: :set_as_default
+      define :destroy_yt_dlp_param_set, action: :destroy
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Convenience functions for key/value settings
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Get a setting value by key with an optional default.
+  Checks environment overrides first, then the database.
+  """
+  def get_setting_value(key, default \\ nil) do
+    env_override(key) ||
+      case get_app_setting_by_key(key) do
+        {:ok, nil} -> default
+        {:ok, %AppSetting{value: value}} -> unwrap_value(value)
+        {:error, _} -> default
+      end
+  end
+
+  @doc """
+  Put a setting value (creates or updates).
+  """
+  def put_setting(key, value, type \\ nil) when is_binary(key) do
+    type = type || infer_type(value)
+    attrs = %{key: key, value: wrap_value(value), type: type}
+    upsert_app_setting(attrs)
+  end
+
+  @doc """
+  Delete a setting by key.
+  """
   def delete_setting(key) when is_binary(key) do
-    with %AppSetting{} = setting <- get_app_setting(key) do
-      Repo.delete(setting)
-    else
-      _ -> {:error, :not_found}
+    case get_app_setting_by_key(key) do
+      {:ok, nil} -> {:error, :not_found}
+      {:ok, setting} -> destroy_app_setting(setting)
+      error -> error
     end
   end
 
   defp wrap_value(v) when is_map(v), do: v
   defp wrap_value(v), do: %{"v" => v}
+
   defp unwrap_value(%{"v" => v}), do: v
   defp unwrap_value(v), do: v
 
@@ -58,150 +107,20 @@ defmodule Ytdarr.Settings do
   defp env_override("youtube.primary_api_key"), do: System.get_env("YTDARR_YOUTUBE_API_KEY")
   defp env_override(_), do: nil
 
-  # -----------------
-  # Media Root Folders
-  # -----------------
-  def list_media_root_folders, do: Repo.all(from f in MediaRootFolder, order_by: f.path)
-  def get_media_root_folder!(id), do: Repo.get!(MediaRootFolder, id)
-
-  def create_media_root_folder(attrs) do
-    %MediaRootFolder{} |> MediaRootFolder.changeset(attrs) |> Repo.insert()
-  end
-
-  def change_media_root_folder(%MediaRootFolder{} = folder, attrs \\ %{}) do
-    MediaRootFolder.changeset(folder, attrs)
-  end
-
-  def delete_media_root_folder(id) do
-    case Repo.get(MediaRootFolder, id) do
-      nil -> {:error, :not_found}
-      folder -> Repo.delete(folder)
-    end
-  end
-
-  # -----------------
-  # Quality Profiles
-  # -----------------
-  def list_quality_profiles do
-    Repo.all(from p in QualityProfile, order_by: p.name)
-  end
-
-  def get_quality_profile!(id), do: Repo.get!(QualityProfile, id)
-
-  def create_quality_profile(attrs) do
-    Repo.transaction(fn ->
-      with {:ok, profile} <-
-             %QualityProfile{} |> QualityProfile.changeset(attrs) |> Repo.insert(),
-           :ok <- maybe_clear_other_profile_defaults(profile) do
-        profile
-      else
-        {:error, cs} -> Repo.rollback(cs)
-      end
-    end)
-  end
-
-  def update_quality_profile(%QualityProfile{} = profile, attrs) do
-    Repo.transaction(fn ->
-      with {:ok, profile} <- profile |> QualityProfile.changeset(attrs) |> Repo.update(),
-           :ok <- maybe_clear_other_profile_defaults(profile) do
-        profile
-      else
-        {:error, cs} -> Repo.rollback(cs)
-      end
-    end)
-  end
-
-  def change_quality_profile(%QualityProfile{} = profile, attrs \\ %{}) do
-    QualityProfile.changeset(profile, attrs)
-  end
-
-  def delete_quality_profile(id) do
-    case Repo.get(QualityProfile, id) do
-      nil -> {:error, :not_found}
-      profile -> Repo.delete(profile)
-    end
-  end
-
-  defp maybe_clear_other_profile_defaults(%QualityProfile{is_default: true, id: id}) do
-    Repo.update_all(from(p in QualityProfile, where: p.id != ^id and p.is_default),
-      set: [is_default: false]
-    )
-
-    :ok
-  end
-
-  defp maybe_clear_other_profile_defaults(_), do: :ok
-
-  def get_default_profile do
-    Repo.one(from p in QualityProfile, where: p.is_default, limit: 1)
-  end
-
-  # -----------------
-  # yt-dlp Param Sets
-  # -----------------
-  def list_yt_dlp_param_sets do
-    Repo.all(from s in YtDlpParamSet, order_by: s.name)
-  end
-
-  def get_yt_dlp_param_set!(id), do: Repo.get!(YtDlpParamSet, id)
-
-  def create_yt_dlp_param_set(attrs) do
-    Repo.transaction(fn ->
-      with {:ok, set} <- %YtDlpParamSet{} |> YtDlpParamSet.changeset(attrs) |> Repo.insert(),
-           :ok <- maybe_clear_other_param_set_defaults(set) do
-        set
-      else
-        {:error, cs} -> Repo.rollback(cs)
-      end
-    end)
-  end
-
-  def update_yt_dlp_param_set(%YtDlpParamSet{} = set, attrs) do
-    Repo.transaction(fn ->
-      with {:ok, set} <- set |> YtDlpParamSet.changeset(attrs) |> Repo.update(),
-           :ok <- maybe_clear_other_param_set_defaults(set) do
-        set
-      else
-        {:error, cs} -> Repo.rollback(cs)
-      end
-    end)
-  end
-
-  def change_yt_dlp_param_set(%YtDlpParamSet{} = set, attrs \\ %{}) do
-    YtDlpParamSet.changeset(set, attrs)
-  end
-
-  def delete_yt_dlp_param_set(id) do
-    case Repo.get(YtDlpParamSet, id) do
-      nil -> {:error, :not_found}
-      set -> Repo.delete(set)
-    end
-  end
-
-  def get_default_param_set do
-    Repo.one(from s in YtDlpParamSet, where: s.is_default, limit: 1)
-  end
-
-  defp maybe_clear_other_param_set_defaults(%YtDlpParamSet{is_default: true, id: id}) do
-    Repo.update_all(from(s in YtDlpParamSet, where: s.id != ^id and s.is_default),
-      set: [is_default: false]
-    )
-
-    :ok
-  end
-
-  defp maybe_clear_other_param_set_defaults(_), do: :ok
-
-  # -----------------
+  # ---------------------------------------------------------------------------
   # Aggregation: effective_config
-  # -----------------
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns the effective runtime configuration aggregated from all settings.
+  """
   def effective_config do
     media = %{
       file_naming_template:
         get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
       move_strategy: get_setting_value("media.move_strategy", "hardlink"),
       clean_orphans: get_setting_value("media.clean_orphans", true),
-      root_folders: list_media_root_folders()
+      root_folders: list_media_root_folders!()
     }
 
     youtube = %{
@@ -209,8 +128,8 @@ defmodule Ytdarr.Settings do
       region: get_setting_value("youtube.region", "US")
     }
 
-    profiles = list_quality_profiles()
-    param_sets = list_yt_dlp_param_sets()
+    profiles = list_quality_profiles!()
+    param_sets = list_yt_dlp_param_sets!()
 
     downloader = %{
       default_param_set:
@@ -231,48 +150,5 @@ defmodule Ytdarr.Settings do
       nil -> param_sets |> List.first() |> then(&(&1 && &1.name)) || "Default"
       set -> set.name
     end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Virtual form changesets (for settings stored as key/value pairs)
-  # ---------------------------------------------------------------------------
-  def media_settings_changeset(attrs \\ %{}) do
-    types = %{
-      file_naming_template: :string,
-      move_strategy: :string,
-      clean_orphans: :boolean
-    }
-
-    data = %{
-      file_naming_template:
-        get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
-      move_strategy: get_setting_value("media.move_strategy", "hardlink"),
-      clean_orphans: get_setting_value("media.clean_orphans", true)
-    }
-
-    {data, types}
-    |> Changeset.cast(attrs, Map.keys(types))
-    |> Changeset.validate_required([:file_naming_template, :move_strategy])
-    |> Changeset.validate_inclusion(:move_strategy, ["copy", "move", "hardlink"])
-  end
-
-  def youtube_settings_changeset(attrs \\ %{}) do
-    types = %{
-      api_key: :string,
-      region: :string
-    }
-
-    data = %{
-      api_key: get_setting_value("youtube.primary_api_key"),
-      region: get_setting_value("youtube.region", "US")
-    }
-
-    {data, types}
-    |> Changeset.cast(attrs, Map.keys(types))
-    |> Changeset.validate_required([:region])
-    |> Changeset.update_change(:api_key, fn
-      "" -> nil
-      v -> v
-    end)
   end
 end

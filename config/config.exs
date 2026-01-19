@@ -7,6 +7,12 @@
 # General application configuration
 import Config
 
+config :ytdarr, Oban,
+  engine: Oban.Engines.Lite,
+  notifier: Oban.Notifiers.PG,
+  queues: [default: 10],
+  repo: Ytdarr.Repo
+
 config :ash,
   allow_forbidden_field_for_relationships_by_default?: true,
   include_embedded_source_by_default?: false,
@@ -52,7 +58,7 @@ config :spark,
 config :ytdarr,
   ecto_repos: [Ytdarr.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [Ytdarr.Accounts, Ytdarr.Content],
+  ash_domains: [Ytdarr.Accounts, Ytdarr.Content, Ytdarr.Settings],
   ash_authentication: [return_error_on_invalid_magic_link_token?: true]
 
 # Configures the endpoint

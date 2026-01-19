@@ -41,6 +41,11 @@ defmodule Ytdarr.Content.PlaylistVideo do
   end
 
   actions do
-    defaults [:read, :destroy, create: :*, update: :*]
+    defaults [:read, :destroy, update: :*]
+
+    create :create do
+      primary? true
+      accept [:position, :playlist_id, :video_id]
+    end
   end
 end

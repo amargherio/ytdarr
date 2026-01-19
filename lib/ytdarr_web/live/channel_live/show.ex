@@ -3,6 +3,8 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
   alias Ytdarr.Content
 
+  require Logger
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -135,10 +137,9 @@ defmodule YtdarrWeb.ChannelLive.Show do
               <%= if video.is_downloaded do %>
                 <.button
                   title="Delete downloaded video"
-                  s
                   phx-click="delete-video"
                   phx-value-id={video.id}
-                  class={["btn-sm"]}
+                  class="btn-sm"
                 >
                   <.icon name="hero-trash" />
                 </.button>
@@ -146,7 +147,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
                 <.button
                   phx-click="queue-download"
                   phx-value-id={video.id}
-                  class={["btn-sm"]}
+                  class="btn-sm"
                 >
                   <.icon name="hero-arrow-down-tray" />
                 </.button>
@@ -228,13 +229,47 @@ defmodule YtdarrWeb.ChannelLive.Show do
   end
 
   @impl true
-  def handle_event("queue-download", _params, socket) do
-    {:noreply, socket}
+  def handle_event("queue-download", %{"id" => video_id}, socket) do
+    # TODO: Implement video download queueing via Oban
+    Logger.info("Queue download for video #{video_id}")
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Video queued for download.")}
   end
 
   @impl true
-  def handle_event("delete-video", _params, socket) do
-    {:noreply, socket}
+  def handle_event("delete-video", %{"id" => video_id}, socket) do
+    # TODO: Implement video file deletion
+    Logger.info("Delete video #{video_id}")
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Video deletion not yet implemented.")}
+  end
+
+  @impl true
+  def handle_event("delete-channel-files", %{"id" => _channel_id}, socket) do
+    # TODO: Implement channel file deletion
+    {:noreply,
+     socket
+     |> put_flash(:info, "Channel file deletion not yet implemented.")}
+  end
+
+  @impl true
+  def handle_event("delete-playlist-files", %{"id" => _playlist_id}, socket) do
+    # TODO: Implement playlist file deletion
+    {:noreply,
+     socket
+     |> put_flash(:info, "Playlist file deletion not yet implemented.")}
+  end
+
+  @impl true
+  def handle_event("delete-video-files", _params, socket) do
+    # TODO: Implement all video files deletion
+    {:noreply,
+     socket
+     |> put_flash(:info, "Video file deletion not yet implemented.")}
   end
 
   @impl true

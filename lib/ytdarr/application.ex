@@ -7,6 +7,9 @@ defmodule Ytdarr.Application do
 
   @impl true
   def start(_type, _args) do
+    # Attach Oban telemetry logger (this is not a child spec, just setup)
+    :ok = Oban.Telemetry.attach_default_logger()
+
     children = [
       YtdarrWeb.Telemetry,
       Ytdarr.Repo,
@@ -21,7 +24,6 @@ defmodule Ytdarr.Application do
       Ytdarr.Services.YouTube.ClientSupervisor,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:ytdarr, Oban)},
-      Oban.Telemetry.attach_default_logger(),
       # Start a worker by calling: Ytdarr.Worker.start_link(arg)
       # {Ytdarr.Worker, arg},
       # Start to serve requests, typically the last entry

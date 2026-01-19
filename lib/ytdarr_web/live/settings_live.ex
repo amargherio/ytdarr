@@ -2,7 +2,6 @@ defmodule YtdarrWeb.SettingsLive do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Settings
-  # alias Ytdarr.Settings.{QualityProfile, YtDlpParamSet, MediaRootFolder}
 
   # -----------------
   # Mount / Params
@@ -31,32 +30,43 @@ defmodule YtdarrWeb.SettingsLive do
   defp load_data(socket) do
     cfg = Settings.effective_config()
 
-    media_changeset = Settings.media_settings_changeset()
-    media_form = to_form(media_changeset, as: :media)
+    # Media form using simple map data
+    media_data = %{
+      "file_naming_template" => Settings.get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
+      "move_strategy" => Settings.get_setting_value("media.move_strategy", "hardlink"),
+      "clean_orphans" => Settings.get_setting_value("media.clean_orphans", true)
+    }
+    media_form = to_form(media_data, as: :media)
 
-    youtube_changeset = Settings.youtube_settings_changeset()
+    # YouTube form
+    youtube_data = %{
+      "api_key" => mask_api_key(Settings.get_setting_value("youtube.primary_api_key")),
+      "region" => Settings.get_setting_value("youtube.region", "US")
+    }
+    youtube_form = to_form(youtube_data, as: :youtube)
 
-    youtube_form =
-      youtube_changeset
-      |> Map.update!(:changes, fn ch ->
-        Map.put(ch, :api_key, mask_api_key(youtube_changeset.data.api_key))
-      end)
-      |> to_form(as: :youtube)
-
+    # Ash forms for resources
     profile_form =
-      %Settings.QualityProfile{}
-      |> Settings.change_quality_profile(%{allow_hdr: true})
-      |> to_form(as: :profile)
+      AshPhoenix.Form.for_create(Settings.QualityProfile, :create,
+        domain: Settings,
+        as: "profile"
+      )
+      |> AshPhoenix.Form.validate(%{"allow_hdr" => true})
+      |> to_form()
 
     param_set_form =
-      %Settings.YtDlpParamSet{}
-      |> Settings.change_yt_dlp_param_set(%{})
-      |> to_form(as: :param_set)
+      AshPhoenix.Form.for_create(Settings.YtDlpParamSet, :create,
+        domain: Settings,
+        as: "param_set"
+      )
+      |> to_form()
 
     root_folder_form =
-      %Settings.MediaRootFolder{}
-      |> Settings.change_media_root_folder(%{})
-      |> to_form(as: :root_folder)
+      AshPhoenix.Form.for_create(Settings.MediaRootFolder, :create,
+        domain: Settings,
+        as: "root_folder"
+      )
+      |> to_form()
 
     socket
     |> assign(:media_form, media_form)
@@ -77,45 +87,44 @@ defmodule YtdarrWeb.SettingsLive do
   # Events (grouped)
   # -----------------
   def handle_event("save-media", %{"media" => params}, socket) do
-    changeset = Settings.media_settings_changeset(params)
-
-    if changeset.valid? do
-      Settings.put_setting("media.file_naming_template", params["file_naming_template"])
-      |> ok_ignore()
-
-      Settings.put_setting("media.move_strategy", params["move_strategy"]) |> ok_ignore()
-      Settings.put_setting("media.clean_orphans", truthy?(params["clean_orphans"])) |> ok_ignore()
-      {:noreply, socket |> put_flash(:info, "Media settings saved") |> load_data()}
+    # Simple validation
+    if params["file_naming_template"] in [nil, ""] or params["move_strategy"] in [nil, ""] do
+      {:noreply, put_flash(socket, :error, "File naming template and move strategy are required")}
     else
-      {:noreply, assign(socket, :media_form, to_form(changeset, as: :media))}
+      Settings.put_setting("media.file_naming_template", params["file_naming_template"])
+      Settings.put_setting("media.move_strategy", params["move_strategy"])
+      Settings.put_setting("media.clean_orphans", truthy?(params["clean_orphans"]))
+      {:noreply, socket |> put_flash(:info, "Media settings saved") |> load_data()}
     end
   end
 
   def handle_event("add-root-folder", %{"root_folder" => params}, socket) do
     case Settings.create_media_root_folder(params) do
       {:ok, _} -> {:noreply, socket |> put_flash(:info, "Root folder added") |> load_data()}
-      {:error, cs} -> {:noreply, assign(socket, :root_folder_form, to_form(cs, as: :root_folder))}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to add root folder")}
     end
   end
 
   def handle_event("delete-root-folder", %{"id" => id}, socket) do
-    Settings.delete_media_root_folder(id) |> ok_ignore()
-    {:noreply, socket |> put_flash(:info, "Root folder removed") |> load_data()}
+    case Settings.get_media_root_folder(id) do
+      {:ok, folder} when not is_nil(folder) ->
+        Settings.destroy_media_root_folder(folder)
+        {:noreply, socket |> put_flash(:info, "Root folder removed") |> load_data()}
+      _ ->
+        {:noreply, put_flash(socket, :error, "Root folder not found")}
+    end
   end
 
   def handle_event("save-youtube", %{"youtube" => params}, socket) do
     masked = params["api_key"]
     real_api_key = if masked == "********", do: nil, else: masked
 
-    changeset =
-      Settings.youtube_settings_changeset(%{api_key: real_api_key, region: params["region"]})
-
-    if changeset.valid? do
-      maybe_set_api_key(params["api_key"]) |> ok_ignore()
-      Settings.put_setting("youtube.region", params["region"]) |> ok_ignore()
-      {:noreply, socket |> put_flash(:info, "YouTube settings saved") |> load_data()}
+    if params["region"] in [nil, ""] do
+      {:noreply, put_flash(socket, :error, "Region is required")}
     else
-      {:noreply, assign(socket, :youtube_form, to_form(changeset, as: :youtube))}
+      maybe_set_api_key(real_api_key)
+      Settings.put_setting("youtube.region", params["region"])
+      {:noreply, socket |> put_flash(:info, "YouTube settings saved") |> load_data()}
     end
   end
 
@@ -124,36 +133,45 @@ defmodule YtdarrWeb.SettingsLive do
 
     case Settings.create_quality_profile(attrs) do
       {:ok, _} -> {:noreply, socket |> put_flash(:info, "Profile created") |> load_data()}
-      {:error, cs} -> {:noreply, assign(socket, :profile_form, to_form(cs, as: :profile))}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to create profile")}
     end
   end
 
   def handle_event("delete-profile", %{"id" => id}, socket) do
-    Settings.delete_quality_profile(id) |> ok_ignore()
-    {:noreply, socket |> put_flash(:info, "Profile deleted") |> load_data()}
+    case Settings.get_quality_profile(id) do
+      {:ok, profile} when not is_nil(profile) ->
+        Settings.destroy_quality_profile(profile)
+        {:noreply, socket |> put_flash(:info, "Profile deleted") |> load_data()}
+      _ ->
+        {:noreply, put_flash(socket, :error, "Profile not found")}
+    end
   end
 
   def handle_event("create-param-set", %{"param_set" => params}, socket) do
     case Settings.create_yt_dlp_param_set(params) do
       {:ok, _} -> {:noreply, socket |> put_flash(:info, "Param set created") |> load_data()}
-      {:error, cs} -> {:noreply, assign(socket, :param_set_form, to_form(cs, as: :param_set))}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to create param set")}
     end
   end
 
   def handle_event("delete-param-set", %{"id" => id}, socket) do
-    Settings.delete_yt_dlp_param_set(id) |> ok_ignore()
-    {:noreply, socket |> put_flash(:info, "Param set deleted") |> load_data()}
+    case Settings.get_yt_dlp_param_set(id) do
+      {:ok, param_set} when not is_nil(param_set) ->
+        Settings.destroy_yt_dlp_param_set(param_set)
+        {:noreply, socket |> put_flash(:info, "Param set deleted") |> load_data()}
+      _ ->
+        {:noreply, put_flash(socket, :error, "Param set not found")}
+    end
   end
 
+  defp maybe_set_api_key(nil), do: {:ok, :noop}
   defp maybe_set_api_key(""), do: {:ok, :noop}
-  defp maybe_set_api_key("********"), do: {:ok, :masked}
   defp maybe_set_api_key(value), do: Settings.put_setting("youtube.primary_api_key", value)
 
   # -----------------
   # Helpers
   # -----------------
   defp truthy?(v), do: v in [true, "true", "on", "1", 1]
-  defp ok_ignore(res), do: res
 
   defp normalize_profile_params(params) do
     preferred_codecs =
