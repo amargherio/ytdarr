@@ -25,7 +25,8 @@ defmodule Ytdarr.Application do
       # Start a worker by calling: Ytdarr.Worker.start_link(arg)
       # {Ytdarr.Worker, arg},
       # Start to serve requests, typically the last entry
-      YtdarrWeb.Endpoint
+      YtdarrWeb.Endpoint,
+      {AshAuthentication.Supervisor, [otp_app: :ytdarr]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

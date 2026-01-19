@@ -1,4 +1,7 @@
 import Config
+config :ytdarr, token_signing_secret: "LDDL3X1ZjiOU9IC9OWyYLPXD3LK60tLX"
+config :bcrypt_elixir, log_rounds: 1
+config :ash, policies: [show_policy_breakdowns?: true], disable_async?: true
 
 # Configure your database
 #

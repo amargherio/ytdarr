@@ -1,5 +1,4 @@
 defmodule Ytdarr.Repo do
-  use Ecto.Repo,
-    otp_app: :ytdarr,
-    adapter: Ecto.Adapters.SQLite3
+  use AshSqlite.Repo,
+    otp_app: :ytdarr
 end

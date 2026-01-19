@@ -43,10 +43,15 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
 
       # schedule the next check for new content based on user settings
       interval_minutes = Settings.get_setting(:sync_interval_minutes, 60)
-      Oban.schedule_in(interval_minutes, __MODULE__, %{source_type: "channel", source_id: channel.id})
+
+      Oban.schedule_in(interval_minutes, __MODULE__, %{
+        source_type: "channel",
+        source_id: channel.id
+      })
     else
       Logger.info("Channel #{channel.name} is not monitored, skipping full sync")
     end
+
     :ok
   end
 
@@ -54,18 +59,28 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
   Syncs playlists for a channel, creating any new playlists as needed
   """
   defp sync_playlist(%Playlist{} = playlist) do
-    Logger.info("Starting playlist sync task for playlist: #{playlist.name} (ID: #{playlist.external_id})")
+    Logger.info(
+      "Starting playlist sync task for playlist: #{playlist.name} (ID: #{playlist.external_id})"
+    )
+
     # Fetch latest videos and update local database
     if playlist.is_monitored do
-      Logger.info("Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is monitored, syncing full channel contents")
+      Logger.info(
+        "Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is monitored, syncing full channel contents"
+      )
+
       Content.sync_playlist_content(playlist.external_id)
 
       # schedule the next check for new content based on user settings
       interval_minutes = Settings.get_setting(:sync_interval_minutes, 60)
-      Oban.schedule_in(interval_minutes, __MODULE__, %{source_type: "channel", source_id: channel.id})
+
+      # Oban.schedule_in(interval_minutes, __MODULE__, %{source_type: "channel", source_id: channel.id})
     else
-      Logger.info("Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is not monitored, skipping full sync")
+      Logger.info(
+        "Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is not monitored, skipping full sync"
+      )
     end
+
     :ok
   end
 end

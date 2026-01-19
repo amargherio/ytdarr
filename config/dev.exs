@@ -1,4 +1,5 @@
 import Config
+config :ash, policies: [show_policy_breakdowns?: true]
 
 # Configure your database
 config :ytdarr, Ytdarr.Repo,
@@ -61,7 +62,7 @@ config :ytdarr, YtdarrWeb.Endpoint,
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :ytdarr, dev_routes: true
+config :ytdarr, dev_routes: true, token_signing_secret: "C+0uzxBTW7cbpMvGW1DEBrABKmY8hL0H"
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
@@ -89,6 +90,6 @@ config :ytdarr, Oban,
   engine: Oban.Engines.Lite,
   queues: [
     video_downloader: 2,
-    sync_worker: 5,
+    sync_worker: 5
   ],
   repo: Ytdarr.Repo

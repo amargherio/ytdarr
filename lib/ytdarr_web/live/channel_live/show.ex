@@ -52,7 +52,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
           </div>
         </:actions>
       </.hero_header>
-
+      
     <!-- channel metadata -->
       <div class="flex flex-wrap justify-start gap-4">
         <div class="bg-slate-300 p-2 rounded">
@@ -123,7 +123,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
               phx-click="delete-video-files"
             >
               <.icon name="hero-trash" />
-              </.button>
+            </.button>
           </div>
         </div>
         <div class="collapse-content">
@@ -232,9 +232,9 @@ defmodule YtdarrWeb.ChannelLive.Show do
   @impl true
   def handle_event("refresh-channel-data", _params, socket) do
     Content.sync_content("channel", socket.assigns.channel.id)
+
     {:noreply,
      socket
-     |> put_flash(:info, "Channel data refresh in progress.")
-    }
+     |> put_flash(:info, "Channel data refresh in progress.")}
   end
 end
