@@ -16,21 +16,25 @@ defmodule Ytdarr.Services.YouTube.Client do
         if data == [] do
           {:error, :no_results}
         else
-          channels = []
+          channels =
+            Enum.reduce(data, [], fn item, acc ->
+              case Content.get_channel_by_external_id(item.id) do
+                {:ok, nil} ->
+                  # not already monitored, so create a Ytdarr.Content.Channel struct
+                  channel = Parser.create_ytdarr_channel(item)
+                  [channel | acc]
 
-          Enum.each(data, fn item ->
-            existing = Content.get_channel_by_external_id(item.id)
+                {:ok, _existing} ->
+                  # already monitored, skip
+                  Logger.info("Channel #{item.id} is already monitored, skipping")
+                  acc
 
-            if is_nil(existing) do
-              # not already monitored, so create a Ytdarr.Content.Channel struct and
-              # add it to the list to return
-              channel = Parser.create_ytdarr_channel(item)
-              ^channels = [channel | channels]
-            else
-              # log that this channel is already monitored and skip
-              Logger.info("Channel #{item.id} is already monitored, skipping")
-            end
-          end)
+                {:error, _} ->
+                  # error occurred, treat as new
+                  channel = Parser.create_ytdarr_channel(item)
+                  [channel | acc]
+              end
+            end)
 
           {:ok, Enum.reverse(channels)}
         end
@@ -150,7 +154,7 @@ defmodule Ytdarr.Services.YouTube.Client do
   end
 
   def get_playlist_items_detailed(playlist_id, opts \\ []) do
-    max_results = Keyword.get(opts, :limit, 50)
+    _max_results = Keyword.get(opts, :limit, 50)
 
     # Get the playlist items first
     with {:ok, playlist_response} <- API.get_playlist_items(playlist_id, opts) do

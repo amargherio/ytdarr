@@ -92,6 +92,17 @@ defmodule Ytdarr.Settings do
     end
   end
 
+  @doc """
+  Get the first active media root folder path.
+  Returns the path of the first active folder, or a default.
+  """
+  def get_app_media_root_folder! do
+    case list_active_media_folders!() do
+      [folder | _] -> folder.path
+      [] -> "/downloads"
+    end
+  end
+
   defp wrap_value(v) when is_map(v), do: v
   defp wrap_value(v), do: %{"v" => v}
 

@@ -84,11 +84,12 @@ defmodule YtdarrWeb.Layouts do
                 </ul>
               </details>
             </li>
-            <li>
+            <%!-- TODO: Add queue route when download queue is implemented --%>
+            <%!-- <li>
               <a href={~p"/queue"} class={[@nav == :queue_view && "active font-semibold"]}>
                 Download Queue
               </a>
-            </li>
+            </li> --%>
             <li>
               <a href={~p"/settings"} class={[@nav == :settings && "active font-semibold"]}>
                 Settings

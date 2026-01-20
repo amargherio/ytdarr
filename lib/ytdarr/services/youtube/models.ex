@@ -4,16 +4,6 @@ defmodule Ytdarr.Services.YouTube.Models do
   Data structures for YouTube API responses.
   """
 
-  # Shared helpers (kept private to this enclosing module)
-  defp parse_date(date_string) when is_binary(date_string) do
-    case DateTime.from_iso8601(date_string) do
-      {:ok, datetime, _} -> DateTime.to_date(datetime)
-      _ -> nil
-    end
-  end
-
-  defp parse_date(_), do: nil
-
   defmodule APIResponse do
     defstruct [:kind, :next_page_token, :prev_page_token, :page_info, :items]
 

@@ -281,29 +281,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
     end
   end
 
-  defp mock_playlist_search("", _map), do: []
-  defp mock_playlist_search(nil, _map), do: []
-  defp mock_playlist_search(_query, channels_map) when map_size(channels_map) == 0, do: []
-
-  defp mock_playlist_search(query, channels_map) do
-    channel_ids = Map.keys(channels_map)
-    base = String.replace(query, ~r/\s+/, "-") |> String.downcase()
-
-    for i <- 1..min(5, String.length(query)) do
-      ch_id = Enum.at(channel_ids, rem(i, length(channel_ids)))
-
-      %{
-        name: "#{String.capitalize(query)} Playlist #{i}",
-        external_id: "mock-pl-#{base}-#{i}",
-        url: "https://www.youtube.com/playlist?list=#{base}#{i}",
-        video_count: Enum.random(5..200),
-        channel_id: ch_id,
-        implicitly_monitored?:
-          MapSet.member?(monitored_channel_ids(), Map.get(channels_map, ch_id).external_id)
-      }
-    end
-  end
-
   defp preload_channels_map do
     Content.list_channels!(query: [filter: [is_monitored: true]])
     |> Map.new(fn ch -> {ch.id, ch} end)
@@ -317,13 +294,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
   defp monitored_playlist_ids do
     Content.list_playlists!() |> Enum.map(& &1.external_id) |> MapSet.new()
-  end
-
-  defp channel_monitored_and_includes_playlist?(channel_id, _playlist_external_id) do
-    case Content.get_channel(channel_id) do
-      {:ok, %{is_monitored: true}} -> true
-      _ -> false
-    end
   end
 
   defp friendly_errors(%Ash.Error.Invalid{} = error) do

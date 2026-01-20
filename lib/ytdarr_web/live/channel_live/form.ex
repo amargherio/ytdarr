@@ -18,7 +18,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
 
           <.input field={@form[:name]} type="text" label="Name" />
           <.input field={@form[:url]} type="text" label="Url" />
-          <.input field={@form[:description]} type="text" label="Description" />
+          <.input field={@form[:description]} type="textarea" label="Description" />
           <.input field={@form[:platform]} type="text" label="Platform" />
           <.input field={@form[:avatar_url]} type="text" label="Avatar url" />
           <.input field={@form[:platform_username]} type="text" label="Platform Username" />

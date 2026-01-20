@@ -64,16 +64,14 @@ defmodule Ytdarr.Content do
   def sync_content(target_type, target_id) do
     case target_type do
       "channel" ->
-        Oban.insert(%Oban.Job{
-          worker: Ytdarr.ObanWorkers.SyncWorker,
-          args: %{"source_type" => "channel", "source_id" => target_id}
-        })
+        %{"source_type" => "channel", "source_id" => target_id}
+        |> Ytdarr.ObanWorkers.SyncWorker.new()
+        |> Oban.insert()
 
       "playlist" ->
-        Oban.insert(%Oban.Job{
-          worker: Ytdarr.ObanWorkers.SyncWorker,
-          args: %{"source_type" => "playlist", "source_id" => target_id}
-        })
+        %{"source_type" => "playlist", "source_id" => target_id}
+        |> Ytdarr.ObanWorkers.SyncWorker.new()
+        |> Oban.insert()
 
       _ ->
         {:error, :unknown_target_type}
@@ -204,24 +202,35 @@ defmodule Ytdarr.Content do
     - playlist_id: Internal ID of the playlist to associate videos for
   """
   def associate_playlists_and_videos(playlist_id) do
-    playlist = Repo.get(Playlist, playlist_id)
+    require Ash.Query
+    alias Ytdarr.Content.PlaylistVideo
+
+    {:ok, playlist} = get_playlist(playlist_id)
     videos = Client.get_playlist_videos(playlist.external_id)
 
     # For each video, query if it's in the DB. If it is, verify the association exists, if not create it
     Enum.each(videos, fn vid ->
-      existing_vid = Repo.get_by(Video, external_id: vid.id)
+      case get_video_by_external_id(vid.id) do
+        {:ok, existing_vid} when not is_nil(existing_vid) ->
+          # Check if association exists using Ash.Query
+          case Ash.read(
+                 Ash.Query.filter(PlaylistVideo, playlist_id == ^playlist.id and video_id == ^existing_vid.id)
+               ) do
+            {:ok, []} ->
+              # Create association using Ash.create
+              Ash.create(PlaylistVideo, %{playlist_id: playlist.id, video_id: existing_vid.id})
 
-      if existing_vid do
-        # Check if association exists
-        assoc_exists = Repo.exists?(
-          from pv in "playlist_videos",
-          where: pv.playlist_id == ^playlist.id and pv.video_id == ^existing_vid.id
-        )
+            {:ok, _existing} ->
+              # Association already exists, skip
+              :ok
 
-        unless assoc_exists do
-          # Create association
-          Repo.insert_all("playlist_videos", [%{playlist_id: playlist.id, video_id: existing_vid.id}])
-        end
+            {:error, error} ->
+              Logger.error("Error checking playlist_video association: #{inspect(error)}")
+          end
+
+        _ ->
+          # Video doesn't exist, skip
+          :ok
       end
     end)
 

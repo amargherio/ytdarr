@@ -216,6 +216,7 @@ defmodule Ytdarr.Content.Channel.Changes.SetFilesystemPaths do
         configured_base_path = Ytdarr.Settings.get_app_media_root_folder!()
         sanitized_name = sanitize_filename(name)
         base_path = Path.join([configured_base_path, sanitized_name])
+        generic_video_path = Path.join([base_path, "videos"])
 
         changeset
         |> Ash.Changeset.force_change_attribute(:base_path, base_path)

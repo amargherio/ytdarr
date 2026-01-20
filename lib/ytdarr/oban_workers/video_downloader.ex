@@ -10,6 +10,9 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
   use Oban.Worker, queue: :video_downloader
 
   alias Ytdarr.Content
+  alias Ytdarr.Content.{Channel, Video}
+
+  require Ash.Query
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"video_id" => vid, "channel_id" => cid}}) do
@@ -22,7 +25,6 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     # Get the current episode count for the year so we can number the episode.
     # The episode should already have a record in the database, so we need to determine
     # what the episode number is based on existing records for that channel and year.
-    year = Integer.to_string(video.upload_date.year)
     episode_number = calculate_episode_number(channel, video.upload_date.year, video)
 
     ytdlp_params = [
@@ -46,7 +48,23 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     #   end
   end
 
-  def generate_output_filename() do
+  def calculate_episode_number(%Channel{} = _channel, year, %Video{} = video) do
+    year_string = Integer.to_string(year)
+
+    # Count videos from the same channel, same year, uploaded before this video
+    query =
+      Video
+      |> Ash.Query.filter(channel_id == ^video.channel_id)
+      |> Ash.Query.filter(fragment("strftime('%Y', ?)", upload_date) == ^year_string)
+      |> Ash.Query.filter(
+        upload_date < ^video.upload_date or
+          (upload_date == ^video.upload_date and id < ^video.id)
+      )
+
+    case Ash.read(query) do
+      {:ok, videos} -> length(videos) + 1
+      {:error, _} -> 1
+    end
   end
 
   def retrieve_ytdlp_parameters() do
