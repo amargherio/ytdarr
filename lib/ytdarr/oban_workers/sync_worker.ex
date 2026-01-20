@@ -62,6 +62,9 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
         "Playlist #{playlist.name} (Owning channel: #{playlist.channel_id}, playlist ID: #{playlist.external_id}) is monitored, syncing"
       )
 
+      # schedule the next check for new content based on user settings
+      interval_minutes = Settings.get_setting(:sync_interval_minutes, 60)
+      Oban.schedule_in(interval_minutes, __MODULE__, %{source_type: "channel", source_id: channel.id})
       # TODO: implement Content.sync_playlist_content/1
       # Content.sync_playlist_content(playlist.external_id)
     else

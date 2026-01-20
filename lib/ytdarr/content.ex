@@ -196,4 +196,42 @@ defmodule Ytdarr.Content do
       args: %{"video_id" => video_id, "channel_id" => channel_id}
     })
   end
+
+  @doc"""
+  Associate playlists and videos
+
+  ## Parameters
+    - playlist_id: Internal ID of the playlist to associate videos for
+  """
+  def associate_playlists_and_videos(playlist_id) do
+    playlist = Repo.get(Playlist, playlist_id)
+    videos = Client.get_playlist_videos(playlist.external_id)
+
+    # For each video, query if it's in the DB. If it is, verify the association exists, if not create it
+    Enum.each(videos, fn vid ->
+      existing_vid = Repo.get_by(Video, external_id: vid.id)
+
+      if existing_vid do
+        # Check if association exists
+        assoc_exists = Repo.exists?(
+          from pv in "playlist_videos",
+          where: pv.playlist_id == ^playlist.id and pv.video_id == ^existing_vid.id
+        )
+
+        unless assoc_exists do
+          # Create association
+          Repo.insert_all("playlist_videos", [%{playlist_id: playlist.id, video_id: existing_vid.id}])
+        end
+      end
+    end)
+
+    {:ok, :associated}
+  end
+
+  def create_jellyfin_collection_from_playlist(playlist_id) do
+    Oban.insert(%Oban.Job{
+      worker: Ytdarr.ObanWorkers.JellyfinCollectionCreator,
+      args: %{"playlist_id" => playlist_id}
+    })
+  end
 end

@@ -71,6 +71,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
     id = external_id
 
     cond do
+      # Revisit the MapSet use here
       MapSet.member?(socket.assigns.monitored_channel_ids, external_id) ->
         {:noreply, put_flash(socket, :info, "Channel already monitored")}
 

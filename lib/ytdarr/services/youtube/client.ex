@@ -83,7 +83,7 @@ defmodule Ytdarr.Services.YouTube.Client do
   end
 
   def get_playlist_videos(playlist_id, opts \\ []) do
-    case API.get_playlist(playlist_id, opts) do
+    case API.get_playlist_items(playlist_id, opts) do
       {:ok, api_response} ->
         case api_response.items do
           [] ->
@@ -164,7 +164,7 @@ defmodule Ytdarr.Services.YouTube.Client do
         |> Enum.join(",")
 
       if video_ids != "" do
-        case API.get_videos_by_id(video_ids) do
+        case API.get_videos_by_ids(video_ids) do
           {:ok, videos_response} ->
             videos = videos_response["items"] || []
 

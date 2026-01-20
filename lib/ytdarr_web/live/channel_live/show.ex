@@ -98,6 +98,14 @@ defmodule YtdarrWeb.ChannelLive.Show do
                 <% end %>
               </.button>
               <.button
+                title="Create Jellyfin collection from playlist"
+                phx-click="jellyfin-collection"
+                phx-value-id={playlist.id}
+                phx-value-type="playlist"
+              >
+                <.icon name="hero-queue-list" />
+              </.button>
+              <.button
                 title="Delete playlist files"
                 phx-click="delete-playlist-files"
                 phx-value-id={playlist.external_id}
@@ -279,5 +287,20 @@ defmodule YtdarrWeb.ChannelLive.Show do
     {:noreply,
      socket
      |> put_flash(:info, "Channel data refresh in progress.")}
+  end
+
+  @impl true
+  def handle_event("jellyfin-collection", %{"id" => id}, socket) do
+    case Content.create_jellyfin_collection_from_playlist(id) do
+      {:ok, _collection} ->
+        {:noreply,
+          socket
+          |> put_flash(:info, "Jellyfin collection created from playlist.")}
+
+      _ ->
+        {:noreply,
+          socket
+          |> put_flash(:error, "Failed to create Jellyfin collection from playlist.")}
+    end
   end
 end
