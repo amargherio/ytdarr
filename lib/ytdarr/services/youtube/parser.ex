@@ -15,6 +15,8 @@ defmodule Ytdarr.Services.YouTube.Parser do
       platform: "YouTube",
       avatar_url: yt_channel.thumbnail_url,
       banner_url: yt_channel.banner_url,
+      platform_username: yt_channel.custom_url,
+      uploads_playlist_id: yt_channel.uploads_playlist_id,
       is_monitored: false,
       is_monitored_since: nil,
       last_checked_at: nil,

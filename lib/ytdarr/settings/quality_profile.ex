@@ -107,7 +107,7 @@ defmodule Ytdarr.Settings.QualityProfile.ClearOtherDefaults do
         |> Ash.Query.filter(id != ^result.id and is_default == true)
         |> Ash.bulk_update!(:update, %{is_default: false},
           domain: Ytdarr.Settings,
-          strategy: :atomic
+          strategy: :stream
         )
       end
 

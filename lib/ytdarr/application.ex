@@ -19,6 +19,8 @@ defmodule Ytdarr.Application do
       {Phoenix.PubSub, name: Ytdarr.PubSub},
       # Starting the HTTP client for Req
       {Finch, name: Ytdarr.Finch},
+      # Load settings from environment variables into database (runs once at startup)
+      Ytdarr.Settings.StartupLoader,
       # Registry used for caching/storing singleton service processes (e.g. YouTube client)
       {Registry, keys: :unique, name: Ytdarr.Services.Registry},
       Ytdarr.Services.YouTube.ClientSupervisor,

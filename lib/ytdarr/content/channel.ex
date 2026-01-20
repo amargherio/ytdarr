@@ -58,6 +58,11 @@ defmodule Ytdarr.Content.Channel do
       public? true
     end
 
+    attribute :uploads_playlist_id, :string do
+      public? true
+      description "YouTube uploads playlist ID"
+    end
+
     # Monitoring status
     attribute :is_monitored, :boolean do
       allow_nil? false
@@ -110,7 +115,8 @@ defmodule Ytdarr.Content.Channel do
         :avatar_url,
         :banner_url,
         :platform_username,
-        :is_monitored
+        :is_monitored,
+        :uploads_playlist_id
       ]
 
       change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
@@ -130,7 +136,8 @@ defmodule Ytdarr.Content.Channel do
         :banner_url,
         :platform_username,
         :is_monitored,
-        :last_checked_at
+        :last_checked_at,
+        :uploads_playlist_id
       ]
 
       change Ytdarr.Content.Channel.Changes.SetFilesystemPaths

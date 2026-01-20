@@ -61,15 +61,23 @@ defmodule Ytdarr.Settings do
 
   @doc """
   Get a setting value by key with an optional default.
-  Checks environment overrides first, then the database.
+  Checks environment overrides first (if non-empty), then the database.
+
+  Note: The StartupLoader will also store the environment variable value
+  into the database at startup if the database is empty, ensuring persistence.
   """
   def get_setting_value(key, default \\ nil) do
-    env_override(key) ||
-      case get_app_setting_by_key(key) do
-        {:ok, nil} -> default
-        {:ok, %AppSetting{value: value}} -> unwrap_value(value)
-        {:error, _} -> default
-      end
+    case env_override(key) do
+      value when is_binary(value) and value != "" ->
+        value
+
+      _ ->
+        case get_app_setting_by_key(key) do
+          {:ok, nil} -> default
+          {:ok, %AppSetting{value: value}} -> unwrap_value(value)
+          {:error, _} -> default
+        end
+    end
   end
 
   @doc """
@@ -114,7 +122,7 @@ defmodule Ytdarr.Settings do
   defp infer_type(v) when is_binary(v), do: "string"
   defp infer_type(_), do: "json"
 
-  # Environment variable overrides for sensitive keys
+  # Environment variable overrides for sensitive keys (only if non-empty)
   defp env_override("youtube.primary_api_key"), do: System.get_env("YTDARR_YOUTUBE_API_KEY")
   defp env_override(_), do: nil
 

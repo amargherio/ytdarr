@@ -30,6 +30,8 @@ defmodule Ytdarr.Services.YouTube.Models do
       :video_count,
       :view_count,
       :banner_url,
+      :custom_url,
+      :uploads_playlist_id,
       :status,
       :contentDetails
     ]
@@ -57,6 +59,9 @@ defmodule Ytdarr.Services.YouTube.Models do
         video_count: parse_int(statistics["videoCount"]),
         view_count: parse_int(statistics["viewCount"]),
         banner_url: get_in(brandSettings, ["image", "bannerExternalUrl"]),
+        custom_url: snippet["customUrl"],
+        uploads_playlist_id:
+          get_in(contentDetails, ["relatedPlaylists", "uploads"]),
         status: status,
         contentDetails: contentDetails
       }

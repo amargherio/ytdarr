@@ -1,71 +1,342 @@
-// curl \
-//   'https://youtube.googleapis.com/youtube/v3/playlists?part=id%2CcontentDetails%2Csnippet&channelId=UC7X2IY5-ZHKU83nyb6KejgQ&key=[YOUR_API_KEY]' \
-//   --header 'Authorization: Bearer [YOUR_ACCESS_TOKEN]' \
-//   --header 'Accept: application/json' \
-//   --compressed
 {
   "kind": "youtube#playlistListResponse",
-  "etag": "GpSG_ux8T36KEisyFwjKrtYJlmI",
+  "etag": "ZNeL-th8qk95bPpsISO44_5vhx0",
   "pageInfo": {
-    "totalResults": 4,
-    "resultsPerPage": 5
+    "totalResults": 19,
+    "resultsPerPage": 50
   },
   "items": [
     {
       "kind": "youtube#playlist",
-      "etag": "EybkRCky2KkCpFxncFRVOo0Kjoo",
-      "id": "PLsiqs19rXW_BQbztEvm6tJX5Jv64jd384",
+      "etag": "43DH88KEFraP7RDCTb-5lA-Q5gY",
+      "id": "PLsiqs19rXW_CiifZuN-Brc37oc40tA2GI",
       "snippet": {
-        "publishedAt": "2025-03-01T07:51:42.509418Z",
+        "publishedAt": "2025-10-10T14:13:10.857829Z",
         "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
-        "title": "All Dirty Civilian Content",
-        "description": "A complete library of all of our videos so you can watch one right after the other.",
+        "title": "Water Purification, Treatment, & Filtering",
+        "description": "A collection of videos teaching you how to treat, purify, and filter water for survival purposes.",
         "thumbnails": {
           "default": {
-            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/default.jpg",
+            "url": "https://i.ytimg.com/vi/QvfB--WZhh0/default.jpg",
             "width": 120,
             "height": 90
           },
           "medium": {
-            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/mqdefault.jpg",
+            "url": "https://i.ytimg.com/vi/QvfB--WZhh0/mqdefault.jpg",
             "width": 320,
             "height": 180
           },
           "high": {
-            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/hqdefault.jpg",
+            "url": "https://i.ytimg.com/vi/QvfB--WZhh0/hqdefault.jpg",
             "width": 480,
             "height": 360
           },
           "standard": {
-            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/sddefault.jpg",
+            "url": "https://i.ytimg.com/vi/QvfB--WZhh0/sddefault.jpg",
             "width": 640,
             "height": 480
           },
           "maxres": {
-            "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/maxresdefault.jpg",
+            "url": "https://i.ytimg.com/vi/QvfB--WZhh0/maxresdefault.jpg",
             "width": 1280,
             "height": 720
           }
         },
         "channelTitle": "Dirty Civilian",
         "localized": {
-          "title": "All Dirty Civilian Content",
-          "description": "A complete library of all of our videos so you can watch one right after the other."
+          "title": "Water Purification, Treatment, & Filtering",
+          "description": "A collection of videos teaching you how to treat, purify, and filter water for survival purposes."
         }
       },
       "contentDetails": {
-        "itemCount": 142
+        "itemCount": 4
       }
     },
     {
       "kind": "youtube#playlist",
-      "etag": "NHzX4gZB7bLymWrNR_Y_e_S-6UQ",
-      "id": "PLsiqs19rXW_CSQbkftlmUzaJJPo5Na9_N",
+      "etag": "l-lkUfx3Ky-5UsXPq8LMQ4tj9j0",
+      "id": "PLsiqs19rXW_DycnBSUF1uTLugDCOCzM9s",
       "snippet": {
-        "publishedAt": "2025-03-01T07:32:00.073034Z",
+        "publishedAt": "2025-10-10T14:11:24.562921Z",
         "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
-        "title": "Skills, Mindset, & Education",
-        "description": "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects.",
+        "title": "Auto Rifleman",
+        "description": "A collection of videos about auto rifleman tools and tactics.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/E0xhExGJS38/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/E0xhExGJS38/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/E0xhExGJS38/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/E0xhExGJS38/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/E0xhExGJS38/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Auto Rifleman",
+          "description": "A collection of videos about auto rifleman tools and tactics."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 2
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "_o3sXtAmCA-sC4O78s6Bx-4LEPE",
+      "id": "PLsiqs19rXW_DLyfu2Mev5imkS1CNIZXWF",
+      "snippet": {
+        "publishedAt": "2025-10-10T14:07:47.918209Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Comms, Radios, & Tech",
+        "description": "A collection of videos about communication tools like radios and how to use them.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/VXjBhnrQ-HU/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/VXjBhnrQ-HU/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/VXjBhnrQ-HU/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/VXjBhnrQ-HU/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/VXjBhnrQ-HU/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Comms, Radios, & Tech",
+          "description": "A collection of videos about communication tools like radios and how to use them."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 7
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "k8KMRwCly7aqddv82tV7opHHkqM",
+      "id": "PLsiqs19rXW_AhSBQloZ6l4mr1JpO9fb3i",
+      "snippet": {
+        "publishedAt": "2025-10-10T14:06:24.461908Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Mil Sim & Airsoft",
+        "description": "A collection of videos about Milsim tools and training",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Mil Sim & Airsoft",
+          "description": "A collection of videos about Milsim tools and training"
+        }
+      },
+      "contentDetails": {
+        "itemCount": 7
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "jXyUcI3dql0hNdBwp9SkFtuQSE4",
+      "id": "PLsiqs19rXW_DCD7THe9oSu7UmukUSfNLr",
+      "snippet": {
+        "publishedAt": "2025-10-10T14:05:08.405759Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Gear Maintenance",
+        "description": "A collection of videos regarding gear maintenance and repair.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/giFG8zBMUII/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/giFG8zBMUII/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/giFG8zBMUII/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/giFG8zBMUII/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/giFG8zBMUII/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Gear Maintenance",
+          "description": "A collection of videos regarding gear maintenance and repair."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 2
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "09mKLxbC3fmEqhN_2HZvNj0Oj90",
+      "id": "PLsiqs19rXW_A8ix1GXUntprYdWuzpZxNQ",
+      "snippet": {
+        "publishedAt": "2025-10-10T14:02:41.265393Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Next-Gen Education",
+        "description": "A collection of videos educating the next generation on American ideals and values.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/-cJ_aktCWDE/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/-cJ_aktCWDE/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/-cJ_aktCWDE/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/-cJ_aktCWDE/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/-cJ_aktCWDE/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Next-Gen Education",
+          "description": "A collection of videos educating the next generation on American ideals and values."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 7
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "VHbBld8dPQmW1746ETu59taq9Tk",
+      "id": "PLsiqs19rXW_D8TTa31DjTRXwa-deZjeB3",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:58:26.161269Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Medical",
+        "description": "A collection of medical related educational videos.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Medical",
+          "description": "A collection of medical related educational videos."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 5
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "XrcsuJzveWGkHZym0liJN59Mb58",
+      "id": "PLsiqs19rXW_CiisMsDLwDs8jI7KaDZCav",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:57:42.719946Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Disaster Relief",
+        "description": "A collection of videos about disaster relief operations, tools, and considerations.",
         "thumbnails": {
           "default": {
             "url": "https://i.ytimg.com/vi/8hYEFnfrcjA/default.jpg",
@@ -95,23 +366,253 @@
         },
         "channelTitle": "Dirty Civilian",
         "localized": {
-          "title": "Skills, Mindset, & Education",
-          "description": "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects."
+          "title": "Disaster Relief",
+          "description": "A collection of videos about disaster relief operations, tools, and considerations."
         }
       },
       "contentDetails": {
-        "itemCount": 63
+        "itemCount": 11
       }
     },
     {
       "kind": "youtube#playlist",
-      "etag": "RFCDaOtJ9QfZktiGDyznqolGYnc",
-      "id": "PLsiqs19rXW_C1LUr_8W84fYHuVl76ERGv",
+      "etag": "907RNILNxeO3qrCmP_T8uGoaT2o",
+      "id": "PLsiqs19rXW_CrhB3Cn98ekJ_C7OwzWr85",
       "snippet": {
-        "publishedAt": "2025-03-01T07:31:15.245118Z",
+        "publishedAt": "2025-10-10T13:55:58.092217Z",
         "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
-        "title": "Gear, Kit, & Loadouts",
-        "description": "A collection of our videos that focus primarily on tactical gear, kit, and tech.",
+        "title": "Night Vision & Thermal",
+        "description": "A collection of videos about night vision and thermal tech and usage.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/h2GmWzjg_lQ/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/h2GmWzjg_lQ/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/h2GmWzjg_lQ/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/h2GmWzjg_lQ/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/h2GmWzjg_lQ/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Night Vision & Thermal",
+          "description": "A collection of videos about night vision and thermal tech and usage."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 14
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "OSmxGqiNyFb5kPSHo2_vhLwpcFs",
+      "id": "PLsiqs19rXW_Cpky1CfS8hfc1oWCLMT9Xn",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:54:29.884677Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "CQB",
+        "description": "A collection of various CQB related videos.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/D9XsjDb4d0s/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/D9XsjDb4d0s/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/D9XsjDb4d0s/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/D9XsjDb4d0s/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/D9XsjDb4d0s/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "CQB",
+          "description": "A collection of various CQB related videos."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 3
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "B-PFN_wX-nw7L5m9zmuAzOadG04",
+      "id": "PLsiqs19rXW_DQiNA10xbxAEKI_Kiqldeg",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:46:28.086619Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Short Films & DC Lore",
+        "description": "A collection of our favorite creative shorts that are canon in \"DC Lore\".",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/eQW-AmsNZ-4/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/eQW-AmsNZ-4/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/eQW-AmsNZ-4/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/eQW-AmsNZ-4/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/eQW-AmsNZ-4/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Short Films & DC Lore",
+          "description": "A collection of our favorite creative shorts that are canon in \"DC Lore\"."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 38
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "s6mLNN5xkEUeO1RSb58yOb39zcw",
+      "id": "PLsiqs19rXW_Ci1rcRsVtBbnfUTOu1QVA8",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:32:44.713369Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Survival & Bushcraft",
+        "description": "A collection of videos about survival, bushcraft, fieldcraft, and SERE.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/VnPLDLsu8uk/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Survival & Bushcraft",
+          "description": "A collection of videos about survival, bushcraft, fieldcraft, and SERE."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 22
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "2iqWJW-lqX_wcbqukDmLZ5Y8t1o",
+      "id": "PLsiqs19rXW_Cz7NjOvVAl6tS1Op36n9is",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:30:29.645744Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Drones",
+        "description": "A collection of videos on drone piloting, operations, tactics, and capabilities.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/H8DRPMEhkfg/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/H8DRPMEhkfg/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/H8DRPMEhkfg/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/H8DRPMEhkfg/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/H8DRPMEhkfg/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Drones",
+          "description": "A collection of videos on drone piloting, operations, tactics, and capabilities."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 2
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "-FMJNaNClhqwoSGQxSk4q4nXKm0",
+      "id": "PLsiqs19rXW_Bv7Ultuamd6V6MoIv9dxYb",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:27:57.395101Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Designated Marksman, Recon, & Long Range",
+        "description": "Various videos covering long-range shooting, recon tactics, and Designated Marksman skills.",
         "thumbnails": {
           "default": {
             "url": "https://i.ytimg.com/vi/Bj-es6zn6kg/default.jpg",
@@ -141,17 +642,201 @@
         },
         "channelTitle": "Dirty Civilian",
         "localized": {
+          "title": "Designated Marksman, Recon, & Long Range",
+          "description": "Various videos covering long-range shooting, recon tactics, and Designated Marksman skills."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 13
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "BoqxsrF59t2fhqn6a6jBELRQ2DI",
+      "id": "PLsiqs19rXW_A5HYYOXzwxZohhaMSr4JXL",
+      "snippet": {
+        "publishedAt": "2025-10-10T13:21:30.472909Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Mobility Tools & Skills",
+        "description": "Various videos on mobility, travel, how to transport supplies and gear in the field.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/BDOWQYaCU7M/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/BDOWQYaCU7M/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/BDOWQYaCU7M/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/BDOWQYaCU7M/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/BDOWQYaCU7M/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Mobility Tools & Skills",
+          "description": "Various videos on mobility, travel, how to transport supplies and gear in the field."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 7
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "81YTak72zsmJm1HDPoibQE6t9-M",
+      "id": "PLsiqs19rXW_BQbztEvm6tJX5Jv64jd384",
+      "snippet": {
+        "publishedAt": "2025-03-01T07:51:42.509418Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "All Dirty Civilian Content",
+        "description": "A complete library of all of our videos so you can watch one right after the other.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "All Dirty Civilian Content",
+          "description": "A complete library of all of our videos so you can watch one right after the other."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 145
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "v2UOIKrnYnlmuVOa47E82XIghMg",
+      "id": "PLsiqs19rXW_CSQbkftlmUzaJJPo5Na9_N",
+      "snippet": {
+        "publishedAt": "2025-03-01T07:32:00.073034Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Skills, Mindset, & Education",
+        "description": "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/yqDNUAlzu7Y/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
+          "title": "Skills, Mindset, & Education",
+          "description": "A collection of our videos that focus on developing our hard skills, mindset, and education on specific subjects."
+        }
+      },
+      "contentDetails": {
+        "itemCount": 72
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "b-LJp4dkPbDbYnwvNVrBXQwJSn0",
+      "id": "PLsiqs19rXW_C1LUr_8W84fYHuVl76ERGv",
+      "snippet": {
+        "publishedAt": "2025-03-01T07:31:15.245118Z",
+        "channelId": "UC7X2IY5-ZHKU83nyb6KejgQ",
+        "title": "Gear, Kit, & Loadouts",
+        "description": "A collection of our videos that focus primarily on tactical gear, kit, and tech.",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/PHxn_T1n5lk/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Dirty Civilian",
+        "localized": {
           "title": "Gear, Kit, & Loadouts",
           "description": "A collection of our videos that focus primarily on tactical gear, kit, and tech."
         }
       },
       "contentDetails": {
-        "itemCount": 60
+        "itemCount": 66
       }
     },
     {
       "kind": "youtube#playlist",
-      "etag": "W0ldgu2WjBr_3_TMzhSeXLL5bNQ",
+      "etag": "_-dZt9NX5iLm2k9N4KuqSwmZJyY",
       "id": "PLsiqs19rXW_DkT98x3FFI-LkQXz9j38Nq",
       "snippet": {
         "publishedAt": "2023-03-26T01:24:02.338682Z",
@@ -160,27 +845,27 @@
         "description": "Conversations between the Dirty Civilian team with guest appearances from SMEs from various fields in the Preparedness and 2A communities.",
         "thumbnails": {
           "default": {
-            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/default.jpg",
+            "url": "https://i.ytimg.com/vi/nl_-xgwS2AA/default.jpg",
             "width": 120,
             "height": 90
           },
           "medium": {
-            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/mqdefault.jpg",
+            "url": "https://i.ytimg.com/vi/nl_-xgwS2AA/mqdefault.jpg",
             "width": 320,
             "height": 180
           },
           "high": {
-            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/hqdefault.jpg",
+            "url": "https://i.ytimg.com/vi/nl_-xgwS2AA/hqdefault.jpg",
             "width": 480,
             "height": 360
           },
           "standard": {
-            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/sddefault.jpg",
+            "url": "https://i.ytimg.com/vi/nl_-xgwS2AA/sddefault.jpg",
             "width": 640,
             "height": 480
           },
           "maxres": {
-            "url": "https://i.ytimg.com/vi/iX46j4rkZyI/maxresdefault.jpg",
+            "url": "https://i.ytimg.com/vi/nl_-xgwS2AA/maxresdefault.jpg",
             "width": 1280,
             "height": 720
           }
@@ -192,7 +877,7 @@
         }
       },
       "contentDetails": {
-        "itemCount": 13
+        "itemCount": 16
       }
     }
   ]

@@ -4,6 +4,7 @@ defmodule Ytdarr.Services.YouTube.API do
   """
 
   alias Ytdarr.Services.YouTube.{ClientSupervisor, Models}
+  require Logger
 
   def search_channels(query) do
     # TODO: Differentiate between channel IDs and search terms here
@@ -35,9 +36,9 @@ defmodule Ytdarr.Services.YouTube.API do
     # Determine if it's a channel ID or a username
     params =
       if String.starts_with?(query, "UC") do
-        [part: "id,snippet,status,brandingSettings", id: query]
+        [part: "id,snippet,status,brandingSettings,contentDetails", id: query]
       else
-        [part: "id,snippet,status,brandingSettings", forUsername: query]
+        [part: "id,snippet,status,brandingSettings,contentDetails", forUsername: query]
       end
 
     client = get_yt_client()
@@ -45,7 +46,7 @@ defmodule Ytdarr.Services.YouTube.API do
     case client |> Req.get(url: "/channels", params: params) do
       {:ok, %{status: 200, body: body}} ->
         case body["items"] do
-          [first | _] -> {:ok, Models.Channel.from_api(first)}
+          items when length(items) > 0 -> {:ok, Models.APIResponse.from_api(body)}
           [] -> {:error, :not_found}
         end
 

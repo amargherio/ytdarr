@@ -36,13 +36,21 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       "--mtime"
     ]
 
-    ytdlp_out = "#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
+    # Check if our season folder exists, create if not
+    season_folder = "#{channel.base_path}/Season #{video.upload_date.year}"
+    unless File.exists?(season_folder) do
+      File.mkdir_p!(season_folder)
+    end
+
+    ytdlp_out = "#{season_folder}/#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
 
     # trigger yt-dlp to the target URL and out to the correct output file
     {_, status} = System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
 
     case status do
-      0 -> :ok
+      0 ->
+        generate_nfo_file(channel, video, episode_number, ytdlp_out)
+        :ok
       _ -> {:error, :download_failed}
     end
     #   end
@@ -74,5 +82,23 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     name
     |> String.replace(~r/[\/\\?%*:|"<>]/, "_")
     |> String.trim()
+  end
+
+  defp generate_nfo_file(%Channel{} = _channel, %Video{} = video, episode_number, file_path) do
+    nfo_content = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <episodedetails>
+      <title>#{video.title}</title>
+      <season>#{video.upload_date.year}</season>
+      <episode>#{episode_number}</episode>
+      <plot>#{video.description}</plot>
+      <aired>#{Date.to_iso8601(video.upload_date)}</aired>
+      <uniqueid type="youtube" default="true">#{video.id}</uniqueid>
+      <url>#{video.url}</url>
+    </episodedetails>
+    """
+
+    nfo_file_path = String.replace_suffix(file_path, ".mp4", ".nfo")
+    File.write!(nfo_file_path, nfo_content)
   end
 end

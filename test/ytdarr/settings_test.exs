@@ -9,10 +9,42 @@ defmodule Ytdarr.SettingsTest do
       assert Settings.get_setting_value("media.move_strategy") == "hardlink"
     end
 
-    test "env override for youtube api key" do
-      System.put_env("YTDARR_YOUTUBE_API_KEY", "secret123")
+    test "env override takes precedence when set" do
+      # Store a value in the database first
+      {:ok, _} = Settings.put_setting("youtube.primary_api_key", "db_key")
+      # Env var should override database value when set
+      System.put_env("YTDARR_YOUTUBE_API_KEY", "env_key")
       on_exit(fn -> System.delete_env("YTDARR_YOUTUBE_API_KEY") end)
-      assert Settings.get_setting_value("youtube.primary_api_key") == "secret123"
+      # Env value should be returned
+      assert Settings.get_setting_value("youtube.primary_api_key") == "env_key"
+    end
+
+    test "database value used when env is empty" do
+      # Store a value in the database
+      {:ok, _} = Settings.put_setting("youtube.primary_api_key", "db_key")
+      # Make sure env var is not set
+      System.delete_env("YTDARR_YOUTUBE_API_KEY")
+      # Database value should be returned
+      assert Settings.get_setting_value("youtube.primary_api_key") == "db_key"
+    end
+
+    test "startup loader loads env into db when empty" do
+      # Ensure no database value exists
+      case Settings.get_app_setting_by_key("youtube.primary_api_key") do
+        {:ok, setting} when not is_nil(setting) -> Settings.destroy_app_setting(setting)
+        _ -> :ok
+      end
+
+      # Set env var
+      System.put_env("YTDARR_YOUTUBE_API_KEY", "startup_key")
+      on_exit(fn -> System.delete_env("YTDARR_YOUTUBE_API_KEY") end)
+
+      # Run startup loader
+      Ytdarr.Settings.StartupLoader.load_youtube_api_key()
+
+      # Value should now be in database
+      {:ok, setting} = Settings.get_app_setting_by_key("youtube.primary_api_key")
+      assert setting.value == %{"v" => "startup_key"}
     end
   end
 

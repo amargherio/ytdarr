@@ -81,10 +81,10 @@ defmodule YtdarrWeb.ChannelLive.Show do
       </div>
 
       <%= for playlist <- @playlists do %>
-        <div tabindex="0" class="collapse collapse-arrow bg-base-100 border-base-300 border">
-          <div class="collapse-title text-xl font-medium after:start-5 after:end-auto pe-4 ps-12">
-            {playlist.name}
-            <div class="flex flex-wrap justify-center md:justify-end gap-2 md:min-w-[12rem]">
+        <details class="group border border-base-300 bg-base-100 rounded-lg">
+          <summary class="flex cursor-pointer items-center gap-4 p-4 text-xl font-medium">
+            <span class="flex-1">{playlist.name}</span>
+            <div class="relative z-10 flex flex-wrap justify-end gap-2">
               <.button
                 title={"#{if playlist.is_monitored, do: "Unmonitor", else: "Monitor"} playlist"}
                 phx-click="toggle-monitor"
@@ -113,21 +113,22 @@ defmodule YtdarrWeb.ChannelLive.Show do
                 <.icon name="hero-trash" />
               </.button>
             </div>
-          </div>
-          <div class="collapse-content">
+            <.icon name="hero-chevron-down" class="size-5 transition-transform group-open:rotate-180" />
+          </summary>
+          <div class="p-4 pt-0">
             <.table id={"videos-#{playlist.id}"} rows={playlist.videos}>
               <:col :let={video} label="Title">{video.title}</:col>
               <:col :let={video} label="Upload Date">{video.upload_date}</:col>
               <:col :let={video} label="Download Status">{video.is_downloaded}</:col>
             </.table>
           </div>
-        </div>
+        </details>
       <% end %>
 
-      <div tabindex="0" class="collapse collapse-arrow bg-base-100 border-base-300 border">
-        <div class="collapse-title text-xl font-medium after:start-5 after:end-auto pe-4 ps-12">
-          Videos
-          <div class="flex flex-wrap justify-center md:justify-end gap-2 md:min-w-[12rem]">
+      <details class="group border border-base-300 bg-base-100 rounded-lg">
+        <summary class="flex cursor-pointer items-center gap-4 p-4 text-xl font-medium">
+          <span class="flex-1">Videos</span>
+          <div class="relative z-10 flex flex-wrap justify-end gap-2">
             <.button
               title="Delete all video files"
               phx-click="delete-video-files"
@@ -135,8 +136,9 @@ defmodule YtdarrWeb.ChannelLive.Show do
               <.icon name="hero-trash" />
             </.button>
           </div>
-        </div>
-        <div class="collapse-content">
+          <.icon name="hero-chevron-down" class="size-5 transition-transform group-open:rotate-180" />
+        </summary>
+        <div class="p-4 pt-0">
           <.table id="videos" rows={@videos}>
             <:col :let={video} label="Title">{video.title}</:col>
             <:col :let={video} label="Upload Date">{video.upload_date}</:col>
@@ -155,7 +157,8 @@ defmodule YtdarrWeb.ChannelLive.Show do
                 <.button
                   phx-click="queue-download"
                   phx-value-id={video.id}
-                  class="btn-sm"
+                  phx-value-channel-id={@channel.id}
+                  class="btn-lg"
                 >
                   <.icon name="hero-arrow-down-tray" />
                 </.button>
@@ -163,7 +166,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
             </:col>
           </.table>
         </div>
-      </div>
+      </details>
     </Layouts.app>
     """
   end
@@ -237,9 +240,10 @@ defmodule YtdarrWeb.ChannelLive.Show do
   end
 
   @impl true
-  def handle_event("queue-download", %{"id" => video_id}, socket) do
+  def handle_event("queue-download", %{"id" => video_id, "channel-id" => channel_id}, socket) do
     # TODO: Implement video download queueing via Oban
     Logger.info("Queue download for video #{video_id}")
+    Content.queue_video_download(video_id, channel_id)
 
     {:noreply,
      socket

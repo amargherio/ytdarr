@@ -113,86 +113,119 @@ defmodule Ytdarr.Content do
   @doc """
   Fetch latest content from external API (e.g., YouTube).
   Creates playlists and videos for a channel.
+
+  Fetches the upload playlist separately because it isn't included in the channel playlists.
   """
   def sync_channel_content(channel_id) do
     require Ash.Query
 
-    playlists = Client.get_channel_playlists(channel_id)
+    with {:ok, playlists} <- Client.get_channel_playlists(channel_id) do
+      Logger.info("Playlist output: #{inspect(playlists)}")
+      # Create playlists (excluding uploads)
+      sync_playlists(channel_id, playlists)
 
-    # Create playlists (excluding uploads)
-    Enum.each(playlists, fn pl ->
-      case get_playlist_by_external_id(pl.id) do
-        {:ok, nil} ->
-          # Need to look up channel by external_id to get internal id
-          case get_channel_by_external_id(channel_id) do
-            {:ok, channel} when not is_nil(channel) ->
-              create_playlist(channel.id, %{
-                external_id: pl.id,
-                name: pl.title,
-                description: pl.description,
-                url: pl.url,
-                video_count: pl.video_count,
-                is_monitored: false
-              })
-
-            _ ->
-              Logger.error("Channel not found for external_id: #{channel_id}")
-          end
-
-        {:ok, _existing} ->
-          Logger.info("Playlist #{pl.id} already exists, skipping")
-
-        {:error, error} ->
-          Logger.error("Error checking playlist #{pl.id}: #{inspect(error)}")
+      # Get videos from uploads playlist
+      case Client.get_channel(channel_id) do
+        {:ok, channel} ->
+          upload_playlist_id = channel.uploads_playlist_id
+          sync_uploads_videos(channel_id, upload_playlist_id)
+        {:error, reason} ->
+          Logger.error("Error fetching channel data for #{channel_id}: #{inspect(reason)}")
       end
-    end)
 
-    # Get videos from uploads playlist
-    uploads_playlist = Enum.find(playlists, fn pl -> pl.title == "Uploads" end)
-
-    if uploads_playlist do
-      videos = Client.get_playlist_videos(uploads_playlist.id)
-
-      case get_channel_by_external_id(channel_id) do
-        {:ok, channel} when not is_nil(channel) ->
-          Enum.each(videos, fn vid ->
-            case get_video_by_external_id(vid.id) do
-              {:ok, nil} ->
-                create_video(channel.id, %{
-                  external_id: vid.id,
-                  title: vid.title,
-                  description: vid.description,
-                  url: vid.url,
-                  thumbnail_url: vid.thumbnail_url,
-                  upload_date: vid.published_at,
-                  duration: vid.duration,
-                  discovered_from: "uploads"
-                })
-
-              {:ok, _existing} ->
-                Logger.info("Video #{vid.id} already exists, skipping")
-
-              {:error, error} ->
-                Logger.error("Error checking video #{vid.id}: #{inspect(error)}")
-            end
-          end)
-
-        _ ->
-          Logger.error("Channel not found for external_id: #{channel_id}")
-      end
+      {:ok, :synced}
     end
+  end
 
-    {:ok, :synced}
+  defp sync_playlists(channel_id, playlists) do
+    with {:ok, channel} <- get_channel_by_external_id(channel_id),
+         true <- not is_nil(channel) do
+      Enum.each(playlists, fn pl ->
+        Logger.info("Processing playlist #{pl.id} - #{pl.title}")
+        case get_playlist_by_external_id(pl.id) do
+          {:ok, nil} ->
+            create_playlist(channel.id, %{
+              external_id: pl.id,
+              name: pl.title,
+              description: pl.description,
+              url: pl.url,
+              video_count: pl.video_count,
+              is_monitored: false
+            })
+
+          {:ok, _existing} ->
+            Logger.info("Playlist #{pl.id} already exists, skipping")
+
+          {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
+            create_playlist(channel.id, %{
+              external_id: pl.id,
+              name: pl.title,
+              description: pl.description,
+              url: pl.url,
+              video_count: pl.video_count,
+              is_monitored: false
+            })
+
+          {:error, error} ->
+            Logger.error("Error checking playlist #{pl.id}: #{inspect(error)}")
+        end
+      end)
+    else
+      _ -> Logger.error("Channel not found for external_id: #{channel_id}")
+    end
+  end
+
+  defp sync_uploads_videos(_channel_id, nil), do: :ok
+
+  defp sync_uploads_videos(channel_id, uploads_playlist_id) do
+    with {:ok, playlist_detailed} <- Client.get_playlist_items_detailed(uploads_playlist_id) do
+      Logger.info("Got playlist details with videos and pagination for larger payloads: #{inspect(playlist_detailed)}")
+      Logger.debug("Videos to sync: #{inspect(playlist_detailed.videos)}")
+
+      Enum.each(playlist_detailed.videos, fn vid ->
+        Logger.debug("Processing video #{vid.id} - #{vid.title} (playlist item ID: #{vid.playlist_item_id})")
+        case get_video_by_external_id(vid.id) do
+          {:ok, nil} ->
+            create_video(channel_id, %{
+              external_id: vid.id,
+              title: vid.title,
+              description: vid.description,
+              url: vid.url,
+              thumbnail_url: vid.thumbnail_url,
+              upload_date: vid.published_at,
+              duration: vid.duration,
+              discovered_from: "uploads"
+            })
+
+          {:ok, _existing} ->
+            Logger.info("Video #{vid.id} already exists, skipping")
+
+          {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
+            create_video(channel_id, %{
+              external_id: vid.id,
+              title: vid.title,
+              description: vid.description,
+              url: vid.url,
+              thumbnail_url: vid.thumbnail_url,
+              upload_date: vid.published_at,
+              duration: vid.duration,
+              discovered_from: "uploads"
+            })
+
+          {:error, error} ->
+            Logger.error("Error checking video #{vid.id}: #{inspect(error)}")
+        end
+      end)
+    end
   end
 
   @doc """
   Queue a video for download via Oban
   """
   def queue_video_download(video_id, channel_id) do
-    Oban.insert(%Oban.Job{
-      worker: Ytdarr.ObanWorkers.VideoDownloader,
-      args: %{"video_id" => video_id, "channel_id" => channel_id}
-    })
+    %{"video_id" => video_id, "channel_id" => channel_id}
+    |> Ytdarr.ObanWorkers.VideoDownloader.new()
+    |> Oban.insert()
   end
 
   @doc"""

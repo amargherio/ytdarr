@@ -44,7 +44,7 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
-  def get_channel(channel_identifier) do
+    def get_channel(channel_identifier) do
     case API.get_channel(channel_identifier) do
       {:ok, api_response} ->
         case api_response.items do
@@ -61,31 +61,24 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
+  @doc """
+  Gets playlists for a given channel ID. The channel ID must be valid and cannot
+  be a username.
+  """
   def get_channel_playlists(channel_id, opts \\ []) do
-    case API.get_channel(channel_id) do
+    # use the provided channel_id to fetch playlists
+    Logger.info("[YouTube.Client] Fetching playlists for channel ID: #{channel_id}")
+    case API.get_playlists_by_channel(channel_id, opts) do
       {:ok, api_response} ->
-        case api_response.items do
-          [first | _] ->
-            channel = Models.Channel.from_api(first)
-
-            case API.get_playlists_by_channel(channel.id, opts) do
-              {:ok, playlists_response} ->
-                playlists = Enum.map(playlists_response.items, &Models.Playlist.from_api/1)
-                {:ok, playlists}
-
-              {:error, reason} ->
-                {:error, reason}
-            end
-
-          [] ->
-            {:error, :not_found}
-        end
+        playlists = Enum.map(api_response.items, &Models.Playlist.from_api/1)
+        {:ok, playlists}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
+  @deprecated
   def get_playlist_videos(playlist_id, opts \\ []) do
     case API.get_playlist_items(playlist_id, opts) do
       {:ok, api_response} ->
@@ -94,8 +87,25 @@ defmodule Ytdarr.Services.YouTube.Client do
             {:error, :not_found}
 
           items ->
-            videos = Enum.map(items, &Models.Video.from_api/1)
-            {:ok, videos}
+            # Extract video IDs from playlist items
+            video_ids =
+              items
+              |> Enum.map(&get_in(&1, ["snippet", "resourceId", "videoId"]))
+              |> Enum.filter(&is_binary/1)
+
+            if video_ids == [] do
+              {:error, :not_found}
+            else
+              # Fetch full video details
+              case API.get_videos_by_ids(video_ids) do
+                {:ok, videos_response} ->
+                  videos = Enum.map(videos_response.items, &Models.Video.from_api/1)
+                  {:ok, videos}
+
+                {:error, reason} ->
+                  {:error, reason}
+              end
+            end
         end
 
       {:error, reason} ->
@@ -158,7 +168,7 @@ defmodule Ytdarr.Services.YouTube.Client do
 
     # Get the playlist items first
     with {:ok, playlist_response} <- API.get_playlist_items(playlist_id, opts) do
-      items = playlist_response["items"] || []
+      items = playlist_response.items || []
 
       # Extract video IDs
       video_ids =
@@ -167,10 +177,12 @@ defmodule Ytdarr.Services.YouTube.Client do
         |> Enum.filter(&is_binary/1)
         |> Enum.join(",")
 
+      Logger.info("Collected video IDs for playlist #{playlist_id}: #{video_ids}")
+
       if video_ids != "" do
         case API.get_videos_by_ids(video_ids) do
           {:ok, videos_response} ->
-            videos = videos_response["items"] || []
+            videos = videos_response.items || []
 
             # merge playlist info with video details
             merged_items = merge_playlist_and_video_data(items, videos)
@@ -178,8 +190,8 @@ defmodule Ytdarr.Services.YouTube.Client do
             {:ok,
              %{
                videos: merged_items,
-               next_page_token: playlist_response["nextPageToken"],
-               total_results: playlist_response["pageInfo"]["totalResults"]
+               next_page_token: playlist_response.next_page_token,
+               total_results: playlist_response.page_info["totalResults"]
              }}
 
           {:error, error} ->
