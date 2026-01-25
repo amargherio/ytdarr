@@ -58,25 +58,10 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
   def handle_event(
         "add",
-        %{
-          "external_id" => external_id,
-          "name" => name,
-          "url" => url,
-          "avatar_url" => avatar_url,
-          "description" => description
-        },
+        %{"external_id" => external_id},
         %{assigns: %{mode: :channels}} = socket
       ) do
-    attrs = %{
-      name: name,
-      external_id: external_id,
-      url: url,
-      avatar_url: avatar_url,
-      description: description,
-      platform: "YouTube"
-    }
-
-    id = external_id
+    selected_channel = Enum.find(socket.assigns.results, &(&1.external_id == external_id))
 
     cond do
       # Revisit the MapSet use here
@@ -89,8 +74,17 @@ defmodule YtdarrWeb.ChannelLive.Add do
          |> update(:monitored_channel_ids, &MapSet.put(&1, external_id))
          |> put_flash(:info, "Channel already existed and is now marked as monitored")}
 
-      true ->
-        socket = update(socket, :adding_ids, &MapSet.put(&1, id))
+      selected_channel ->
+        attrs = %{
+          name: selected_channel.name,
+          external_id: selected_channel.external_id,
+          url: selected_channel.url,
+          avatar_url: selected_channel.avatar_url,
+          description: selected_channel.description,
+          platform: "YouTube"
+        }
+
+        socket = update(socket, :adding_ids, &MapSet.put(&1, external_id))
 
         case Content.create_channel(attrs) do
           {:ok, channel} ->
@@ -99,16 +93,19 @@ defmodule YtdarrWeb.ChannelLive.Add do
             {:noreply,
              socket
              |> update(:monitored_channel_ids, &MapSet.put(&1, channel.external_id))
-             |> update(:adding_ids, &MapSet.delete(&1, id))
+             |> update(:adding_ids, &MapSet.delete(&1, external_id))
              |> put_flash(:info, "Channel added")
              |> push_navigate(to: ~p"/channels/#{channel}")}
 
           {:error, error} ->
             {:noreply,
              socket
-             |> update(:adding_ids, &MapSet.delete(&1, id))
+             |> update(:adding_ids, &MapSet.delete(&1, external_id))
              |> put_flash(:error, friendly_errors(error))}
         end
+
+      true ->
+        {:noreply, put_flash(socket, :error, "Channel not found in results")}
     end
   end
 
@@ -202,10 +199,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
                     :if={not r.is_monitored and not MapSet.member?(@monitored_channel_ids, r.external_id)}
                     phx-click="add"
                     phx-value-external_id={r.external_id}
-                    phx-value-name={r.name}
-                    phx-value-url={r.url}
-                    phx-value-avatar_url={r.avatar_url}
-                    phx-value-description={r.description}
                     variant="primary"
                     class="btn-xs"
                     disabled={MapSet.member?(@adding_ids, r.external_id)}
