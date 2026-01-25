@@ -279,16 +279,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
   defp perform_channel_search(query) do
     case Content.search_for_channels(query) do
       {:ok, channels} ->
-        Enum.map(channels, fn ch ->
-          %{
-            name: ch.name,
-            external_id: ch.external_id,
-            url: ch.url,
-            avatar_url: ch.avatar_url,
-            description: ch.description,
-            is_monitored: ch.is_monitored
-          }
-        end)
+        channels
 
       _ ->
         []
