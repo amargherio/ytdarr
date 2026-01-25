@@ -11,32 +11,15 @@ defmodule Ytdarr.Services.YouTube.Client do
   def search_channels(query) do
     case API.search_channels(query) do
       {:ok, api_response} ->
-        data = Enum.map(api_response.items, &Models.Channel.from_api/1)
+        channels =
+          api_response.items
+          |> Enum.map(&Models.Channel.from_api/1)
+          |> Enum.map(&Parser.create_ytdarr_channel/1)
 
-        if data == [] do
+        if channels == [] do
           {:error, :no_results}
         else
-          channels =
-            Enum.reduce(data, [], fn item, acc ->
-              case Content.get_channel_by_external_id(item.id) do
-                {:ok, nil} ->
-                  # not already monitored, so create a Ytdarr.Content.Channel struct
-                  channel = Parser.create_ytdarr_channel(item)
-                  [channel | acc]
-
-                {:ok, _existing} ->
-                  # already monitored, skip
-                  Logger.info("Channel #{item.id} is already monitored, skipping")
-                  acc
-
-                {:error, _} ->
-                  # error occurred, treat as new
-                  channel = Parser.create_ytdarr_channel(item)
-                  [channel | acc]
-              end
-            end)
-
-          {:ok, Enum.reverse(channels)}
+          {:ok, channels}
         end
 
       {:error, reason} ->

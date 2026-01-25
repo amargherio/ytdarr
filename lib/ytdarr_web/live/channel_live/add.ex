@@ -2,7 +2,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Content
-  alias Ytdarr.Services.YouTube.{API, Models}
+  alias Ytdarr.Services.YouTube.Client
 
   require Ash.Query
 
@@ -59,13 +59,21 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
   def handle_event(
         "add",
-        %{"external_id" => external_id, "name" => name, "url" => url},
+        %{
+          "external_id" => external_id,
+          "name" => name,
+          "url" => url,
+          "avatar_url" => avatar_url,
+          "description" => description
+        },
         %{assigns: %{mode: :channels}} = socket
       ) do
     attrs = %{
       name: name,
       external_id: external_id,
       url: url,
+      avatar_url: avatar_url,
+      description: description,
       platform: "YouTube"
     }
 
@@ -174,7 +182,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
                 <th>Avatar</th>
                 <th>Name</th>
                 <th>External ID</th>
-                <th>Subscribers</th>
                 <th></th>
               </tr>
             </thead>
@@ -185,7 +192,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
                 </td>
                 <td>{r.name}</td>
                 <td><code>{r.external_id}</code></td>
-                <td>{r.subscriber_count}</td>
                 <td>
                   <span
                     :if={MapSet.member?(@monitored_channel_ids, r.external_id)}
@@ -199,6 +205,8 @@ defmodule YtdarrWeb.ChannelLive.Add do
                     phx-value-external_id={r.external_id}
                     phx-value-name={r.name}
                     phx-value-url={r.url}
+                    phx-value-avatar_url={r.avatar_url}
+                    phx-value-description={r.description}
                     variant="primary"
                     class="btn-xs"
                     disabled={MapSet.member?(@adding_ids, r.external_id)}
@@ -270,31 +278,21 @@ defmodule YtdarrWeb.ChannelLive.Add do
   defp perform_channel_search(nil), do: []
 
   defp perform_channel_search(query) do
-    with {:ok, %Models.APIResponse{items: items}} <- API.search_channels(query),
-         channel_ids <- extract_channel_ids(items),
-         true <- channel_ids != [],
-         {:ok, %Models.APIResponse{items: channel_items}} <-
-           API.get_channel(Enum.join(channel_ids, ",")) do
-      channel_items
-      |> Enum.map(&Models.Channel.from_api/1)
-      |> Enum.map(fn ch ->
-        %{
-          name: ch.title,
-          external_id: ch.id,
-          url: ch.url,
-          avatar_url: ch.thumbnail_url,
-          subscriber_count: ch.subscriber_count
-        }
-      end)
-    else
-      _ -> []
-    end
-  end
+    case Client.search_channels(query) do
+      {:ok, channels} ->
+        Enum.map(channels, fn ch ->
+          %{
+            name: ch.name,
+            external_id: ch.external_id,
+            url: ch.url,
+            avatar_url: ch.avatar_url,
+            description: ch.description
+          }
+        end)
 
-  defp extract_channel_ids(items) do
-    items
-    |> Enum.map(fn item -> get_in(item, ["id", "channelId"]) end)
-    |> Enum.reject(&is_nil/1)
+      _ ->
+        []
+    end
   end
 
   defp preload_channels_map do
