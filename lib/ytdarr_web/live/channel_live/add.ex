@@ -2,7 +2,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Content
-  alias Ytdarr.Services.YouTube.Client
 
   require Ash.Query
 
@@ -194,13 +193,13 @@ defmodule YtdarrWeb.ChannelLive.Add do
                 <td><code>{r.external_id}</code></td>
                 <td>
                   <span
-                    :if={MapSet.member?(@monitored_channel_ids, r.external_id)}
+                    :if={r.is_monitored or MapSet.member?(@monitored_channel_ids, r.external_id)}
                     class="badge badge-success"
                   >
                     Monitored
                   </span>
                   <.button
-                    :if={!MapSet.member?(@monitored_channel_ids, r.external_id)}
+                    :if={not r.is_monitored and not MapSet.member?(@monitored_channel_ids, r.external_id)}
                     phx-click="add"
                     phx-value-external_id={r.external_id}
                     phx-value-name={r.name}
@@ -278,7 +277,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
   defp perform_channel_search(nil), do: []
 
   defp perform_channel_search(query) do
-    case Client.search_channels(query) do
+    case Content.search_for_channels(query) do
       {:ok, channels} ->
         Enum.map(channels, fn ch ->
           %{
@@ -286,7 +285,8 @@ defmodule YtdarrWeb.ChannelLive.Add do
             external_id: ch.external_id,
             url: ch.url,
             avatar_url: ch.avatar_url,
-            description: ch.description
+            description: ch.description,
+            is_monitored: ch.is_monitored
           }
         end)
 

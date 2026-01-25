@@ -58,6 +58,32 @@ defmodule Ytdarr.Content do
   ## Complex operations that orchestrate syncing
 
   @doc """
+  Search for channels via YouTube API and check monitoring status.
+  """
+  def search_for_channels(query) do
+    case Client.search_channels(query) do
+      {:ok, channels} ->
+        enriched_channels =
+          Enum.map(channels, fn channel ->
+            case get_channel_by_external_id(channel.external_id) do
+              {:ok, %Channel{} = existing_channel} ->
+                # If channel exists in DB, use its monitored status
+                %{channel | is_monitored: existing_channel.is_monitored}
+
+              _ ->
+                # Otherwise, it's not monitored (default is already false in struct)
+                channel
+            end
+          end)
+
+        {:ok, enriched_channels}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
   Sync channel or playlist content with the latest from the source.
   Queues an Oban job to perform the actual sync.
   """
