@@ -40,7 +40,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
     _chan_map = socket.assigns.channels_lookup
 
     Task.start(fn ->
-      results = mock_channel_search(q)
+      results = perform_channel_search(q)
       send(self(), {:async_search_result, ref, q, results})
     end)
 
@@ -58,17 +58,11 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
   def handle_event(
         "add",
-        %{"external_id" => external_id, "name" => name, "url" => url},
+        %{"external_id" => external_id} = params,
         %{assigns: %{mode: :channels}} = socket
       ) do
-    attrs = %{
-      name: name,
-      external_id: external_id,
-      url: url,
-      platform: "YouTube"
-    }
-
-    id = external_id
+    should_sync = Map.get(params, "sync", "true") == "true"
+    selected_channel = Enum.find(socket.assigns.results, &(&1.external_id == external_id))
 
     cond do
       # Revisit the MapSet use here
@@ -81,24 +75,40 @@ defmodule YtdarrWeb.ChannelLive.Add do
          |> update(:monitored_channel_ids, &MapSet.put(&1, external_id))
          |> put_flash(:info, "Channel already existed and is now marked as monitored")}
 
-      true ->
-        socket = update(socket, :adding_ids, &MapSet.put(&1, id))
+      selected_channel ->
+        attrs = %{
+          name: selected_channel.name,
+          external_id: selected_channel.external_id,
+          url: selected_channel.url,
+          avatar_url: selected_channel.avatar_url,
+          description: selected_channel.description,
+          platform: "YouTube"
+        }
+
+        socket = update(socket, :adding_ids, &MapSet.put(&1, external_id))
 
         case Content.create_channel(attrs) do
           {:ok, channel} ->
+            if should_sync do
+              Content.sync_content("channel", channel.id)
+            end
+
             {:noreply,
              socket
              |> update(:monitored_channel_ids, &MapSet.put(&1, channel.external_id))
-             |> update(:adding_ids, &MapSet.delete(&1, id))
+             |> update(:adding_ids, &MapSet.delete(&1, external_id))
              |> put_flash(:info, "Channel added")
              |> push_navigate(to: ~p"/channels/#{channel}")}
 
           {:error, error} ->
             {:noreply,
              socket
-             |> update(:adding_ids, &MapSet.delete(&1, id))
+             |> update(:adding_ids, &MapSet.delete(&1, external_id))
              |> put_flash(:error, friendly_errors(error))}
         end
+
+      true ->
+        {:noreply, put_flash(socket, :error, "Channel not found in results")}
     end
   end
 
@@ -171,7 +181,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
                 <th>Avatar</th>
                 <th>Name</th>
                 <th>External ID</th>
-                <th>Subscribers</th>
                 <th></th>
               </tr>
             </thead>
@@ -182,30 +191,41 @@ defmodule YtdarrWeb.ChannelLive.Add do
                 </td>
                 <td>{r.name}</td>
                 <td><code>{r.external_id}</code></td>
-                <td>{r.subscriber_count}</td>
                 <td>
                   <span
-                    :if={MapSet.member?(@monitored_channel_ids, r.external_id)}
+                    :if={r.is_monitored or MapSet.member?(@monitored_channel_ids, r.external_id)}
                     class="badge badge-success"
                   >
                     Monitored
                   </span>
-                  <.button
-                    :if={!MapSet.member?(@monitored_channel_ids, r.external_id)}
-                    phx-click="add"
-                    phx-value-external_id={r.external_id}
-                    phx-value-name={r.name}
-                    phx-value-url={r.url}
-                    variant="primary"
-                    class="btn-xs"
-                    disabled={MapSet.member?(@adding_ids, r.external_id)}
+                  <div
+                    :if={not r.is_monitored and not MapSet.member?(@monitored_channel_ids, r.external_id)}
+                    class="join"
                   >
-                    <span
-                      :if={MapSet.member?(@adding_ids, r.external_id)}
-                      class="loading loading-spinner loading-xs mr-1"
-                    />
-                    {(MapSet.member?(@adding_ids, r.external_id) && "Adding...") || "Add"}
-                  </.button>
+                    <.button
+                      phx-click="add"
+                      phx-value-external_id={r.external_id}
+                      phx-value-sync="true"
+                      variant="primary"
+                      class="btn-xs join-item"
+                      disabled={MapSet.member?(@adding_ids, r.external_id)}
+                    >
+                      <span
+                        :if={MapSet.member?(@adding_ids, r.external_id)}
+                        class="loading loading-spinner loading-xs mr-1"
+                      />
+                      {(MapSet.member?(@adding_ids, r.external_id) && "Adding...") || "Add & Sync"}
+                    </.button>
+                    <.button
+                      phx-click="add"
+                      phx-value-external_id={r.external_id}
+                      phx-value-sync="false"
+                      class="btn-xs join-item"
+                      disabled={MapSet.member?(@adding_ids, r.external_id)}
+                    >
+                      Add Only
+                    </.button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -263,21 +283,16 @@ defmodule YtdarrWeb.ChannelLive.Add do
     """
   end
 
-  # Mock search helpers (to be replaced with real API integration)
-  defp mock_channel_search(""), do: []
-  defp mock_channel_search(nil), do: []
+  defp perform_channel_search(""), do: []
+  defp perform_channel_search(nil), do: []
 
-  defp mock_channel_search(query) do
-    base = String.replace(query, ~r/\s+/, "-") |> String.downcase()
+  defp perform_channel_search(query) do
+    case Content.search_for_channels(query) do
+      {:ok, channels} ->
+        channels
 
-    for i <- 1..min(5, String.length(query)) do
-      %{
-        name: "#{String.capitalize(query)} Channel #{i}",
-        external_id: "mock-chan-#{base}-#{i}",
-        url: "https://www.youtube.com/@#{base}#{i}",
-        avatar_url: "https://via.placeholder.com/64?text=#{URI.encode(query)}",
-        subscriber_count: Enum.random(1_000..100_000) |> :erlang.integer_to_binary()
-      }
+      _ ->
+        []
     end
   end
 
