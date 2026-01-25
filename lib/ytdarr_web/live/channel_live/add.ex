@@ -58,9 +58,10 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
   def handle_event(
         "add",
-        %{"external_id" => external_id},
+        %{"external_id" => external_id} = params,
         %{assigns: %{mode: :channels}} = socket
       ) do
+    should_sync = Map.get(params, "sync", "true") == "true"
     selected_channel = Enum.find(socket.assigns.results, &(&1.external_id == external_id))
 
     cond do
@@ -88,7 +89,9 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
         case Content.create_channel(attrs) do
           {:ok, channel} ->
-            Content.sync_content("channel", channel.id)
+            if should_sync do
+              Content.sync_content("channel", channel.id)
+            end
 
             {:noreply,
              socket
@@ -195,20 +198,34 @@ defmodule YtdarrWeb.ChannelLive.Add do
                   >
                     Monitored
                   </span>
-                  <.button
+                  <div
                     :if={not r.is_monitored and not MapSet.member?(@monitored_channel_ids, r.external_id)}
-                    phx-click="add"
-                    phx-value-external_id={r.external_id}
-                    variant="primary"
-                    class="btn-xs"
-                    disabled={MapSet.member?(@adding_ids, r.external_id)}
+                    class="join"
                   >
-                    <span
-                      :if={MapSet.member?(@adding_ids, r.external_id)}
-                      class="loading loading-spinner loading-xs mr-1"
-                    />
-                    {(MapSet.member?(@adding_ids, r.external_id) && "Adding...") || "Add"}
-                  </.button>
+                    <.button
+                      phx-click="add"
+                      phx-value-external_id={r.external_id}
+                      phx-value-sync="true"
+                      variant="primary"
+                      class="btn-xs join-item"
+                      disabled={MapSet.member?(@adding_ids, r.external_id)}
+                    >
+                      <span
+                        :if={MapSet.member?(@adding_ids, r.external_id)}
+                        class="loading loading-spinner loading-xs mr-1"
+                      />
+                      {(MapSet.member?(@adding_ids, r.external_id) && "Adding...") || "Add & Sync"}
+                    </.button>
+                    <.button
+                      phx-click="add"
+                      phx-value-external_id={r.external_id}
+                      phx-value-sync="false"
+                      class="btn-xs join-item"
+                      disabled={MapSet.member?(@adding_ids, r.external_id)}
+                    >
+                      Add Only
+                    </.button>
+                  </div>
                 </td>
               </tr>
             </tbody>
