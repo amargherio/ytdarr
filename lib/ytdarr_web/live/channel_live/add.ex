@@ -2,6 +2,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Content
+  alias Ytdarr.Services.YouTube.{API, Models}
 
   require Ash.Query
 
@@ -40,7 +41,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
     _chan_map = socket.assigns.channels_lookup
 
     Task.start(fn ->
-      results = mock_channel_search(q)
+      results = perform_channel_search(q)
       send(self(), {:async_search_result, ref, q, results})
     end)
 
@@ -86,6 +87,8 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
         case Content.create_channel(attrs) do
           {:ok, channel} ->
+            Content.sync_content("channel", channel.id)
+
             {:noreply,
              socket
              |> update(:monitored_channel_ids, &MapSet.put(&1, channel.external_id))
@@ -263,22 +266,35 @@ defmodule YtdarrWeb.ChannelLive.Add do
     """
   end
 
-  # Mock search helpers (to be replaced with real API integration)
-  defp mock_channel_search(""), do: []
-  defp mock_channel_search(nil), do: []
+  defp perform_channel_search(""), do: []
+  defp perform_channel_search(nil), do: []
 
-  defp mock_channel_search(query) do
-    base = String.replace(query, ~r/\s+/, "-") |> String.downcase()
-
-    for i <- 1..min(5, String.length(query)) do
-      %{
-        name: "#{String.capitalize(query)} Channel #{i}",
-        external_id: "mock-chan-#{base}-#{i}",
-        url: "https://www.youtube.com/@#{base}#{i}",
-        avatar_url: "https://via.placeholder.com/64?text=#{URI.encode(query)}",
-        subscriber_count: Enum.random(1_000..100_000) |> :erlang.integer_to_binary()
-      }
+  defp perform_channel_search(query) do
+    with {:ok, %Models.APIResponse{items: items}} <- API.search_channels(query),
+         channel_ids <- extract_channel_ids(items),
+         true <- channel_ids != [],
+         {:ok, %Models.APIResponse{items: channel_items}} <-
+           API.get_channel(Enum.join(channel_ids, ",")) do
+      channel_items
+      |> Enum.map(&Models.Channel.from_api/1)
+      |> Enum.map(fn ch ->
+        %{
+          name: ch.title,
+          external_id: ch.id,
+          url: ch.url,
+          avatar_url: ch.thumbnail_url,
+          subscriber_count: ch.subscriber_count
+        }
+      end)
+    else
+      _ -> []
     end
+  end
+
+  defp extract_channel_ids(items) do
+    items
+    |> Enum.map(fn item -> get_in(item, ["id", "channelId"]) end)
+    |> Enum.reject(&is_nil/1)
   end
 
   defp preload_channels_map do
