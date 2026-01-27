@@ -31,24 +31,26 @@ defmodule Ytdarr.Services.YouTube.ClientIntegrationTest do
       video_ids = YouTubeMocks.generate_video_ids(10)
 
       # Mock a single page response (no nextPageToken)
-      client = create_test_client(fn conn ->
-        cond do
-          String.ends_with?(conn.request_path, "/playlistItems") ->
-            {200, YouTubeMocks.playlist_items_response(playlist_id, video_ids)}
+      client =
+        create_test_client(fn conn ->
+          cond do
+            String.ends_with?(conn.request_path, "/playlistItems") ->
+              {200, YouTubeMocks.playlist_items_response(playlist_id, video_ids)}
 
-          String.ends_with?(conn.request_path, "/videos") ->
-            {200, YouTubeMocks.videos_response(video_ids)}
+            String.ends_with?(conn.request_path, "/videos") ->
+              {200, YouTubeMocks.videos_response(video_ids)}
 
-          true ->
-            {404, %{"error" => "Not found"}}
-        end
-      end)
+            true ->
+              {404, %{"error" => "Not found"}}
+          end
+        end)
 
       # We need to test through the public API since fetch_all_playlist_items is private
       # The best way is to call get_playlist_items_detailed which uses both
-      assert {:ok, result} = call_with_client(fn ->
-        API.get_playlist_items(playlist_id, client: client)
-      end)
+      assert {:ok, result} =
+               call_with_client(fn ->
+                 API.get_playlist_items(playlist_id, client: client)
+               end)
 
       assert length(result.items) == 10
       assert result.next_page_token == nil
@@ -62,44 +64,55 @@ defmodule Ytdarr.Services.YouTube.ClientIntegrationTest do
 
       call_count = :counters.new(1, [:atomics])
 
-      client = create_test_client(fn conn ->
-        :counters.add(call_count, 1, 1)
-        _current_call = :counters.get(call_count, 1)
+      client =
+        create_test_client(fn conn ->
+          :counters.add(call_count, 1, 1)
+          _current_call = :counters.get(call_count, 1)
 
-        cond do
-          String.ends_with?(conn.request_path, "/playlistItems") ->
-            cond do
-              # First call - no pageToken
-              not String.contains?(conn.query_string, "pageToken") ->
-                {200, YouTubeMocks.playlist_items_response(playlist_id, page1_ids, next_page_token: "PAGE2_TOKEN")}
+          cond do
+            String.ends_with?(conn.request_path, "/playlistItems") ->
+              cond do
+                # First call - no pageToken
+                not String.contains?(conn.query_string, "pageToken") ->
+                  {200,
+                   YouTubeMocks.playlist_items_response(playlist_id, page1_ids,
+                     next_page_token: "PAGE2_TOKEN"
+                   )}
 
-              # Second call - has PAGE2_TOKEN
-              String.contains?(conn.query_string, "PAGE2_TOKEN") ->
-                {200, YouTubeMocks.playlist_items_response(playlist_id, page2_ids, next_page_token: "PAGE3_TOKEN")}
+                # Second call - has PAGE2_TOKEN
+                String.contains?(conn.query_string, "PAGE2_TOKEN") ->
+                  {200,
+                   YouTubeMocks.playlist_items_response(playlist_id, page2_ids,
+                     next_page_token: "PAGE3_TOKEN"
+                   )}
 
-              # Third call - has PAGE3_TOKEN
-              String.contains?(conn.query_string, "PAGE3_TOKEN") ->
-                {200, YouTubeMocks.playlist_items_response(playlist_id, page3_ids)}
+                # Third call - has PAGE3_TOKEN
+                String.contains?(conn.query_string, "PAGE3_TOKEN") ->
+                  {200, YouTubeMocks.playlist_items_response(playlist_id, page3_ids)}
 
-              true ->
-                {200, YouTubeMocks.playlist_items_response(playlist_id, [])}
-            end
+                true ->
+                  {200, YouTubeMocks.playlist_items_response(playlist_id, [])}
+              end
 
-          true ->
-            {200, %{"kind" => "youtube#videoListResponse", "items" => [], "pageInfo" => %{}}}
-        end
-      end)
+            true ->
+              {200, %{"kind" => "youtube#videoListResponse", "items" => [], "pageInfo" => %{}}}
+          end
+        end)
 
       # Make sequential calls to simulate pagination
       {:ok, page1} = API.get_playlist_items(playlist_id, client: client)
       assert length(page1.items) == 5
       assert page1.next_page_token == "PAGE2_TOKEN"
 
-      {:ok, page2} = API.get_playlist_items(playlist_id, page_token: "PAGE2_TOKEN", client: client)
+      {:ok, page2} =
+        API.get_playlist_items(playlist_id, page_token: "PAGE2_TOKEN", client: client)
+
       assert length(page2.items) == 5
       assert page2.next_page_token == "PAGE3_TOKEN"
 
-      {:ok, page3} = API.get_playlist_items(playlist_id, page_token: "PAGE3_TOKEN", client: client)
+      {:ok, page3} =
+        API.get_playlist_items(playlist_id, page_token: "PAGE3_TOKEN", client: client)
+
       assert length(page3.items) == 3
       assert page3.next_page_token == nil
     end
@@ -113,20 +126,21 @@ defmodule Ytdarr.Services.YouTube.ClientIntegrationTest do
       _batch_sizes = []
       batch_sizes_agent = start_supervised!({Agent, fn -> [] end})
 
-      client = create_test_client(fn conn ->
-        if String.ends_with?(conn.request_path, "/videos") do
-          # Parse the IDs from the query string
-          [_, ids_param] = Regex.run(~r/id=([^&]+)/, conn.query_string) || [nil, ""]
-          ids = String.split(ids_param, "%2C")
-          Agent.update(batch_sizes_agent, fn sizes -> sizes ++ [length(ids)] end)
+      client =
+        create_test_client(fn conn ->
+          if String.ends_with?(conn.request_path, "/videos") do
+            # Parse the IDs from the query string
+            [_, ids_param] = Regex.run(~r/id=([^&]+)/, conn.query_string) || [nil, ""]
+            ids = String.split(ids_param, "%2C")
+            Agent.update(batch_sizes_agent, fn sizes -> sizes ++ [length(ids)] end)
 
-          # Return mock response for this batch
-          batch_video_ids = Enum.take(video_ids, length(ids))
-          {200, YouTubeMocks.videos_response(batch_video_ids)}
-        else
-          {404, %{"error" => "Not found"}}
-        end
-      end)
+            # Return mock response for this batch
+            batch_video_ids = Enum.take(video_ids, length(ids))
+            {200, YouTubeMocks.videos_response(batch_video_ids)}
+          else
+            {404, %{"error" => "Not found"}}
+          end
+        end)
 
       # Call with all 120 IDs
       {:ok, response} = API.get_videos_by_ids(video_ids, client: client)
@@ -144,11 +158,13 @@ defmodule Ytdarr.Services.YouTube.ClientIntegrationTest do
     test "get_videos_by_ids handles list input" do
       video_ids = ["vid1", "vid2", "vid3"]
 
-      client = create_test_client(fn conn ->
-        assert String.contains?(conn.query_string, "id=vid1%2Cvid2%2Cvid3") or
-               String.contains?(conn.query_string, "id=vid1,vid2,vid3")
-        {200, YouTubeMocks.videos_response(video_ids)}
-      end)
+      client =
+        create_test_client(fn conn ->
+          assert String.contains?(conn.query_string, "id=vid1%2Cvid2%2Cvid3") or
+                   String.contains?(conn.query_string, "id=vid1,vid2,vid3")
+
+          {200, YouTubeMocks.videos_response(video_ids)}
+        end)
 
       {:ok, response} = API.get_videos_by_ids(video_ids, client: client)
       assert length(response.items) == 3
@@ -157,19 +173,22 @@ defmodule Ytdarr.Services.YouTube.ClientIntegrationTest do
 
   describe "error handling" do
     test "API returns proper error tuple on 4xx responses" do
-      client = create_test_client(fn _conn ->
-        {403, YouTubeMocks.error_response(403, "Forbidden")}
-      end)
+      client =
+        create_test_client(fn _conn ->
+          {403, YouTubeMocks.error_response(403, "Forbidden")}
+        end)
 
       assert {:error, {:http_error, 403, body}} =
                API.get_playlist_items("test", client: client)
+
       assert body["error"]["code"] == 403
     end
 
     test "API returns proper error tuple on 5xx responses" do
-      client = create_test_client(fn _conn ->
-        {500, YouTubeMocks.error_response(500, "Internal Server Error")}
-      end)
+      client =
+        create_test_client(fn _conn ->
+          {500, YouTubeMocks.error_response(500, "Internal Server Error")}
+        end)
 
       assert {:error, {:http_error, 500, _body}} =
                API.get_videos_by_ids("vid1", client: client)

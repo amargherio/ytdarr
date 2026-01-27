@@ -17,6 +17,33 @@ defmodule Ytdarr.Settings.AppSetting do
     table_columns [:id, :key, :type, :inserted_at]
   end
 
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      primary? true
+      accept [:key, :value, :type]
+    end
+
+    update :update do
+      primary? true
+      accept [:value, :type]
+    end
+
+    read :by_key do
+      argument :key, :string, allow_nil?: false
+      get? true
+      filter expr(key == ^arg(:key))
+    end
+
+    create :upsert do
+      accept [:key, :value, :type]
+      upsert? true
+      upsert_identity :unique_key
+      upsert_fields [:value, :type]
+    end
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -43,32 +70,5 @@ defmodule Ytdarr.Settings.AppSetting do
 
   identities do
     identity :unique_key, [:key]
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      primary? true
-      accept [:key, :value, :type]
-    end
-
-    update :update do
-      primary? true
-      accept [:value, :type]
-    end
-
-    read :by_key do
-      argument :key, :string, allow_nil?: false
-      get? true
-      filter expr(key == ^arg(:key))
-    end
-
-    create :upsert do
-      accept [:key, :value, :type]
-      upsert? true
-      upsert_identity :unique_key
-      upsert_fields [:value, :type]
-    end
   end
 end

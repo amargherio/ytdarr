@@ -7,8 +7,8 @@
       "source": "id",
       "references": null,
       "allow_nil?": false,
-      "generated?": true,
-      "primary_key?": true
+      "primary_key?": true,
+      "generated?": true
     },
     {
       "default": "nil",
@@ -17,8 +17,8 @@
       "source": "key",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -27,8 +27,8 @@
       "source": "value",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -37,8 +37,8 @@
       "source": "type",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -47,8 +47,8 @@
       "source": "inserted_at",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -57,16 +57,17 @@
       "source": "updated_at",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     }
   ],
   "table": "app_settings",
-  "hash": "28C7B2ED6E76920302FA6F6CD95E08135738333FDD49249224E0497F640BBCBD",
+  "hash": "2584124BDF8FD42BC7F5A2BA2FDFE3940971BB4F0C7EFF65B4F005BBF04E3C24",
+  "repo": "Elixir.Ytdarr.Repo",
   "multitenancy": {
     "global": null,
-    "strategy": null,
-    "attribute": null
+    "attribute": null,
+    "strategy": null
   },
   "identities": [
     {
@@ -78,10 +79,9 @@
       "base_filter": null
     }
   ],
-  "repo": "Elixir.Ytdarr.Repo",
   "strict?": false,
-  "base_filter": null,
   "custom_indexes": [],
   "custom_statements": [],
+  "base_filter": null,
   "has_create_action": true
 }

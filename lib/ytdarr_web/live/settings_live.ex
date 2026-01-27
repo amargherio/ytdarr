@@ -32,10 +32,12 @@ defmodule YtdarrWeb.SettingsLive do
 
     # Media form using simple map data
     media_data = %{
-      "file_naming_template" => Settings.get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
+      "file_naming_template" =>
+        Settings.get_setting_value("media.file_naming_template", "%(channel)s/%(title)s.%(ext)s"),
       "move_strategy" => Settings.get_setting_value("media.move_strategy", "hardlink"),
       "clean_orphans" => Settings.get_setting_value("media.clean_orphans", true)
     }
+
     media_form = to_form(media_data, as: :media)
 
     # YouTube form
@@ -43,6 +45,7 @@ defmodule YtdarrWeb.SettingsLive do
       "api_key" => mask_api_key(Settings.get_setting_value("youtube.primary_api_key")),
       "region" => Settings.get_setting_value("youtube.region", "US")
     }
+
     youtube_form = to_form(youtube_data, as: :youtube)
 
     # Ash forms for resources
@@ -110,6 +113,7 @@ defmodule YtdarrWeb.SettingsLive do
       {:ok, folder} when not is_nil(folder) ->
         Settings.destroy_media_root_folder(folder)
         {:noreply, socket |> put_flash(:info, "Root folder removed") |> load_data()}
+
       _ ->
         {:noreply, put_flash(socket, :error, "Root folder not found")}
     end
@@ -142,6 +146,7 @@ defmodule YtdarrWeb.SettingsLive do
       {:ok, profile} when not is_nil(profile) ->
         Settings.destroy_quality_profile(profile)
         {:noreply, socket |> put_flash(:info, "Profile deleted") |> load_data()}
+
       _ ->
         {:noreply, put_flash(socket, :error, "Profile not found")}
     end
@@ -159,6 +164,7 @@ defmodule YtdarrWeb.SettingsLive do
       {:ok, param_set} when not is_nil(param_set) ->
         Settings.destroy_yt_dlp_param_set(param_set)
         {:noreply, socket |> put_flash(:info, "Param set deleted") |> load_data()}
+
       _ ->
         {:noreply, put_flash(socket, :error, "Param set not found")}
     end

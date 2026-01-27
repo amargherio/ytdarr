@@ -17,6 +17,54 @@ defmodule Ytdarr.Settings.QualityProfile do
     table_columns [:id, :name, :max_height, :is_default, :inserted_at]
   end
 
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      primary? true
+
+      accept [
+        :name,
+        :max_height,
+        :max_bitrate_kbps,
+        :preferred_codecs,
+        :allow_hdr,
+        :format_selector,
+        :is_default
+      ]
+
+      change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
+    end
+
+    update :update do
+      primary? true
+      require_atomic? false
+
+      accept [
+        :name,
+        :max_height,
+        :max_bitrate_kbps,
+        :preferred_codecs,
+        :allow_hdr,
+        :format_selector,
+        :is_default
+      ]
+
+      change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
+    end
+
+    update :set_as_default do
+      require_atomic? false
+      change set_attribute(:is_default, true)
+      change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
+    end
+
+    read :default_profile do
+      get? true
+      filter expr(is_default == true)
+    end
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -62,34 +110,6 @@ defmodule Ytdarr.Settings.QualityProfile do
 
   identities do
     identity :unique_name, [:name]
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      primary? true
-      accept [:name, :max_height, :max_bitrate_kbps, :preferred_codecs, :allow_hdr, :format_selector, :is_default]
-      change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
-    end
-
-    update :update do
-      primary? true
-      require_atomic? false
-      accept [:name, :max_height, :max_bitrate_kbps, :preferred_codecs, :allow_hdr, :format_selector, :is_default]
-      change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
-    end
-
-    update :set_as_default do
-      require_atomic? false
-      change set_attribute(:is_default, true)
-      change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
-    end
-
-    read :default_profile do
-      get? true
-      filter expr(is_default == true)
-    end
   end
 end
 

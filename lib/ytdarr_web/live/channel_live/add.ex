@@ -199,7 +199,9 @@ defmodule YtdarrWeb.ChannelLive.Add do
                     Monitored
                   </span>
                   <div
-                    :if={not r.is_monitored and not MapSet.member?(@monitored_channel_ids, r.external_id)}
+                    :if={
+                      not r.is_monitored and not MapSet.member?(@monitored_channel_ids, r.external_id)
+                    }
                     class="join"
                   >
                     <.button

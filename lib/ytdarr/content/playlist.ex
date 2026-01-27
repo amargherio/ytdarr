@@ -14,6 +14,78 @@ defmodule Ytdarr.Content.Playlist do
     table_columns [:id, :name, :external_id, :video_count, :is_monitored, :inserted_at]
   end
 
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [
+        :name,
+        :external_id,
+        :url,
+        :description,
+        :video_count,
+        :is_monitored
+      ]
+
+      argument :channel_id, :integer do
+        allow_nil? false
+      end
+
+      change manage_relationship(:channel_id, :channel, type: :append)
+      change Ytdarr.Content.Playlist.Changes.SetDownloadPath
+      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
+    end
+
+    update :update do
+      require_atomic? false
+
+      accept [
+        :name,
+        :description,
+        :video_count,
+        :is_monitored,
+        :last_checked_at
+      ]
+
+      change Ytdarr.Content.Playlist.Changes.SetDownloadPath
+      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
+    end
+
+    update :monitor do
+      require_atomic? false
+      accept []
+      change set_attribute(:is_monitored, true)
+      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
+      change Ytdarr.Content.Playlist.Changes.QueueSync
+    end
+
+    update :unmonitor do
+      require_atomic? false
+      accept []
+      change set_attribute(:is_monitored, false)
+      change set_attribute(:is_monitored_since, nil)
+    end
+
+    update :toggle_monitor do
+      require_atomic? false
+      accept []
+      change Ytdarr.Content.Playlist.Changes.ToggleMonitor
+      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
+    end
+
+    update :mark_checked do
+      require_atomic? false
+      accept []
+      change set_attribute(:last_checked_at, &DateTime.utc_now/0)
+    end
+
+    read :monitored do
+      description "List all monitored playlists"
+      filter expr(is_monitored == true)
+      prepare build(sort: [name: :asc], load: [:channel])
+    end
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -82,71 +154,6 @@ defmodule Ytdarr.Content.Playlist do
 
   identities do
     identity :unique_external_id, [:external_id]
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      accept [
-        :name,
-        :external_id,
-        :url,
-        :description,
-        :video_count,
-        :is_monitored
-      ]
-
-      argument :channel_id, :integer do
-        allow_nil? false
-      end
-
-      change manage_relationship(:channel_id, :channel, type: :append)
-      change Ytdarr.Content.Playlist.Changes.SetDownloadPath
-      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
-    end
-
-    update :update do
-      require_atomic? false
-      accept [
-        :name,
-        :description,
-        :video_count,
-        :is_monitored,
-        :last_checked_at
-      ]
-
-      change Ytdarr.Content.Playlist.Changes.SetDownloadPath
-      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
-    end
-
-    update :monitor do
-      require_atomic? false
-      accept []
-      change set_attribute(:is_monitored, true)
-      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
-      change Ytdarr.Content.Playlist.Changes.QueueSync
-    end
-
-    update :unmonitor do
-      require_atomic? false
-      accept []
-      change set_attribute(:is_monitored, false)
-      change set_attribute(:is_monitored_since, nil)
-    end
-
-    update :toggle_monitor do
-      require_atomic? false
-      accept []
-      change Ytdarr.Content.Playlist.Changes.ToggleMonitor
-      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
-    end
-
-    update :mark_checked do
-      require_atomic? false
-      accept []
-      change set_attribute(:last_checked_at, &DateTime.utc_now/0)
-    end
   end
 end
 

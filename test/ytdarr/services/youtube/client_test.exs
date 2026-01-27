@@ -32,7 +32,9 @@ defmodule Ytdarr.Services.YouTube.ClientTest do
 
     test "handles various channel ID formats" do
       assert Client.get_uploads_playlist_id("UCabcdefghijklmnop") == "UUabcdefghijklmnop"
-      assert Client.get_uploads_playlist_id("UC123456789012345678901") == "UU123456789012345678901"
+
+      assert Client.get_uploads_playlist_id("UC123456789012345678901") ==
+               "UU123456789012345678901"
     end
 
     test "handles short channel IDs" do

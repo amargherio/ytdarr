@@ -7,8 +7,8 @@
       "source": "id",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": true
+      "primary_key?": true,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -17,8 +17,8 @@
       "source": "email",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -27,8 +27,8 @@
       "source": "hashed_password",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -37,16 +37,17 @@
       "source": "confirmed_at",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     }
   ],
   "table": "users",
-  "hash": "DA8649FB6EF728AD0A6036C4F68EAAE4ACDEEB0586C43CF66235DD74EAC2EA4B",
+  "hash": "58C5D3DE616F967D77510E5B3ADC6907392E11F5DEBF31040A1C304A526E14BC",
+  "repo": "Elixir.Ytdarr.Repo",
   "multitenancy": {
     "global": null,
-    "strategy": null,
-    "attribute": null
+    "attribute": null,
+    "strategy": null
   },
   "identities": [
     {
@@ -54,14 +55,13 @@
       "keys": [
         "email"
       ],
-      "base_filter": null,
-      "index_name": "users_unique_email_index"
+      "index_name": "users_unique_email_index",
+      "base_filter": null
     }
   ],
-  "repo": "Elixir.Ytdarr.Repo",
   "strict?": false,
-  "base_filter": null,
   "custom_indexes": [],
   "custom_statements": [],
+  "base_filter": null,
   "has_create_action": true
 }

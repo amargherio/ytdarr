@@ -90,6 +90,7 @@ config :ytdarr, Oban,
   engine: Oban.Engines.Lite,
   queues: [
     video_downloader: 2,
-    sync_worker: 5
+    sync_worker: 5,
+    batch_sync: 1
   ],
   repo: Ytdarr.Repo

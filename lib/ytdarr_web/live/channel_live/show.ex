@@ -54,7 +54,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
           </div>
         </:actions>
       </.hero_header>
-
+      
     <!-- channel metadata -->
       <div class="flex flex-wrap justify-start gap-4">
         <div class="bg-slate-300 p-2 rounded">
@@ -216,7 +216,8 @@ defmodule YtdarrWeb.ChannelLive.Show do
         case Content.toggle_playlist_monitor(playlist) do
           {:ok, updated_playlist} ->
             # Update the specific playlist in the list - need to reload with videos
-            updated_playlist_with_videos = Content.get_playlist!(updated_playlist.id, load: [:videos])
+            updated_playlist_with_videos =
+              Content.get_playlist!(updated_playlist.id, load: [:videos])
 
             updated_playlists =
               Enum.map(socket.assigns.playlists, fn p ->
@@ -298,13 +299,13 @@ defmodule YtdarrWeb.ChannelLive.Show do
     case Content.create_jellyfin_collection_from_playlist(id) do
       {:ok, _collection} ->
         {:noreply,
-          socket
-          |> put_flash(:info, "Jellyfin collection created from playlist.")}
+         socket
+         |> put_flash(:info, "Jellyfin collection created from playlist.")}
 
       _ ->
         {:noreply,
-          socket
-          |> put_flash(:error, "Failed to create Jellyfin collection from playlist.")}
+         socket
+         |> put_flash(:error, "Failed to create Jellyfin collection from playlist.")}
     end
   end
 end

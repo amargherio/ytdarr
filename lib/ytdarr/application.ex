@@ -24,6 +24,8 @@ defmodule Ytdarr.Application do
       # Registry used for caching/storing singleton service processes (e.g. YouTube client)
       {Registry, keys: :unique, name: Ytdarr.Services.Registry},
       Ytdarr.Services.YouTube.ClientSupervisor,
+      # YouTube API quota tracker (must start after Repo for persistence)
+      Ytdarr.Services.YouTube.QuotaTracker,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:ytdarr, Oban)},
       # Start a worker by calling: Ytdarr.Worker.start_link(arg)

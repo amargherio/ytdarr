@@ -7,8 +7,8 @@
       "source": "id",
       "references": null,
       "allow_nil?": false,
-      "generated?": true,
-      "primary_key?": true
+      "primary_key?": true,
+      "generated?": true
     },
     {
       "default": "nil",
@@ -17,8 +17,8 @@
       "source": "position",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -27,8 +27,8 @@
       "source": "inserted_at",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -37,8 +37,8 @@
       "source": "updated_at",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -55,15 +55,15 @@
         },
         "destination_attribute": "id",
         "primary_key?": true,
-        "on_delete": null,
         "on_update": null,
         "deferrable": false,
-        "destination_attribute_generated": null,
-        "destination_attribute_default": null
+        "on_delete": null,
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null
       },
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": true
+      "primary_key?": true,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -80,19 +80,20 @@
         },
         "destination_attribute": "id",
         "primary_key?": true,
-        "on_delete": null,
         "on_update": null,
         "deferrable": false,
-        "destination_attribute_generated": null,
-        "destination_attribute_default": null
+        "on_delete": null,
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null
       },
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": true
+      "primary_key?": true,
+      "generated?": false
     }
   ],
   "table": "playlist_videos",
-  "hash": "97606BFBF1ACA60574E108687AF8CD402F8CC60D94FF6FB0EF140CF06E21B146",
+  "hash": "7498DF43502F595BAB278CAFD574C3AE0FF200D2170575EC01916DCD3C6A15F5",
+  "repo": "Elixir.Ytdarr.Repo",
   "multitenancy": {
     "global": null,
     "attribute": null,
@@ -105,14 +106,13 @@
         "playlist_id",
         "video_id"
       ],
-      "base_filter": null,
-      "index_name": "playlist_videos_unique_playlist_video_index"
+      "index_name": "playlist_videos_unique_playlist_video_index",
+      "base_filter": null
     }
   ],
-  "repo": "Elixir.Ytdarr.Repo",
   "strict?": false,
   "custom_indexes": [],
-  "base_filter": null,
   "custom_statements": [],
+  "base_filter": null,
   "has_create_action": true
 }

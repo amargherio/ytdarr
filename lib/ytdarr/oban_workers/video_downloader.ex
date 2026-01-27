@@ -38,11 +38,13 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
     # Check if our season folder exists, create if not
     season_folder = "#{channel.base_path}/Season #{video.upload_date.year}"
+
     unless File.exists?(season_folder) do
       File.mkdir_p!(season_folder)
     end
 
-    ytdlp_out = "#{season_folder}/#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
+    ytdlp_out =
+      "#{season_folder}/#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
 
     # trigger yt-dlp to the target URL and out to the correct output file
     {_, status} = System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
@@ -51,8 +53,11 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       0 ->
         generate_nfo_file(channel, video, episode_number, ytdlp_out)
         :ok
-      _ -> {:error, :download_failed}
+
+      _ ->
+        {:error, :download_failed}
     end
+
     #   end
   end
 

@@ -17,6 +17,32 @@ defmodule Ytdarr.Settings.MediaRootFolder do
     table_columns [:id, :path, :purpose, :active, :inserted_at]
   end
 
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      primary? true
+      accept [:path, :purpose, :active]
+    end
+
+    update :update do
+      primary? true
+      accept [:path, :purpose, :active]
+    end
+
+    update :activate do
+      change set_attribute(:active, true)
+    end
+
+    update :deactivate do
+      change set_attribute(:active, false)
+    end
+
+    read :active_folders do
+      filter expr(active == true)
+    end
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -44,31 +70,5 @@ defmodule Ytdarr.Settings.MediaRootFolder do
 
   identities do
     identity :unique_path, [:path]
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      primary? true
-      accept [:path, :purpose, :active]
-    end
-
-    update :update do
-      primary? true
-      accept [:path, :purpose, :active]
-    end
-
-    update :activate do
-      change set_attribute(:active, true)
-    end
-
-    update :deactivate do
-      change set_attribute(:active, false)
-    end
-
-    read :active_folders do
-      filter expr(active == true)
-    end
   end
 end

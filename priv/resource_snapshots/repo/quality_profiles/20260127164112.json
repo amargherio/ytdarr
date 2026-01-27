@@ -7,8 +7,8 @@
       "source": "id",
       "references": null,
       "allow_nil?": false,
-      "generated?": true,
-      "primary_key?": true
+      "primary_key?": true,
+      "generated?": true
     },
     {
       "default": "nil",
@@ -17,8 +17,8 @@
       "source": "name",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -27,8 +27,8 @@
       "source": "max_height",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -37,8 +37,8 @@
       "source": "max_bitrate_kbps",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "[]",
@@ -50,8 +50,8 @@
       "source": "preferred_codecs",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -60,8 +60,8 @@
       "source": "allow_hdr",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -70,8 +70,8 @@
       "source": "format_selector",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -80,8 +80,8 @@
       "source": "is_default",
       "references": null,
       "allow_nil?": true,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -90,8 +90,8 @@
       "source": "inserted_at",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     },
     {
       "default": "nil",
@@ -100,16 +100,17 @@
       "source": "updated_at",
       "references": null,
       "allow_nil?": false,
-      "generated?": false,
-      "primary_key?": false
+      "primary_key?": false,
+      "generated?": false
     }
   ],
   "table": "quality_profiles",
-  "hash": "D03FC5588CF52F07C24544BBE2DA5738498A21CBB3B6770C301FDC70BE902A7E",
+  "hash": "17048290F7AED41F198578DD76A9AB3501BE8EABC39C286A900C5BF39F32E2CE",
+  "repo": "Elixir.Ytdarr.Repo",
   "multitenancy": {
     "global": null,
-    "strategy": null,
-    "attribute": null
+    "attribute": null,
+    "strategy": null
   },
   "identities": [
     {
@@ -121,10 +122,9 @@
       "base_filter": null
     }
   ],
-  "repo": "Elixir.Ytdarr.Repo",
   "strict?": false,
-  "base_filter": null,
   "custom_indexes": [],
   "custom_statements": [],
+  "base_filter": null,
   "has_create_action": true
 }

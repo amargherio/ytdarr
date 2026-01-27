@@ -17,6 +17,34 @@ defmodule Ytdarr.Settings.YtDlpParamSet do
     table_columns [:id, :name, :is_default, :inserted_at]
   end
 
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      primary? true
+      accept [:name, :format, :extra_args, :rate_limit_kbps, :concurrency, :is_default]
+      change {Ytdarr.Settings.YtDlpParamSet.ClearOtherDefaults, []}
+    end
+
+    update :update do
+      primary? true
+      require_atomic? false
+      accept [:name, :format, :extra_args, :rate_limit_kbps, :concurrency, :is_default]
+      change {Ytdarr.Settings.YtDlpParamSet.ClearOtherDefaults, []}
+    end
+
+    update :set_as_default do
+      require_atomic? false
+      change set_attribute(:is_default, true)
+      change {Ytdarr.Settings.YtDlpParamSet.ClearOtherDefaults, []}
+    end
+
+    read :default_param_set do
+      get? true
+      filter expr(is_default == true)
+    end
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -56,34 +84,6 @@ defmodule Ytdarr.Settings.YtDlpParamSet do
 
   identities do
     identity :unique_name, [:name]
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      primary? true
-      accept [:name, :format, :extra_args, :rate_limit_kbps, :concurrency, :is_default]
-      change {Ytdarr.Settings.YtDlpParamSet.ClearOtherDefaults, []}
-    end
-
-    update :update do
-      primary? true
-      require_atomic? false
-      accept [:name, :format, :extra_args, :rate_limit_kbps, :concurrency, :is_default]
-      change {Ytdarr.Settings.YtDlpParamSet.ClearOtherDefaults, []}
-    end
-
-    update :set_as_default do
-      require_atomic? false
-      change set_attribute(:is_default, true)
-      change {Ytdarr.Settings.YtDlpParamSet.ClearOtherDefaults, []}
-    end
-
-    read :default_param_set do
-      get? true
-      filter expr(is_default == true)
-    end
   end
 end
 

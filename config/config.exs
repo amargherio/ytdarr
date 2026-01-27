@@ -10,7 +10,7 @@ import Config
 config :ytdarr, Oban,
   engine: Oban.Engines.Lite,
   notifier: Oban.Notifiers.PG,
-  queues: [default: 10],
+  queues: [default: 10, video_downloader: 2, sync_worker: 5, batch_sync: 1],
   repo: Ytdarr.Repo
 
 config :ash,

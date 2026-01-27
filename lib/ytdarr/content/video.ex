@@ -14,6 +14,58 @@ defmodule Ytdarr.Content.Video do
     table_columns [:id, :title, :external_id, :is_downloaded, :upload_date, :inserted_at]
   end
 
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [
+        :title,
+        :external_id,
+        :url,
+        :description,
+        :duration,
+        :upload_date,
+        :thumbnail_url,
+        :is_downloaded,
+        :download_path,
+        :file_size,
+        :download_quality,
+        :discovered_from,
+        :position_in_uploads
+      ]
+
+      argument :channel_id, :integer do
+        allow_nil? false
+      end
+
+      change manage_relationship(:channel_id, :channel, type: :append)
+      change Ytdarr.Content.Video.Changes.SetDiscoveredFields
+    end
+
+    update :update do
+      accept [
+        :title,
+        :description,
+        :duration,
+        :upload_date,
+        :thumbnail_url,
+        :is_downloaded,
+        :download_path,
+        :file_size,
+        :download_quality,
+        :discovered_from,
+        :position_in_uploads
+      ]
+    end
+
+    update :mark_downloaded do
+      accept [:download_path, :file_size, :download_quality]
+
+      change set_attribute(:is_downloaded, true)
+      change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
+    end
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -110,58 +162,6 @@ defmodule Ytdarr.Content.Video do
 
   identities do
     identity :unique_external_id, [:external_id]
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      accept [
-        :title,
-        :external_id,
-        :url,
-        :description,
-        :duration,
-        :upload_date,
-        :thumbnail_url,
-        :is_downloaded,
-        :download_path,
-        :file_size,
-        :download_quality,
-        :discovered_from,
-        :position_in_uploads
-      ]
-
-      argument :channel_id, :integer do
-        allow_nil? false
-      end
-
-      change manage_relationship(:channel_id, :channel, type: :append)
-      change Ytdarr.Content.Video.Changes.SetDiscoveredFields
-    end
-
-    update :update do
-      accept [
-        :title,
-        :description,
-        :duration,
-        :upload_date,
-        :thumbnail_url,
-        :is_downloaded,
-        :download_path,
-        :file_size,
-        :download_quality,
-        :discovered_from,
-        :position_in_uploads
-      ]
-    end
-
-    update :mark_downloaded do
-      accept [:download_path, :file_size, :download_quality]
-
-      change set_attribute(:is_downloaded, true)
-      change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
-    end
   end
 end
 

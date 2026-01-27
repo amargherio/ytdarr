@@ -18,6 +18,7 @@ defmodule Ytdarr.Content do
   resources do
     resource Channel do
       define :list_channels, action: :read
+      define :list_monitored_channels, action: :monitored
       define :get_channel, action: :read, get_by: [:id]
       define :get_channel_by_external_id, action: :read, get_by: [:external_id]
       define :create_channel, action: :create
@@ -41,6 +42,7 @@ defmodule Ytdarr.Content do
 
     resource Playlist do
       define :list_playlists, action: :read
+      define :list_monitored_playlists, action: :monitored
       define :get_playlist, action: :read, get_by: [:id]
       define :get_playlist_by_external_id, action: :read, get_by: [:external_id]
       define :create_playlist, action: :create, args: [:channel_id]
@@ -159,13 +161,19 @@ defmodule Ytdarr.Content do
           case get_channel_by_external_id(channel_id) do
             {:ok, db_channel} when not is_nil(db_channel) ->
               if is_nil(db_channel.uploads_playlist_id) and not is_nil(upload_playlist_id) do
-                Logger.info("Updating channel #{db_channel.id} with uploads_playlist_id: #{upload_playlist_id}")
+                Logger.info(
+                  "Updating channel #{db_channel.id} with uploads_playlist_id: #{upload_playlist_id}"
+                )
+
                 update_channel(db_channel, %{uploads_playlist_id: upload_playlist_id})
               end
-            _ -> :ok
+
+            _ ->
+              :ok
           end
 
           sync_uploads_videos(channel_id, upload_playlist_id)
+
         {:error, reason} ->
           Logger.error("Error fetching channel data for #{channel_id}: #{inspect(reason)}")
       end
@@ -179,6 +187,7 @@ defmodule Ytdarr.Content do
          true <- not is_nil(channel) do
       Enum.each(playlists, fn pl ->
         Logger.info("Processing playlist #{pl.id} - #{pl.title}")
+
         case get_playlist_by_external_id(pl.id) do
           {:ok, nil} ->
             create_playlist(channel.id, %{
@@ -218,7 +227,10 @@ defmodule Ytdarr.Content do
     with {:ok, channel} <- get_channel_by_external_id(channel_id),
          true <- not is_nil(channel),
          {:ok, playlist_detailed} <- Client.get_playlist_items_detailed(uploads_playlist_id) do
-      Logger.info("Got playlist details with videos and pagination for larger payloads: #{inspect(playlist_detailed)}")
+      Logger.info(
+        "Got playlist details with videos and pagination for larger payloads: #{inspect(playlist_detailed)}"
+      )
+
       Logger.debug("Videos to sync: #{inspect(playlist_detailed.videos)}")
 
       Enum.each(playlist_detailed.videos, fn entry ->
@@ -236,8 +248,11 @@ defmodule Ytdarr.Content do
         title = snippet["title"]
         description = snippet["description"]
         published_at = snippet["publishedAt"]
-        thumbnail_url = get_in(snippet, ["thumbnails", "high", "url"]) ||
-                        get_in(snippet, ["thumbnails", "default", "url"])
+
+        thumbnail_url =
+          get_in(snippet, ["thumbnails", "high", "url"]) ||
+            get_in(snippet, ["thumbnails", "default", "url"])
+
         duration = content_details["duration"]
 
         # Parse upload_date from ISO 8601 datetime string to Date
@@ -245,23 +260,30 @@ defmodule Ytdarr.Content do
         # Parse duration from ISO 8601 duration string to integer seconds
         duration_seconds = parse_iso8601_duration(duration)
 
-        Logger.debug("Processing video #{video_id} - #{title} (playlist item ID: #{playlist_item_id})")
+        Logger.debug(
+          "Processing video #{video_id} - #{title} (playlist item ID: #{playlist_item_id})"
+        )
 
         case get_video_by_external_id(video_id) do
           {:ok, nil} ->
-            result = create_video(channel.id, %{
-              external_id: video_id,
-              title: title,
-              description: description,
-              url: "https://www.youtube.com/watch?v=#{video_id}",
-              thumbnail_url: thumbnail_url,
-              upload_date: upload_date,
-              duration: duration_seconds,
-              discovered_from: "uploads"
-            })
+            result =
+              create_video(channel.id, %{
+                external_id: video_id,
+                title: title,
+                description: description,
+                url: "https://www.youtube.com/watch?v=#{video_id}",
+                thumbnail_url: thumbnail_url,
+                upload_date: upload_date,
+                duration: duration_seconds,
+                discovered_from: "uploads"
+              })
+
             case result do
-              {:ok, video} -> Logger.info("Created video #{video.id} - #{video.title}")
-              {:error, error} -> Logger.error("Failed to create video #{video_id}: #{inspect(error)}")
+              {:ok, video} ->
+                Logger.info("Created video #{video.id} - #{video.title}")
+
+              {:error, error} ->
+                Logger.error("Failed to create video #{video_id}: #{inspect(error)}")
             end
 
           {:ok, _existing} ->
@@ -269,19 +291,25 @@ defmodule Ytdarr.Content do
 
           {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
             Logger.info("Video #{video_id} not found, creating new record")
-            result = create_video(channel.id, %{
-              external_id: video_id,
-              title: title,
-              description: description,
-              url: "https://www.youtube.com/watch?v=#{video_id}",
-              thumbnail_url: thumbnail_url,
-              upload_date: upload_date,
-              duration: duration_seconds,
-              discovered_from: "uploads"
-            })
+
+            result =
+              create_video(channel.id, %{
+                external_id: video_id,
+                title: title,
+                description: description,
+                url: "https://www.youtube.com/watch?v=#{video_id}",
+                thumbnail_url: thumbnail_url,
+                upload_date: upload_date,
+                duration: duration_seconds,
+                discovered_from: "uploads"
+              })
+
             case result do
-              {:ok, video} -> Logger.info("Created video #{video.id} - #{video.title}")
-              {:error, error} -> Logger.error("Failed to create video #{video_id}: #{inspect(error)}")
+              {:ok, video} ->
+                Logger.info("Created video #{video.id} - #{video.title}")
+
+              {:error, error} ->
+                Logger.error("Failed to create video #{video_id}: #{inspect(error)}")
             end
 
           {:error, error} ->
@@ -304,7 +332,7 @@ defmodule Ytdarr.Content do
     |> Oban.insert()
   end
 
-  @doc"""
+  @doc """
   Associate playlists and videos
 
   ## Parameters
@@ -323,7 +351,10 @@ defmodule Ytdarr.Content do
         {:ok, existing_vid} when not is_nil(existing_vid) ->
           # Check if association exists using Ash.Query
           case Ash.read(
-                 Ash.Query.filter(PlaylistVideo, playlist_id == ^playlist.id and video_id == ^existing_vid.id)
+                 Ash.Query.filter(
+                   PlaylistVideo,
+                   playlist_id == ^playlist.id and video_id == ^existing_vid.id
+                 )
                ) do
             {:ok, []} ->
               # Create association using Ash.create
@@ -356,16 +387,19 @@ defmodule Ytdarr.Content do
   # Helper functions for parsing YouTube API data
 
   defp parse_upload_date(nil), do: nil
+
   defp parse_upload_date(datetime_string) when is_binary(datetime_string) do
     case DateTime.from_iso8601(datetime_string) do
       {:ok, datetime, _offset} -> DateTime.to_date(datetime)
       {:error, _} -> nil
     end
   end
+
   defp parse_upload_date(_), do: nil
 
   # Parse ISO 8601 duration string (e.g., "PT5M30S") to seconds.
   defp parse_iso8601_duration(nil), do: nil
+
   defp parse_iso8601_duration(duration_string) when is_binary(duration_string) do
     # Pattern: PT(hours)H(minutes)M(seconds)S
     # Examples: PT1H2M3S, PT5M30S, PT45S, PT1H
@@ -392,10 +426,12 @@ defmodule Ytdarr.Content do
         nil
     end
   end
+
   defp parse_iso8601_duration(_), do: nil
 
   defp parse_int_or_zero(""), do: 0
   defp parse_int_or_zero(nil), do: 0
+
   defp parse_int_or_zero(str) do
     case Integer.parse(str) do
       {n, _} -> n

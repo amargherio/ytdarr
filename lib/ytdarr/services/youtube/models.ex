@@ -60,8 +60,7 @@ defmodule Ytdarr.Services.YouTube.Models do
         view_count: parse_int(statistics["viewCount"]),
         banner_url: get_in(brandSettings, ["image", "bannerExternalUrl"]),
         custom_url: snippet["customUrl"],
-        uploads_playlist_id:
-          get_in(contentDetails, ["relatedPlaylists", "uploads"]),
+        uploads_playlist_id: get_in(contentDetails, ["relatedPlaylists", "uploads"]),
         status: status,
         contentDetails: contentDetails
       }

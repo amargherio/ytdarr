@@ -226,7 +226,11 @@ defmodule Ytdarr.Services.YouTube.ModelsTest do
         "default" => %{"url" => "https://example.com/default.jpg", "width" => 120, "height" => 90},
         "medium" => %{"url" => "https://example.com/medium.jpg", "width" => 320, "height" => 180},
         "high" => %{"url" => "https://example.com/high.jpg", "width" => 480, "height" => 360},
-        "standard" => %{"url" => "https://example.com/standard.jpg", "width" => 640, "height" => 480},
+        "standard" => %{
+          "url" => "https://example.com/standard.jpg",
+          "width" => 640,
+          "height" => 480
+        },
         "maxres" => %{"url" => "https://example.com/maxres.jpg", "width" => 1280, "height" => 720}
       }
 

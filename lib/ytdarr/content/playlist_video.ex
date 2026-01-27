@@ -10,6 +10,15 @@ defmodule Ytdarr.Content.PlaylistVideo do
     repo Ytdarr.Repo
   end
 
+  actions do
+    defaults [:read, :destroy, update: :*]
+
+    create :create do
+      primary? true
+      accept [:position, :playlist_id, :video_id]
+    end
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -38,14 +47,5 @@ defmodule Ytdarr.Content.PlaylistVideo do
 
   identities do
     identity :unique_playlist_video, [:playlist_id, :video_id]
-  end
-
-  actions do
-    defaults [:read, :destroy, update: :*]
-
-    create :create do
-      primary? true
-      accept [:position, :playlist_id, :video_id]
-    end
   end
 end

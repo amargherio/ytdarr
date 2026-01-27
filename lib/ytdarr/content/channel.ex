@@ -14,6 +14,88 @@ defmodule Ytdarr.Content.Channel do
     table_columns [:id, :name, :external_id, :platform, :is_monitored, :inserted_at]
   end
 
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [
+        :name,
+        :external_id,
+        :url,
+        :description,
+        :platform,
+        :avatar_url,
+        :banner_url,
+        :platform_username,
+        :is_monitored,
+        :uploads_playlist_id
+      ]
+
+      change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+    end
+
+    update :update do
+      require_atomic? false
+
+      accept [
+        :name,
+        :external_id,
+        :url,
+        :description,
+        :platform,
+        :avatar_url,
+        :banner_url,
+        :platform_username,
+        :is_monitored,
+        :last_checked_at,
+        :last_video_published_at,
+        :uploads_playlist_id
+      ]
+
+      change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+    end
+
+    update :monitor do
+      require_atomic? false
+      accept []
+      change set_attribute(:is_monitored, true)
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+      change Ytdarr.Content.Channel.Changes.QueueSync
+    end
+
+    update :unmonitor do
+      require_atomic? false
+      accept []
+      change set_attribute(:is_monitored, false)
+      change set_attribute(:is_monitored_since, nil)
+    end
+
+    update :toggle_monitor do
+      require_atomic? false
+      accept []
+      change Ytdarr.Content.Channel.Changes.ToggleMonitor
+      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+    end
+
+    update :mark_checked do
+      require_atomic? false
+      accept []
+      change set_attribute(:last_checked_at, &DateTime.utc_now/0)
+    end
+
+    read :monitored do
+      description "List all monitored channels"
+      filter expr(is_monitored == true)
+      prepare build(sort: [name: :asc])
+    end
+  end
+
+  validations do
+    validate {Ytdarr.Content.Channel.Validations.ValidUrl, attribute: :url}
+  end
+
   attributes do
     integer_primary_key :id
 
@@ -78,6 +160,11 @@ defmodule Ytdarr.Content.Channel do
       public? true
     end
 
+    attribute :last_video_published_at, :utc_datetime do
+      public? true
+      description "Publish date of the most recent video, used for incremental sync"
+    end
+
     # Filesystem paths
     attribute :base_path, :string do
       public? true
@@ -100,81 +187,6 @@ defmodule Ytdarr.Content.Channel do
 
   identities do
     identity :unique_external_id, [:external_id]
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      accept [
-        :name,
-        :external_id,
-        :url,
-        :description,
-        :platform,
-        :avatar_url,
-        :banner_url,
-        :platform_username,
-        :is_monitored,
-        :uploads_playlist_id
-      ]
-
-      change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
-      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
-    end
-
-    update :update do
-      require_atomic? false
-
-      accept [
-        :name,
-        :external_id,
-        :url,
-        :description,
-        :platform,
-        :avatar_url,
-        :banner_url,
-        :platform_username,
-        :is_monitored,
-        :last_checked_at,
-        :uploads_playlist_id
-      ]
-
-      change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
-      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
-    end
-
-    update :monitor do
-      require_atomic? false
-      accept []
-      change set_attribute(:is_monitored, true)
-      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
-      change Ytdarr.Content.Channel.Changes.QueueSync
-    end
-
-    update :unmonitor do
-      require_atomic? false
-      accept []
-      change set_attribute(:is_monitored, false)
-      change set_attribute(:is_monitored_since, nil)
-    end
-
-    update :toggle_monitor do
-      require_atomic? false
-      accept []
-      change Ytdarr.Content.Channel.Changes.ToggleMonitor
-      change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
-    end
-
-    update :mark_checked do
-      require_atomic? false
-      accept []
-      change set_attribute(:last_checked_at, &DateTime.utc_now/0)
-    end
-  end
-
-  validations do
-    validate {Ytdarr.Content.Channel.Validations.ValidUrl, attribute: :url}
   end
 end
 

@@ -4,7 +4,6 @@ defmodule Ytdarr.Services.YouTube.Client do
   """
 
   alias Ytdarr.Services.YouTube.{API, Parser, Models}
-  alias Ytdarr.Content
 
   require Logger
 
@@ -27,7 +26,7 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
-    def get_channel(channel_identifier) do
+  def get_channel(channel_identifier) do
     case API.get_channel(channel_identifier) do
       {:ok, api_response} ->
         case api_response.items do
@@ -51,6 +50,7 @@ defmodule Ytdarr.Services.YouTube.Client do
   def get_channel_playlists(channel_id, opts \\ []) do
     # use the provided channel_id to fetch playlists
     Logger.info("[YouTube.Client] Fetching playlists for channel ID: #{channel_id}")
+
     case API.get_playlists_by_channel(channel_id, opts) do
       {:ok, api_response} ->
         playlists = Enum.map(api_response.items, &Models.Playlist.from_api/1)
@@ -61,7 +61,9 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
-  @deprecated
+  @doc """
+  Deprecated: Use get_playlist_items_detailed/2 instead.
+  """
   def get_playlist_videos(playlist_id, opts \\ []) do
     case API.get_playlist_items(playlist_id, opts) do
       {:ok, api_response} ->
@@ -105,9 +107,6 @@ defmodule Ytdarr.Services.YouTube.Client do
       {status, %{videos: merged}} when status in [:ok, :partial] ->
         videos = Enum.map(merged, &convert_playlist_item_to_video/1) |> Enum.reject(&is_nil/1)
         {status, videos}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -118,9 +117,6 @@ defmodule Ytdarr.Services.YouTube.Client do
       when status in [:ok, :partial] ->
         videos = Enum.map(merged, &convert_playlist_item_to_video/1) |> Enum.reject(&is_nil/1)
         {status, %{id: playlist_id, video_count: total, videos: videos, errors: errors}}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -134,24 +130,133 @@ defmodule Ytdarr.Services.YouTube.Client do
 
   @doc """
   Monitors uploads playlist for new videos since last check.
+
+  When `since_datetime` is provided, uses optimized fetching that stops
+  pagination early once it encounters videos older than the threshold.
+  This significantly reduces API calls for channels with many videos.
   """
   def check_uploads_for_new_videos(channel_id, since_datetime \\ nil) do
     uploads_playlist_id = get_uploads_playlist_id(channel_id)
 
-    case get_playlist_items_detailed(uploads_playlist_id) do
-      {status, %{videos: playlist_items}} when status in [:ok, :partial] ->
-        new_items = filter_new_items(playlist_items, since_datetime)
+    if since_datetime do
+      # Use optimized incremental fetch that stops early
+      check_uploads_incremental(uploads_playlist_id, since_datetime)
+    else
+      # Full fetch when no since_datetime provided
+      case get_playlist_items_detailed(uploads_playlist_id) do
+        {status, %{videos: playlist_items}} when status in [:ok, :partial] ->
+          videos =
+            playlist_items
+            |> Enum.map(&convert_playlist_item_to_video/1)
+            |> Enum.reject(&is_nil/1)
 
-        videos =
+          {status, videos}
+      end
+    end
+  end
+
+  # Optimized incremental check that stops pagination when encountering old items.
+  # YouTube returns playlist items in reverse chronological order, so once we
+  # see an item older than our threshold, we can stop fetching.
+  defp check_uploads_incremental(playlist_id, since_datetime) do
+    case fetch_playlist_items_until(playlist_id, since_datetime, nil, []) do
+      {:ok, new_items} ->
+        # Fetch full video details for the new items only
+        video_ids =
           new_items
-          |> Enum.map(&convert_playlist_item_to_video/1)
-          |> Enum.reject(&is_nil/1)
+          |> Enum.map(&get_in(&1, ["snippet", "resourceId", "videoId"]))
+          |> Enum.filter(&is_binary/1)
 
-        {status, videos}
+        if video_ids == [] do
+          {:ok, []}
+        else
+          {videos_data, errors} = fetch_videos_in_batches(video_ids)
+          merged = merge_playlist_and_video_data(new_items, videos_data)
+
+          videos =
+            merged
+            |> Enum.map(&convert_playlist_item_to_video/1)
+            |> Enum.reject(&is_nil/1)
+
+          if errors == [] do
+            {:ok, videos}
+          else
+            {:partial, videos}
+          end
+        end
 
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  # Fetches playlist items, stopping when we encounter items older than since_datetime.
+  # Returns {:ok, items} or {:error, reason}
+  defp fetch_playlist_items_until(playlist_id, since_datetime, page_token, acc_items) do
+    opts = if page_token, do: [page_token: page_token], else: []
+
+    case API.get_playlist_items(playlist_id, opts) do
+      {:ok, response} ->
+        items = response.items || []
+
+        # Check each item's publish date and stop if we find old ones
+        {new_items, should_continue} = partition_new_items(items, since_datetime)
+        accumulated = acc_items ++ new_items
+
+        cond do
+          # Found old items, stop fetching
+          not should_continue ->
+            {:ok, accumulated}
+
+          # More pages and all items were new
+          response.next_page_token ->
+            fetch_playlist_items_until(
+              playlist_id,
+              since_datetime,
+              response.next_page_token,
+              accumulated
+            )
+
+          # No more pages
+          true ->
+            {:ok, accumulated}
+        end
+
+      {:error, reason} ->
+        if acc_items == [] do
+          {:error, reason}
+        else
+          # Return what we have on error
+          Logger.warning("Error during incremental fetch, returning #{length(acc_items)} items")
+          {:ok, acc_items}
+        end
+    end
+  end
+
+  # Partitions items into new items (published after since_datetime) and returns
+  # whether we should continue fetching more pages.
+  # Returns {new_items, should_continue}
+  defp partition_new_items(items, since_datetime) do
+    {new_items, old_items} =
+      Enum.split_while(items, fn item ->
+        # Get the video published date from contentDetails
+        published_at =
+          get_in(item, ["contentDetails", "videoPublishedAt"]) ||
+            get_in(item, ["snippet", "publishedAt"])
+
+        case DateTime.from_iso8601(published_at || "") do
+          {:ok, item_datetime, _} ->
+            DateTime.compare(item_datetime, since_datetime) == :gt
+
+          _ ->
+            # If we can't parse the date, assume it's new to be safe
+            true
+        end
+      end)
+
+    # If we found any old items, we should stop
+    should_continue = old_items == []
+    {new_items, should_continue}
   end
 
   @doc """
@@ -176,9 +281,7 @@ defmodule Ytdarr.Services.YouTube.Client do
       |> Enum.map(&get_in(&1, ["snippet", "resourceId", "videoId"]))
       |> Enum.filter(&is_binary/1)
 
-    Logger.info(
-      "Collected #{length(video_ids)} video IDs for playlist #{playlist_id}"
-    )
+    Logger.info("Collected #{length(video_ids)} video IDs for playlist #{playlist_id}")
 
     if video_ids != [] do
       # Phase 3: Fetch video details in batches of 50 (accumulates errors)
@@ -275,19 +378,6 @@ defmodule Ytdarr.Services.YouTube.Client do
     end)
   end
 
-  defp filter_new_items(items, nil), do: items
-
-  defp filter_new_items(items, since_datetime) do
-    Enum.filter(items, fn item ->
-      published_at = get_in(item, ["video_details", "snippet", "publishedAt"])
-
-      case DateTime.from_iso8601(published_at || "") do
-        {:ok, item_datetime, _} -> DateTime.compare(item_datetime, since_datetime) == :gt
-        _ -> false
-      end
-    end)
-  end
-
   # Builds a Models.Video struct from a merged playlist/video map.
   # Returns nil if required video id is missing.
   defp convert_playlist_item_to_video(merged_item) do
@@ -329,5 +419,149 @@ defmodule Ytdarr.Services.YouTube.Client do
         "video_details" => video_details
       }
     end)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Batch Operations for Quota Optimization
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Fetches multiple channels by their IDs in batches of 50.
+
+  This is more quota-efficient than calling get_channel/1 multiple times,
+  as it costs 1 unit per batch of up to 50 channels instead of 1 unit per channel.
+
+  ## Parameters
+    - channel_ids: List of channel external IDs
+
+  ## Returns
+    - `{:ok, [%Channel{}, ...]}` on success
+    - `{:partial, [%Channel{}, ...], errors}` on partial failure
+    - `{:error, reason}` on complete failure
+  """
+  def get_channels_batch(channel_ids) when is_list(channel_ids) do
+    if channel_ids == [] do
+      {:ok, []}
+    else
+      {channels, errors} =
+        channel_ids
+        |> Enum.chunk_every(50)
+        |> Enum.with_index()
+        |> Enum.reduce({[], []}, fn {batch, batch_index}, {acc_channels, acc_errors} ->
+          case API.get_channels_by_ids(batch) do
+            {:ok, response} ->
+              parsed = Enum.map(response.items, &Models.Channel.from_api/1)
+              {acc_channels ++ parsed, acc_errors}
+
+            {:error, reason} ->
+              error = {:channel_batch, batch_index, reason}
+              Logger.error("Failed to fetch channel batch #{batch_index}: #{inspect(reason)}")
+              {acc_channels, acc_errors ++ [error]}
+          end
+        end)
+
+      cond do
+        errors == [] -> {:ok, channels}
+        channels == [] -> {:error, {:all_batches_failed, errors}}
+        true -> {:partial, channels, errors}
+      end
+    end
+  end
+
+  @doc """
+  Fetches multiple playlists by their IDs in batches of 50.
+
+  This is more quota-efficient than calling individual playlist fetches,
+  as it costs 1 unit per batch of up to 50 playlists.
+
+  ## Parameters
+    - playlist_ids: List of playlist external IDs
+
+  ## Returns
+    - `{:ok, [%Playlist{}, ...]}` on success
+    - `{:partial, [%Playlist{}, ...], errors}` on partial failure
+    - `{:error, reason}` on complete failure
+  """
+  def get_playlists_batch(playlist_ids) when is_list(playlist_ids) do
+    if playlist_ids == [] do
+      {:ok, []}
+    else
+      {playlists, errors} =
+        playlist_ids
+        |> Enum.chunk_every(50)
+        |> Enum.with_index()
+        |> Enum.reduce({[], []}, fn {batch, batch_index}, {acc_playlists, acc_errors} ->
+          case API.get_playlists_by_ids(batch) do
+            {:ok, response} ->
+              parsed = Enum.map(response.items, &Models.Playlist.from_api/1)
+              {acc_playlists ++ parsed, acc_errors}
+
+            {:error, reason} ->
+              error = {:playlist_batch, batch_index, reason}
+              Logger.error("Failed to fetch playlist batch #{batch_index}: #{inspect(reason)}")
+              {acc_playlists, acc_errors ++ [error]}
+          end
+        end)
+
+      cond do
+        errors == [] -> {:ok, playlists}
+        playlists == [] -> {:error, {:all_batches_failed, errors}}
+        true -> {:partial, playlists, errors}
+      end
+    end
+  end
+
+  @doc """
+  Checks multiple channels for new uploads since the given datetime.
+
+  Efficiently checks multiple channels by fetching the first page of their
+  uploads playlists. This is useful for batch sync operations.
+
+  ## Parameters
+    - channel_ids: List of channel external IDs
+    - since_datetime: Only return videos published after this datetime (optional)
+
+  ## Returns
+    - `{:ok, %{channel_id => [%Video{}, ...]}}` map of channel_id to new videos
+    - `{:partial, results, errors}` on partial failure
+  """
+  def check_multiple_channels_for_updates(channel_ids, since_datetime \\ nil) do
+    if channel_ids == [] do
+      {:ok, %{}}
+    else
+      results =
+        channel_ids
+        |> Task.async_stream(
+          fn channel_id ->
+            case check_uploads_for_new_videos(channel_id, since_datetime) do
+              {:ok, videos} -> {:ok, channel_id, videos}
+              {:partial, videos} -> {:partial, channel_id, videos}
+              {:error, reason} -> {:error, channel_id, reason}
+            end
+          end,
+          max_concurrency: 5,
+          timeout: :timer.seconds(30)
+        )
+        |> Enum.reduce({%{}, []}, fn result, {acc_map, acc_errors} ->
+          case result do
+            {:ok, {:ok, channel_id, videos}} ->
+              {Map.put(acc_map, channel_id, videos), acc_errors}
+
+            {:ok, {:partial, channel_id, videos}} ->
+              {Map.put(acc_map, channel_id, videos), acc_errors}
+
+            {:ok, {:error, channel_id, reason}} ->
+              {acc_map, acc_errors ++ [{:channel_check, channel_id, reason}]}
+
+            {:exit, reason} ->
+              {acc_map, acc_errors ++ [{:task_exit, reason}]}
+          end
+        end)
+
+      case results do
+        {results_map, []} -> {:ok, results_map}
+        {results_map, errors} -> {:partial, results_map, errors}
+      end
+    end
   end
 end
