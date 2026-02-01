@@ -27,7 +27,9 @@ defmodule Ytdarr.Content.Video do
         :upload_date,
         :thumbnail_url,
         :is_downloaded,
+        :download_state,
         :download_path,
+        :downloaded_at,
         :file_size,
         :download_quality,
         :discovered_from,
@@ -50,7 +52,9 @@ defmodule Ytdarr.Content.Video do
         :upload_date,
         :thumbnail_url,
         :is_downloaded,
+        :download_state,
         :download_path,
+        :downloaded_at,
         :file_size,
         :download_quality,
         :discovered_from,
@@ -62,6 +66,7 @@ defmodule Ytdarr.Content.Video do
       accept [:download_path, :file_size, :download_quality]
 
       change set_attribute(:is_downloaded, true)
+      change set_attribute(:download_state, :downloaded)
       change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
     end
   end
@@ -126,6 +131,13 @@ defmodule Ytdarr.Content.Video do
     attribute :download_quality, :string do
       public? true
       description "e.g., 1080p, 720p"
+    end
+
+    attribute :download_state, :atom do
+      constraints [one_of: [:available, :downloading, :downloaded, :missing]]
+      default :available
+      allow_nil? false
+      public? true
     end
 
     # Discovery tracking

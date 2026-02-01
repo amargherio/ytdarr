@@ -1,0 +1,76 @@
+Compiling 3 files (.ex)
+[info] Running LiveDebugger.App.Web.Endpoint with Bandit 1.10.1 at 127.0.0.1:4007 (http)
+[info] Access LiveDebugger.App.Web.Endpoint at http://localhost:4007
+[info] [StartupLoader] Initializing settings from environment...
+[debug] QUERY OK source="app_settings" db=4.1ms decode=6.6ms queue=0.1ms idle=115.5ms
+SELECT a0."id", a0."type", a0."value", a0."key", a0."inserted_at", a0."updated_at" FROM "app_settings" AS a0 WHERE (CAST(a0."key" AS TEXT) = CAST(? AS TEXT)) ["youtube.primary_api_key"]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[debug] QUERY OK source="app_settings" db=4.1ms decode=6.6ms queue=0.1ms idle=115.5ms
+SELECT a0."id", a0."type", a0."value", a0."key", a0."inserted_at", a0."updated_at" FROM "app_settings" AS a0 WHERE (CAST(a0."key" AS TEXT) = CAST(? AS TEXT)) ["youtube.primary_api_key"]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[warning] [StartupLoader] No YouTube API key configured. Set YTDARR_YOUTUBE_API_KEY environment variable or configure in Settings.
+[info] [StartupLoader] Settings initialization complete
+[warning] [YouTube.ClientSupervisor] No API key configured. YouTube API calls will fail.
+[debug] QUERY OK source="app_settings" db=0.2ms idle=177.8ms
+SELECT a0."id", a0."type", a0."value", a0."key", a0."inserted_at", a0."updated_at" FROM "app_settings" AS a0 WHERE (CAST(a0."key" AS TEXT) = CAST(? AS TEXT)) ["youtube.quota_used_today"]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[debug] QUERY OK source="app_settings" db=0.1ms idle=178.9ms
+SELECT a0."id", a0."type", a0."value", a0."key", a0."inserted_at", a0."updated_at" FROM "app_settings" AS a0 WHERE (CAST(a0."key" AS TEXT) = CAST(? AS TEXT)) ["youtube.quota_reset_date"]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[debug] QUERY OK source="app_settings" db=0.2ms idle=185.4ms
+SELECT a0."id", a0."type", a0."value", a0."key", a0."inserted_at", a0."updated_at" FROM "app_settings" AS a0 WHERE (CAST(a0."key" AS TEXT) = CAST(? AS TEXT)) ["youtube.daily_quota_limit"]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[info] [QuotaTracker] Started with 0/10000 units used
+[info] {"message":"notifier only receiving messages from its own node, functionality may be degraded","source":"oban","event":"notifier:switch","connectivity_status":"solitary"}
+[info] Running YtdarrWeb.Endpoint with Bandit 1.10.1 at 127.0.0.1:4000 (http)
+[info] Access YtdarrWeb.Endpoint at http://localhost:4000
+[watch] build finished, watching for changes...
+≈ tailwindcss v4.1.7
+
+/*! 🌼 daisyUI 5.0.35 */
+sh: 1: watchman: not found
+Done in 281ms
+Getting extensions in current project...
+[info] GET /channels
+[debug] Processing with YtdarrWeb.ChannelLive.Index.__live__/0
+  Parameters: %{}
+  Pipelines: [:browser]
+[debug] QUERY OK source="channels" db=0.2ms queue=0.1ms idle=448.0ms
+SELECT c0."id", c0."name", c0."description", c0."url", c0."external_id", c0."is_monitored", c0."uploads_playlist_id", c0."banner_url", c0."is_monitored_since", c0."avatar_url", c0."base_path", c0."last_checked_at", c0."platform_username", c0."generic_video_path", c0."inserted_at", c0."last_video_published_at", c0."platform", c0."updated_at" FROM "channels" AS c0 []
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[info] Sent 200 in 6ms
+[info] CONNECTED TO Phoenix.LiveView.Socket in 34µs
+  Transport: :websocket
+  Serializer: Phoenix.Socket.V2.JSONSerializer
+  Parameters: %{"_csrf_token" => "Mys7dE1AbmI7PykpQC4ZGRlVSj8uJhMizlc6yy4RVGmnmX_kCcsRxCCv", "_live_referer" => "undefined", "_mount_attempts" => "0", "_mounts" => "0", "_track_static" => %{"0" => "http://localhost:4000/assets/css/app.css", "1" => "http://localhost:4000/assets/js/app.js"}, "vsn" => "2.0.0"}
+[debug] MOUNT YtdarrWeb.ChannelLive.Index
+  Parameters: %{}
+  Session: %{"_csrf_token" => "IGXB49Z0mxDG-vFrZ69mVePT"}
+[debug] QUERY OK source="channels" db=0.6ms idle=241.6ms
+SELECT c0."id", c0."name", c0."description", c0."url", c0."external_id", c0."is_monitored", c0."uploads_playlist_id", c0."banner_url", c0."is_monitored_since", c0."avatar_url", c0."base_path", c0."last_checked_at", c0."platform_username", c0."generic_video_path", c0."inserted_at", c0."last_video_published_at", c0."platform", c0."updated_at" FROM "channels" AS c0 []
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[debug] Replied in 1ms
+[info] CONNECTED TO LiveDebugger.Client.Socket in 70µs
+  Transport: :websocket
+  Serializer: Phoenix.Socket.V2.JSONSerializer
+  Parameters: %{"socketID" => "phx-GJAl6yUAoZzzCgih", "vsn" => "2.0.0"}
+[info] JOINED client:phx-GJAl6yUAoZzzCgih in 24µs
+  Parameters: %{}
+[debug] HANDLED window-initialized INCOMING ON client:phx-GJAl6yUAoZzzCgih (LiveDebugger.Client.Channel) in 34µs
+  Parameters: %{"socket_id" => "phx-GJAl6yUAoZzzCgih", "window_id" => "ddb09084-10f1-47d3-99d3-72f9d3d8578e"}
+[debug] MOUNT YtdarrWeb.ChannelLive.Show
+  Parameters: %{"id" => "1"}
+  Session: %{"_csrf_token" => "IGXB49Z0mxDG-vFrZ69mVePT"}
+[debug] QUERY OK source="channels" db=0.4ms queue=0.1ms idle=416.7ms
+SELECT c0."id", c0."name", c0."description", c0."url", c0."external_id", c0."is_monitored", c0."uploads_playlist_id", c0."banner_url", c0."is_monitored_since", c0."avatar_url", c0."base_path", c0."last_checked_at", c0."platform_username", c0."generic_video_path", c0."inserted_at", c0."last_video_published_at", c0."platform", c0."updated_at" FROM "channels" AS c0 WHERE (CAST(c0."id" AS INTEGER) = CAST(? AS INTEGER)) [1]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[debug] QUERY OK source="videos" db=0.3ms queue=0.1ms idle=300.9ms
+SELECT v0."id", v0."description", v0."title", v0."url", v0."file_size", v0."external_id", v0."channel_id", v0."thumbnail_url", v0."duration", v0."upload_date", v0."discovered_from", v0."download_state", v0."download_path", v0."is_downloaded", v0."downloaded_at", v0."inserted_at", v0."updated_at", v0."discovered_at", v0."download_quality", v0."position_in_uploads" FROM "videos" AS v0 WHERE (CAST(v0."channel_id" AS INTEGER) = CAST(? AS INTEGER)) [1]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[debug] QUERY OK source="playlists" db=0.1ms queue=0.2ms idle=302.1ms
+SELECT p0."id", p0."name", p0."description", p0."url", p0."external_id", p0."channel_id", p0."is_monitored", p0."video_count", p0."download_path", p0."is_monitored_since", p0."last_checked_at", p0."inserted_at", p0."updated_at" FROM "playlists" AS p0 WHERE (CAST(p0."channel_id" AS INTEGER) = CAST(? AS INTEGER)) [1]
+[90m↳ AshSqlite.DataLayer.run_query/2, at: lib/data_layer.ex:608[0m
+[debug] Replied in 5ms
+[notice] SIGTERM received - shutting down
+
+** dbg got EXIT - terminating: shutdown

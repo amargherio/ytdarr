@@ -119,7 +119,55 @@ defmodule YtdarrWeb.ChannelLive.Show do
             <.table id={"videos-#{playlist.id}"} rows={playlist.videos}>
               <:col :let={video} label="Title">{video.title}</:col>
               <:col :let={video} label="Upload Date">{video.upload_date}</:col>
-              <:col :let={video} label="Download Status">{video.is_downloaded}</:col>
+              <:col :let={video} label="Download Status">
+                <%= case video.download_state do %>
+                  <% :available -> %>
+                    <div class="flex items-center gap-1 text-slate-500">
+                      <.icon name="hero-cloud-arrow-down" /> Available
+                    </div>
+                  <% :downloading -> %>
+                    <div class="flex items-center gap-1 text-yellow-600">
+                      <.icon name="hero-arrow-path" class="animate-spin" /> Downloading
+                    </div>
+                  <% :downloaded -> %>
+                    <div class="flex items-center gap-1 text-green-600">
+                      <.icon name="hero-check-badge" /> Downloaded
+                    </div>
+                  <% :missing -> %>
+                    <div class="flex items-center gap-1 text-red-600">
+                      <.icon name="hero-exclamation-triangle" /> Missing
+                    </div>
+                  <% _ -> %>
+                    <div class="flex items-center gap-1 text-slate-400">
+                      <.icon name="hero-question-mark-circle" /> Unknown
+                    </div>
+                <% end %>
+              </:col>
+              <:col :let={video} label="Actions">
+                <%= if video.download_state == :downloaded do %>
+                  <.button
+                    title="Delete downloaded video"
+                    phx-click="delete-video"
+                    phx-value-id={video.id}
+                    class="btn-sm bg-red-100 hover:bg-red-200 text-red-700 border-red-200"
+                    data-confirm="Are you sure you want to delete this video file?"
+                  >
+                    <.icon name="hero-trash" />
+                  </.button>
+                <% else %>
+                  <%= if video.download_state in [:available, :missing] do %>
+                    <.button
+                      title="Queue Download"
+                      phx-click="queue-download"
+                      phx-value-id={video.id}
+                      phx-value-channel-id={@channel.id}
+                      class="btn-sm"
+                    >
+                      <.icon name="hero-arrow-down-tray" />
+                    </.button>
+                  <% end %>
+                <% end %>
+              </:col>
             </.table>
           </div>
         </details>
@@ -142,26 +190,53 @@ defmodule YtdarrWeb.ChannelLive.Show do
           <.table id="videos" rows={@videos}>
             <:col :let={video} label="Title">{video.title}</:col>
             <:col :let={video} label="Upload Date">{video.upload_date}</:col>
-            <:col :let={video} label="Download Status">{video.is_downloaded}</:col>
+            <:col :let={video} label="Download Status">
+              <%= case video.download_state do %>
+                <% :available -> %>
+                  <div class="flex items-center gap-1 text-slate-500">
+                    <.icon name="hero-cloud-arrow-down" /> Available
+                  </div>
+                <% :downloading -> %>
+                  <div class="flex items-center gap-1 text-yellow-600">
+                    <.icon name="hero-arrow-path" class="animate-spin" /> Downloading
+                  </div>
+                <% :downloaded -> %>
+                  <div class="flex items-center gap-1 text-green-600">
+                    <.icon name="hero-check-badge" /> Downloaded
+                  </div>
+                <% :missing -> %>
+                  <div class="flex items-center gap-1 text-red-600">
+                    <.icon name="hero-exclamation-triangle" /> Missing
+                  </div>
+                <% _ -> %>
+                  <div class="flex items-center gap-1 text-slate-400">
+                    <.icon name="hero-question-mark-circle" /> Unknown
+                  </div>
+              <% end %>
+            </:col>
             <:col :let={video} label="Actions">
-              <%= if video.is_downloaded do %>
+              <%= if video.download_state == :downloaded do %>
                 <.button
                   title="Delete downloaded video"
                   phx-click="delete-video"
                   phx-value-id={video.id}
-                  class="btn-sm"
+                  class="btn-sm bg-red-100 hover:bg-red-200 text-red-700 border-red-200"
+                  data-confirm="Are you sure you want to delete this video file?"
                 >
                   <.icon name="hero-trash" />
                 </.button>
               <% else %>
-                <.button
-                  phx-click="queue-download"
-                  phx-value-id={video.id}
-                  phx-value-channel-id={@channel.id}
-                  class="btn-lg"
-                >
-                  <.icon name="hero-arrow-down-tray" />
-                </.button>
+                <%= if video.download_state in [:available, :missing] do %>
+                  <.button
+                    title="Queue Download"
+                    phx-click="queue-download"
+                    phx-value-id={video.id}
+                    phx-value-channel-id={@channel.id}
+                    class="btn-sm"
+                  >
+                    <.icon name="hero-arrow-down-tray" />
+                  </.button>
+                <% end %>
               <% end %>
             </:col>
           </.table>
@@ -242,23 +317,44 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
   @impl true
   def handle_event("queue-download", %{"id" => video_id, "channel-id" => channel_id}, socket) do
-    # TODO: Implement video download queueing via Oban
     Logger.info("Queue download for video #{video_id}")
     Content.queue_video_download(video_id, channel_id)
 
+    # Refresh channel data to update UI state
+    channel = Content.get_channel!(socket.assigns.channel.id, load: [:playlists, :videos])
+
+    playlists =
+      Enum.map(channel.playlists, fn playlist ->
+        Content.get_playlist!(playlist.id, load: [:videos])
+      end)
+
     {:noreply,
      socket
+     |> assign(:channel, channel)
+     |> assign(:playlists, playlists)
+     |> assign(:videos, channel.videos)
      |> put_flash(:info, "Video queued for download.")}
   end
 
   @impl true
   def handle_event("delete-video", %{"id" => video_id}, socket) do
-    # TODO: Implement video file deletion
     Logger.info("Delete video #{video_id}")
+    Content.delete_video_file(video_id)
+
+    # Refresh channel data to update UI state
+    channel = Content.get_channel!(socket.assigns.channel.id, load: [:playlists, :videos])
+
+    playlists =
+      Enum.map(channel.playlists, fn playlist ->
+        Content.get_playlist!(playlist.id, load: [:videos])
+      end)
 
     {:noreply,
      socket
-     |> put_flash(:info, "Video deletion not yet implemented.")}
+     |> assign(:channel, channel)
+     |> assign(:playlists, playlists)
+     |> assign(:videos, channel.videos)
+     |> put_flash(:info, "Video file deleted.")}
   end
 
   @impl true
