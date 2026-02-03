@@ -327,9 +327,70 @@ defmodule Ytdarr.Content do
   Queue a video for download via Oban
   """
   def queue_video_download(video_id, channel_id) do
-    %{"video_id" => video_id, "channel_id" => channel_id}
-    |> Ytdarr.ObanWorkers.VideoDownloader.new()
-    |> Oban.insert()
+    # Update video state to downloading
+    case get_video(video_id) do
+      {:ok, video} ->
+        update_video(video, %{download_state: :downloading})
+
+        %{"video_id" => video_id, "channel_id" => channel_id}
+        |> Ytdarr.ObanWorkers.VideoDownloader.new()
+        |> Oban.insert()
+
+      {:error, error} ->
+        Logger.error("Failed to find video #{video_id} to queue download: #{inspect(error)}")
+        {:error, error}
+    end
+  end
+
+  @doc """
+  Deletes the physical video file and updates the database record.
+  """
+  def delete_video_file(video_id) do
+    with {:ok, video} <- get_video(video_id) do
+      # Delete video file
+      video_delete_result =
+        if video.download_path do
+          case File.rm(video.download_path) do
+            :ok ->
+              Logger.info("Deleted video file: #{video.download_path}")
+              :ok
+
+            {:error, :enoent} ->
+              Logger.info("Video file not found, treating as deleted: #{video.download_path}")
+              :ok
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+        else
+          :ok
+        end
+
+      case video_delete_result do
+        :ok ->
+          # Delete NFO file (best effort)
+          if video.download_path do
+            nfo_path = Path.rootname(video.download_path) <> ".nfo"
+
+            case File.rm(nfo_path) do
+              :ok -> Logger.info("Deleted NFO file: #{nfo_path}")
+              {:error, _} -> :ok
+            end
+          end
+
+          # Update video record
+          update_video(video, %{
+            download_state: :available,
+            is_downloaded: false,
+            download_path: nil,
+            downloaded_at: nil
+          })
+
+        {:error, reason} ->
+          Logger.error("Failed to delete video file #{video.download_path}: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
   end
 
   @doc """

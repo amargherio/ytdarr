@@ -52,6 +52,15 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     case status do
       0 ->
         generate_nfo_file(channel, video, episode_number, ytdlp_out)
+
+        # Update video status in DB
+        Content.update_video(video, %{
+          download_state: :downloaded,
+          download_path: ytdlp_out,
+          is_downloaded: true,
+          downloaded_at: DateTime.utc_now()
+        })
+
         :ok
 
       _ ->
