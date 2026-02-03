@@ -10,6 +10,20 @@ defmodule Ytdarr.Application do
     # Attach Oban telemetry logger (this is not a child spec, just setup)
     :ok = Oban.Telemetry.attach_default_logger()
 
+    # Attach custom telemetry handler for VideoDownloader cancellation/failure
+    :ok = :telemetry.attach(
+      "video-downloader-reset-handler",
+      [:oban, :job, :exception],
+      &Ytdarr.ObanWorkers.VideoDownloaderTelemetry.handle_event/4,
+      %{}
+    )
+    :ok = :telemetry.attach(
+      "video-downloader-stop-handler",
+      [:oban, :job, :stop],
+      &Ytdarr.ObanWorkers.VideoDownloaderTelemetry.handle_event/4,
+      %{}
+    )
+
     children = [
       YtdarrWeb.Telemetry,
       Ytdarr.Repo,
