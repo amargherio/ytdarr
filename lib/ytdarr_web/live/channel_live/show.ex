@@ -9,10 +9,10 @@ defmodule YtdarrWeb.ChannelLive.Show do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} nav={:channels}>
-      <.hero_header banner_url={@channel.banner_url}>
+      <.hero_header banner_url={~p"/images/channels/#{@channel.id}/banner"}>
         <div class="left-06">
           <div class="flex flex-row flex-wrap justify-start gap-4">
-            <image src={@channel.avatar_url} alt={@channel.name} class="w-24 h-24 rounded-full" />
+            <image src={~p"/images/channels/#{@channel.id}/avatar"} alt={@channel.name} class="w-24 h-24 rounded-full" />
             <h1 class="mb-5 text-5xl font-bold">{@channel.name}</h1>
             <p class="mb-5">{@channel.description}</p>
           </div>

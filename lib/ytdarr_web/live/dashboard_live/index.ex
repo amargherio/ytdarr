@@ -97,12 +97,7 @@ defmodule YtdarrWeb.DashboardLive.Index do
           row_click={fn {_id, channel} -> JS.navigate(~p"/channels/#{channel}") end}
         >
           <:col :let={{_id, channel}} label="Avatar">
-            <img :if={channel.avatar_url} src={channel.avatar_url} class="w-10 h-10 rounded-full" />
-            <div :if={!channel.avatar_url} class="avatar placeholder">
-              <div class="bg-neutral text-neutral-content rounded-full w-10">
-                <span>{String.first(channel.name || "?")}</span>
-              </div>
-            </div>
+            <img src={~p"/images/channels/#{channel.id}/avatar"} class="w-10 h-10 rounded-full" />
           </:col>
           <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
           <:col :let={{_id, channel}} label="Platform">{channel.platform}</:col>

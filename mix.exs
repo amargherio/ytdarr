@@ -81,6 +81,7 @@ defmodule Ytdarr.MixProject do
       {:bandit, "~> 1.5"},
       {:oban, "~> 2.20"},
       {:oban_web, "~> 2.11"},
+      {:cachex, "~> 4.0"},
       {:igniter, "~> 0.5", only: [:dev]},
       {:ecto_sqlite3_extras, "~> 1.2.0"}
     ]

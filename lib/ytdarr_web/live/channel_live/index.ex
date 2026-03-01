@@ -28,7 +28,7 @@ defmodule YtdarrWeb.ChannelLive.Index do
         row_click={fn {_id, channel} -> JS.navigate(~p"/channels/#{channel}") end}
       >
         <:col :let={{_id, channel}} label="Avatar">
-          <img src={channel.avatar_url} alt="Avatar" class="w-10 h-10 rounded-full" />
+          <img src={~p"/images/channels/#{channel.id}/avatar"} alt="Avatar" class="w-10 h-10 rounded-full" />
         </:col>
         <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
         <:col :let={{_id, channel}} label="Description">{channel.description}</:col>

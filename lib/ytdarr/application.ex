@@ -5,6 +5,8 @@ defmodule Ytdarr.Application do
 
   use Application
 
+  require Cachex.Spec
+
   @impl true
   def start(_type, _args) do
     # Attach Oban telemetry logger (this is not a child spec, just setup)
@@ -42,8 +44,8 @@ defmodule Ytdarr.Application do
       Ytdarr.Services.YouTube.QuotaTracker,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:ytdarr, Oban)},
-      # Start a worker by calling: Ytdarr.Worker.start_link(arg)
-      # {Ytdarr.Worker, arg},
+      # Image cache (in-memory layer backed by filesystem)
+      {Cachex, name: :image_cache, expiration: Cachex.Spec.expiration(default: :timer.hours(24), interval: :timer.minutes(15))},
       # Start to serve requests, typically the last entry
       YtdarrWeb.Endpoint,
       {AshAuthentication.Supervisor, [otp_app: :ytdarr]}

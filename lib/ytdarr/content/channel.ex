@@ -15,7 +15,12 @@ defmodule Ytdarr.Content.Channel do
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults [:read]
+
+    destroy :destroy do
+      require_atomic? false
+      change Ytdarr.Content.Channel.Changes.CleanupOnDestroy
+    end
 
     create :create do
       accept [
@@ -315,6 +320,36 @@ defmodule Ytdarr.Content.Channel.Changes.QueueSync do
         worker: Ytdarr.ObanWorkers.SyncWorker,
         args: %{"source_type" => "channel", "source_id" => result.id}
       })
+
+      {:ok, result}
+    end)
+  end
+end
+
+defmodule Ytdarr.Content.Channel.Changes.CleanupOnDestroy do
+  @moduledoc "Deletes channel files from disk and evicts images from cache on destroy"
+  use Ash.Resource.Change
+
+  require Logger
+
+  @impl true
+  def change(changeset, _opts, _context) do
+    Ash.Changeset.after_action(changeset, fn _changeset, result ->
+      base_path = result.base_path
+
+      if base_path && File.dir?(base_path) do
+        case File.rm_rf(base_path) do
+          {:ok, _} ->
+            Logger.info("CleanupOnDestroy: removed #{base_path} for channel #{result.id}")
+
+          {:error, reason, file} ->
+            Logger.warning(
+              "CleanupOnDestroy: failed to remove #{file} in #{base_path}: #{inspect(reason)}"
+            )
+        end
+      end
+
+      Ytdarr.Cache.ImageCache.evict(result.id)
 
       {:ok, result}
     end)

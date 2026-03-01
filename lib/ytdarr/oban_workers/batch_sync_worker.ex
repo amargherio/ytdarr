@@ -119,9 +119,12 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
       # Use the optimized check_uploads_for_new_videos for incremental sync
       result =
         if since_datetime do
+          # Incremental sync — also refresh channel metadata + images
+          refresh_channel_metadata(channel)
+
           Client.check_uploads_for_new_videos(channel.external_id, since_datetime)
         else
-          # Full sync via existing content sync
+          # Full sync via existing content sync (which already refreshes metadata)
           Content.sync_channel_content(channel.external_id)
           {:ok, :full_sync}
         end
@@ -164,6 +167,35 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
         {:error, {:channel_exception, channel.id, Exception.message(e)}}
     end
   end
+
+  # Refresh channel metadata (avatar/banner URLs) and cached images during incremental sync.
+  # Full syncs already handle this via Content.sync_channel_content/1.
+  defp refresh_channel_metadata(channel) do
+    case Client.get_channel(channel.external_id) do
+      {:ok, yt_channel} ->
+        updates =
+          %{}
+          |> maybe_put(:avatar_url, yt_channel.thumbnail_url, channel.avatar_url)
+          |> maybe_put(:banner_url, yt_channel.banner_url, channel.banner_url)
+
+        if map_size(updates) > 0 do
+          Content.update_channel(channel, updates)
+        end
+
+        Content.refresh_channel_images(channel)
+
+      {:error, reason} ->
+        Logger.warning(
+          "[BatchSyncWorker] Failed to refresh metadata for #{channel.name}: #{inspect(reason)}"
+        )
+    end
+  end
+
+  defp maybe_put(map, key, new_val, old_val) when new_val != old_val and not is_nil(new_val) do
+    Map.put(map, key, new_val)
+  end
+
+  defp maybe_put(map, _key, _new_val, _old_val), do: map
 
   defp sync_monitored_playlists(force_full_sync) do
     playlists = Content.list_monitored_playlists!()

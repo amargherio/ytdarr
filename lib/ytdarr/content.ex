@@ -157,16 +157,43 @@ defmodule Ytdarr.Content do
         {:ok, yt_channel} ->
           upload_playlist_id = yt_channel.uploads_playlist_id
 
-          # Update the database channel with the uploads_playlist_id if it's missing
+          # Update the database channel with metadata from the API
           case get_channel_by_external_id(channel_id) do
             {:ok, db_channel} when not is_nil(db_channel) ->
-              if is_nil(db_channel.uploads_playlist_id) and not is_nil(upload_playlist_id) do
-                Logger.info(
-                  "Updating channel #{db_channel.id} with uploads_playlist_id: #{upload_playlist_id}"
-                )
+              updates = %{}
 
-                update_channel(db_channel, %{uploads_playlist_id: upload_playlist_id})
+              updates =
+                if is_nil(db_channel.uploads_playlist_id) and not is_nil(upload_playlist_id) do
+                  Logger.info(
+                    "Updating channel #{db_channel.id} with uploads_playlist_id: #{upload_playlist_id}"
+                  )
+
+                  Map.put(updates, :uploads_playlist_id, upload_playlist_id)
+                else
+                  updates
+                end
+
+              # Refresh avatar/banner URLs if they've changed
+              updates =
+                if yt_channel.thumbnail_url != db_channel.avatar_url do
+                  Map.put(updates, :avatar_url, yt_channel.thumbnail_url)
+                else
+                  updates
+                end
+
+              updates =
+                if yt_channel.banner_url != db_channel.banner_url do
+                  Map.put(updates, :banner_url, yt_channel.banner_url)
+                else
+                  updates
+                end
+
+              if map_size(updates) > 0 do
+                update_channel(db_channel, updates)
               end
+
+              # Refresh cached images on disk + in memory
+              refresh_channel_images(db_channel)
 
             _ ->
               :ok
@@ -180,6 +207,26 @@ defmodule Ytdarr.Content do
 
       {:ok, :synced}
     end
+  end
+
+  @doc """
+  Refresh cached images for a channel (avatar and banner) using ETag-based conditional requests.
+  """
+  def refresh_channel_images(channel) do
+    alias Ytdarr.Cache.ImageCache
+
+    Enum.each(~w(avatar banner), fn type ->
+      case ImageCache.refresh(channel, type) do
+        :refreshed ->
+          Logger.info("Refreshed #{type} image for channel #{channel.name}")
+
+        :not_modified ->
+          Logger.debug("#{type} image for channel #{channel.name} not modified")
+
+        {:error, reason} ->
+          Logger.warning("Failed to refresh #{type} image for channel #{channel.name}: #{inspect(reason)}")
+      end
+    end)
   end
 
   defp sync_playlists(channel_id, playlists) do

@@ -42,6 +42,7 @@ defmodule YtdarrWeb.Router do
   scope "/", YtdarrWeb do
     pipe_through :browser
     get "/", PageController, :home
+    get "/images/channels/:channel_id/:type", ImageController, :show
 
     live "/dashboard", DashboardLive.Index, :index
 
