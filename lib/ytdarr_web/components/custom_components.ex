@@ -129,7 +129,7 @@ defmodule YtdarrWeb.CustomComponents do
           class={[
             @mode == "ratio" && "absolute inset-0 w-full h-full",
             @mode != "ratio" && "w-full h-full",
-            "object-cover object-top select-none pointer-events-none"
+            "object-cover object-center select-none pointer-events-none"
           ]}
           draggable="false"
         />
