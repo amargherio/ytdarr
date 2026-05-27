@@ -97,7 +97,12 @@ defmodule Ytdarr.Cache.ImageCache do
         ext = extension_from_content_type(content_type)
 
         write_to_disk(channel, type, body, ext)
-        write_meta(channel, type, %{"content_type" => content_type, "etag" => new_etag, "ext" => ext})
+
+        write_meta(channel, type, %{
+          "content_type" => content_type,
+          "etag" => new_etag,
+          "ext" => ext
+        })
 
         cache_key = cache_key(channel.id, type)
         Cachex.put(@cache_name, cache_key, {body, content_type})
@@ -106,11 +111,17 @@ defmodule Ytdarr.Cache.ImageCache do
         :refreshed
 
       {:ok, %Req.Response{status: status}} ->
-        Logger.warning("ImageCache: unexpected status #{status} refreshing #{type} for channel #{channel.id}")
+        Logger.warning(
+          "ImageCache: unexpected status #{status} refreshing #{type} for channel #{channel.id}"
+        )
+
         {:error, {:http_status, status}}
 
       {:error, reason} ->
-        Logger.warning("ImageCache: error refreshing #{type} for channel #{channel.id}: #{inspect(reason)}")
+        Logger.warning(
+          "ImageCache: error refreshing #{type} for channel #{channel.id}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
@@ -134,11 +145,17 @@ defmodule Ytdarr.Cache.ImageCache do
         {:ok, body, content_type}
 
       {:ok, %Req.Response{status: status}} ->
-        Logger.warning("ImageCache: unexpected status #{status} fetching #{type} for channel #{channel.id}")
+        Logger.warning(
+          "ImageCache: unexpected status #{status} fetching #{type} for channel #{channel.id}"
+        )
+
         {:error, {:http_status, status}}
 
       {:error, reason} ->
-        Logger.warning("ImageCache: error fetching #{type} for channel #{channel.id}: #{inspect(reason)}")
+        Logger.warning(
+          "ImageCache: error fetching #{type} for channel #{channel.id}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end

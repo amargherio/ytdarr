@@ -5,18 +5,20 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetryTest do
 
   describe "handle_event" do
     test "resets video state on job exception" do
-      {:ok, channel} = Content.create_channel(%{
-        external_id: "telemetry_channel",
-        name: "Telemetry Channel",
-        url: "https://youtube.com/telemetry_channel"
-      })
+      {:ok, channel} =
+        Content.create_channel(%{
+          external_id: "telemetry_channel",
+          name: "Telemetry Channel",
+          url: "https://youtube.com/telemetry_channel"
+        })
 
-      {:ok, video} = Content.create_video(channel.id, %{
-        external_id: "telemetry_video",
-        title: "Telemetry Video",
-        url: "https://youtube.com/watch?v=telemetry_video",
-        download_state: :downloading
-      })
+      {:ok, video} =
+        Content.create_video(channel.id, %{
+          external_id: "telemetry_video",
+          title: "Telemetry Video",
+          url: "https://youtube.com/watch?v=telemetry_video",
+          download_state: :downloading
+        })
 
       meta = %{
         worker: Ytdarr.ObanWorkers.VideoDownloader,
@@ -30,18 +32,20 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetryTest do
     end
 
     test "resets video state on job cancelled stop" do
-      {:ok, channel} = Content.create_channel(%{
-        external_id: "telemetry_channel_2",
-        name: "Telemetry Channel 2",
-        url: "https://youtube.com/telemetry_channel_2"
-      })
+      {:ok, channel} =
+        Content.create_channel(%{
+          external_id: "telemetry_channel_2",
+          name: "Telemetry Channel 2",
+          url: "https://youtube.com/telemetry_channel_2"
+        })
 
-      {:ok, video} = Content.create_video(channel.id, %{
-        external_id: "telemetry_video_2",
-        title: "Telemetry Video 2",
-        url: "https://youtube.com/watch?v=telemetry_video_2",
-        download_state: :downloading
-      })
+      {:ok, video} =
+        Content.create_video(channel.id, %{
+          external_id: "telemetry_video_2",
+          title: "Telemetry Video 2",
+          url: "https://youtube.com/watch?v=telemetry_video_2",
+          download_state: :downloading
+        })
 
       meta = %{
         worker: Ytdarr.ObanWorkers.VideoDownloader,

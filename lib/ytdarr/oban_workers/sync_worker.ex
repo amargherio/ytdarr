@@ -58,8 +58,7 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
       "[SyncWorker] User-initiated sync for playlist: #{playlist.name} (ID: #{playlist.external_id})"
     )
 
-    # TODO: implement Content.sync_playlist_content/1 for full playlist sync
-    # For now, just mark as checked
+    Content.sync_playlist_content(playlist.id)
     Content.mark_playlist_checked(playlist)
 
     Logger.info("[SyncWorker] Completed sync for playlist: #{playlist.name}")

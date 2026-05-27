@@ -72,7 +72,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
   end
 
   @impl true
-  def handle_event("validate", %{"form" => params}, socket) do
+  def handle_event("validate", %{"channel" => params}, socket) do
     form =
       socket.assigns.form.source
       |> AshPhoenix.Form.validate(params)
@@ -81,7 +81,7 @@ defmodule YtdarrWeb.ChannelLive.Form do
     {:noreply, assign(socket, form: form)}
   end
 
-  def handle_event("save", %{"form" => params}, socket) do
+  def handle_event("save", %{"channel" => params}, socket) do
     save_channel(socket, socket.assigns.live_action, params)
   end
 

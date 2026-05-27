@@ -5,18 +5,20 @@ defmodule Ytdarr.ContentTest do
 
   describe "videos" do
     test "queue_video_download updates state to downloading" do
-      {:ok, channel} = Content.create_channel(%{
-        external_id: "channel1",
-        name: "Test Channel",
-        url: "https://youtube.com/channel1"
-      })
+      {:ok, channel} =
+        Content.create_channel(%{
+          external_id: "channel1",
+          name: "Test Channel",
+          url: "https://youtube.com/channel1"
+        })
 
-      {:ok, video} = Content.create_video(channel.id, %{
-        external_id: "video1",
-        title: "Test Video",
-        url: "http://example.com/video1",
-        download_state: :available
-      })
+      {:ok, video} =
+        Content.create_video(channel.id, %{
+          external_id: "video1",
+          title: "Test Video",
+          url: "http://example.com/video1",
+          download_state: :available
+        })
 
       assert {:ok, _job} = Content.queue_video_download(video.id, channel.id)
 
@@ -25,24 +27,26 @@ defmodule Ytdarr.ContentTest do
     end
 
     test "delete_video_file deletes file and resets state" do
-      {:ok, channel} = Content.create_channel(%{
-        external_id: "channel2",
-        name: "Test Channel 2",
-        url: "https://youtube.com/channel2"
-      })
+      {:ok, channel} =
+        Content.create_channel(%{
+          external_id: "channel2",
+          name: "Test Channel 2",
+          url: "https://youtube.com/channel2"
+        })
 
       # Create a dummy file
       file_path = "/tmp/test_video_#{System.unique_integer()}.mp4"
       File.write!(file_path, "dummy content")
 
-      {:ok, video} = Content.create_video(channel.id, %{
-        external_id: "video2",
-        title: "Test Video 2",
-        url: "http://example.com/video2",
-        download_state: :downloaded,
-        is_downloaded: true,
-        download_path: file_path
-      })
+      {:ok, video} =
+        Content.create_video(channel.id, %{
+          external_id: "video2",
+          title: "Test Video 2",
+          url: "http://example.com/video2",
+          download_state: :downloaded,
+          is_downloaded: true,
+          download_path: file_path
+        })
 
       assert {:ok, updated_video} = Content.delete_video_file(video.id)
 

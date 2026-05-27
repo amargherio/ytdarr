@@ -20,21 +20,10 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     video = Content.get_video!(vid)
     channel = Content.get_channel!(cid)
 
-    # ytdlp_params = retrieve_ytdlp_parameters()
+    ytdlp_params = retrieve_ytdlp_parameters()
 
     # Get the current episode count for the year so we can number the episode.
-    # The episode should already have a record in the database, so we need to determine
-    # what the episode number is based on existing records for that channel and year.
     episode_number = calculate_episode_number(channel, video.upload_date.year, video)
-
-    ytdlp_params = [
-      "--embed-chapters",
-      "--embed-thumbnails",
-      "--embed-subs",
-      "--write-auto-subs",
-      "--merge-output-format mp4",
-      "--mtime"
-    ]
 
     # Check if our season folder exists, create if not
     season_folder = "#{channel.base_path}/Season #{video.upload_date.year}"
@@ -89,7 +78,37 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     end
   end
 
-  def retrieve_ytdlp_parameters() do
+  @default_ytdlp_params [
+    "--embed-chapters",
+    "--embed-thumbnails",
+    "--embed-subs",
+    "--write-auto-subs",
+    "--merge-output-format",
+    "mp4",
+    "--mtime"
+  ]
+
+  def retrieve_ytdlp_parameters do
+    case Ytdarr.Settings.get_default_yt_dlp_param_set() do
+      {:ok, %{extra_args: extra_args, format: format}} ->
+        base = @default_ytdlp_params
+
+        base =
+          if is_binary(format) and format != "" do
+            base ++ ["-f", format]
+          else
+            base
+          end
+
+        if is_binary(extra_args) and extra_args != "" do
+          base ++ String.split(extra_args)
+        else
+          base
+        end
+
+      _ ->
+        @default_ytdlp_params
+    end
   end
 
   defp sanitize_filename(name) do

@@ -10,7 +10,7 @@ defmodule YtdarrWeb.ChannelLive.Index do
       <.header>
         Listing Channels
         <:actions>
-          <.button variant="primary" navigate={~p"/channels/new"}>
+          <.button variant="primary" navigate={~p"/channels/add"}>
             <.icon name="hero-plus" /> New Channel
           </.button>
         </:actions>
@@ -28,7 +28,11 @@ defmodule YtdarrWeb.ChannelLive.Index do
         row_click={fn {_id, channel} -> JS.navigate(~p"/channels/#{channel}") end}
       >
         <:col :let={{_id, channel}} label="Avatar">
-          <img src={~p"/images/channels/#{channel.id}/avatar"} alt="Avatar" class="w-10 h-10 rounded-full" />
+          <img
+            src={~p"/images/channels/#{channel.id}/avatar"}
+            alt="Avatar"
+            class="w-10 h-10 rounded-full"
+          />
         </:col>
         <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
         <:col :let={{_id, channel}} label="Description">{channel.description}</:col>
@@ -80,7 +84,7 @@ defmodule YtdarrWeb.ChannelLive.Index do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     channel = Content.get_channel!(id)
-    {:ok, _} = Content.destroy_channel(channel)
+    :ok = Content.destroy_channel(channel)
 
     {:noreply, stream_delete(socket, :channels, channel)}
   end

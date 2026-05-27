@@ -270,15 +270,14 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
     Enum.each(videos, fn video ->
       case Content.get_video_by_external_id(video.id) do
         {:ok, nil} ->
-          # Video doesn't exist, create it
           Content.create_video(channel.id, %{
             external_id: video.id,
-            name: video.title,
+            title: video.title,
             description: video.description,
             url: video.url,
             thumbnail_url: video.thumbnail_url,
             upload_date: video.published_at,
-            duration_seconds: video.duration
+            duration: video.duration
           })
 
         {:ok, _existing} ->
@@ -286,15 +285,14 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
           :ok
 
         {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
-          # Video doesn't exist, create it
           Content.create_video(channel.id, %{
             external_id: video.id,
-            name: video.title,
+            title: video.title,
             description: video.description,
             url: video.url,
             thumbnail_url: video.thumbnail_url,
             upload_date: video.published_at,
-            duration_seconds: video.duration
+            duration: video.duration
           })
 
         {:error, error} ->

@@ -60,6 +60,20 @@ defmodule Ytdarr.Content do
   ## Complex operations that orchestrate syncing
 
   @doc """
+  Creates an AshPhoenix form for creating a new channel.
+  """
+  def form_to_create_channel do
+    AshPhoenix.Form.for_create(Channel, :create, domain: __MODULE__, as: "channel")
+  end
+
+  @doc """
+  Creates an AshPhoenix form for updating an existing channel.
+  """
+  def form_to_update_channel(channel) do
+    AshPhoenix.Form.for_update(channel, :update, domain: __MODULE__, as: "channel")
+  end
+
+  @doc """
   Search for channels via YouTube API and check monitoring status.
   """
   def search_for_channels(query) do
@@ -113,29 +127,37 @@ defmodule Ytdarr.Content do
   def sync_channel_playlists(%Channel{} = channel) do
     require Ash.Query
 
-    playlists = Client.get_channel_playlists(channel.external_id)
+    case Client.get_channel_playlists(channel.external_id) do
+      {:ok, playlists} ->
+        Enum.each(playlists, fn pl ->
+          case get_playlist_by_external_id(pl.id) do
+            {:ok, nil} ->
+              create_playlist(channel.id, %{
+                external_id: pl.id,
+                name: pl.title,
+                description: pl.description,
+                url: pl.url,
+                video_count: pl.video_count,
+                is_monitored: false
+              })
 
-    Enum.each(playlists, fn pl ->
-      case get_playlist_by_external_id(pl.id) do
-        {:ok, nil} ->
-          create_playlist(channel.id, %{
-            external_id: pl.id,
-            name: pl.title,
-            description: pl.description,
-            url: pl.url,
-            video_count: pl.video_count,
-            is_monitored: false
-          })
+            {:ok, _existing} ->
+              Logger.info("Playlist #{pl.id} already exists, skipping")
 
-        {:ok, _existing} ->
-          Logger.info("Playlist #{pl.id} already exists, skipping")
+            {:error, error} ->
+              Logger.error("Error checking playlist #{pl.id}: #{inspect(error)}")
+          end
+        end)
 
-        {:error, error} ->
-          Logger.error("Error checking playlist #{pl.id}: #{inspect(error)}")
-      end
-    end)
+        {:ok, :synced}
 
-    {:ok, :synced}
+      {:error, reason} ->
+        Logger.error(
+          "Error fetching playlists for channel #{channel.external_id}: #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -224,7 +246,9 @@ defmodule Ytdarr.Content do
           Logger.debug("#{type} image for channel #{channel.name} not modified")
 
         {:error, reason} ->
-          Logger.warning("Failed to refresh #{type} image for channel #{channel.name}: #{inspect(reason)}")
+          Logger.warning(
+            "Failed to refresh #{type} image for channel #{channel.name}: #{inspect(reason)}"
+          )
       end
     end)
   end
@@ -441,6 +465,78 @@ defmodule Ytdarr.Content do
   end
 
   @doc """
+  Sync playlist content metadata from YouTube API.
+  Fetches the playlist's video list, creates/updates video records,
+  and creates playlist↔video associations. Does NOT auto-queue downloads.
+  """
+  def sync_playlist_content(playlist_id) do
+    require Ash.Query
+
+    with {:ok, playlist} <- get_playlist(playlist_id),
+         {:ok, playlist_data} <- Client.get_playlist(playlist.external_id) do
+      # Update playlist video count
+      update_playlist(playlist, %{video_count: playlist_data.video_count})
+
+      # Get the channel for creating video records
+      channel =
+        case Ash.load(playlist, :channel) do
+          {:ok, loaded} -> loaded.channel
+          _ -> nil
+        end
+
+      if channel do
+        # Create/update video records from playlist data
+        Enum.each(playlist_data.videos, fn video ->
+          case get_video_by_external_id(video.id) do
+            {:ok, nil} ->
+              create_video(channel.id, %{
+                external_id: video.id,
+                title: video.title,
+                description: video.description,
+                url: video.url,
+                thumbnail_url: video.thumbnail_url,
+                upload_date: video.published_at,
+                duration: video.duration,
+                discovered_from: "playlist:#{playlist.external_id}"
+              })
+
+            {:ok, _existing} ->
+              :ok
+
+            {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
+              create_video(channel.id, %{
+                external_id: video.id,
+                title: video.title,
+                description: video.description,
+                url: video.url,
+                thumbnail_url: video.thumbnail_url,
+                upload_date: video.published_at,
+                duration: video.duration,
+                discovered_from: "playlist:#{playlist.external_id}"
+              })
+
+            {:error, error} ->
+              Logger.error("Error checking video #{video.id}: #{inspect(error)}")
+          end
+        end)
+
+        # Associate playlist with its videos
+        associate_playlists_and_videos(playlist.id)
+      end
+
+      {:ok, :synced}
+    else
+      {:error, reason} ->
+        Logger.error("Error syncing playlist content #{playlist_id}: #{inspect(reason)}")
+        {:error, reason}
+
+      {:partial, _data} ->
+        Logger.warning("Partial sync for playlist #{playlist_id}")
+        {:ok, :partial}
+    end
+  end
+
+  @doc """
   Associate playlists and videos
 
   ## Parameters
@@ -483,13 +579,6 @@ defmodule Ytdarr.Content do
     end)
 
     {:ok, :associated}
-  end
-
-  def create_jellyfin_collection_from_playlist(playlist_id) do
-    Oban.insert(%Oban.Job{
-      worker: Ytdarr.ObanWorkers.JellyfinCollectionCreator,
-      args: %{"playlist_id" => playlist_id}
-    })
   end
 
   # Helper functions for parsing YouTube API data

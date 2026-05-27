@@ -12,7 +12,11 @@ defmodule YtdarrWeb.ChannelLive.Show do
       <.hero_header banner_url={~p"/images/channels/#{@channel.id}/banner"} mode="ratio" ratio="6/1">
         <div class="left-06">
           <div class="flex flex-row flex-wrap justify-start gap-4">
-            <image src={~p"/images/channels/#{@channel.id}/avatar"} alt={@channel.name} class="w-24 h-24 rounded-full" />
+            <img
+              src={~p"/images/channels/#{@channel.id}/avatar"}
+              alt={@channel.name}
+              class="w-24 h-24 rounded-full"
+            />
             <h1 class="mb-5 text-5xl font-bold">{@channel.name}</h1>
             <p class="mb-5">{@channel.description}</p>
           </div>
@@ -54,7 +58,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
           </div>
         </:actions>
       </.hero_header>
-
+      
     <!-- channel metadata -->
       <div class="flex flex-wrap justify-start gap-4">
         <div class="bg-slate-300 p-2 rounded">
@@ -96,14 +100,6 @@ defmodule YtdarrWeb.ChannelLive.Show do
                 <% else %>
                   <.icon name="hero-bookmark" />
                 <% end %>
-              </.button>
-              <.button
-                title="Create Jellyfin collection from playlist"
-                phx-click="jellyfin-collection"
-                phx-value-id={playlist.id}
-                phx-value-type="playlist"
-              >
-                <.icon name="hero-queue-list" />
               </.button>
               <.button
                 title="Delete playlist files"
@@ -388,20 +384,5 @@ defmodule YtdarrWeb.ChannelLive.Show do
     {:noreply,
      socket
      |> put_flash(:info, "Channel data refresh in progress.")}
-  end
-
-  @impl true
-  def handle_event("jellyfin-collection", %{"id" => id}, socket) do
-    case Content.create_jellyfin_collection_from_playlist(id) do
-      {:ok, _collection} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Jellyfin collection created from playlist.")}
-
-      _ ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Failed to create Jellyfin collection from playlist.")}
-    end
   end
 end
