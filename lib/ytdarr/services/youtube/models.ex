@@ -36,6 +36,11 @@ defmodule Ytdarr.Services.YouTube.Models do
       :contentDetails
     ]
 
+    # Handle YouTube search result format where id is a map
+    def from_api(%{"id" => %{"channelId" => channel_id}} = data) do
+      from_api(Map.put(data, "id", channel_id))
+    end
+
     def from_api(%{"id" => id, "snippet" => snippet} = data) do
       brandSettings = Map.get(data, "brandingSettings", %{}) || %{}
       status = Map.get(data, "status", %{}) || %{}
@@ -113,6 +118,11 @@ defmodule Ytdarr.Services.YouTube.Models do
   defmodule Playlist do
     @enforce_keys [:id, :title, :url]
     defstruct [:id, :title, :description, :url, :thumbnail_url, :video_count, :channel_id]
+
+    # Handle YouTube search result format where id is a map
+    def from_api(%{"id" => %{"playlistId" => playlist_id}} = data) do
+      from_api(Map.put(data, "id", playlist_id))
+    end
 
     def from_api(%{"id" => id, "snippet" => snippet} = data) do
       content_details = Map.get(data, "contentDetails", %{})

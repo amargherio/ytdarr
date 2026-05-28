@@ -135,7 +135,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
     <Layouts.app flash={@flash} nav={:content_add}>
       <.header>
         Add Channel
-        <:subtitle>Search YouTube (mock) and add channels to monitor.</:subtitle>
+        <:subtitle>Search YouTube and add channels to monitor.</:subtitle>
         <:actions>
           <.button navigate={~p"/channels"}>Back</.button>
         </:actions>
@@ -163,7 +163,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
             class="input input-bordered"
             phx-debounce="300"
           />
-          <p class="text-xs opacity-60">Type to search {@mode}. (Mocked data for now.)</p>
+          <p class="text-xs opacity-60">Type to search {@mode}.</p>
         </form>
 
         <div :if={@loading?} class="flex items-center gap-2 text-sm">

@@ -35,16 +35,14 @@ defmodule YtdarrWeb.ContentLive.Add do
   end
 
   def handle_event("search", %{"q" => q}, socket) do
-    # Cancel previous pending by ignoring its message when ref doesn't match
     ref = make_ref()
     mode = socket.assigns.mode
-    chan_map = socket.assigns.channels_lookup
 
     Task.start(fn ->
       results =
         case mode do
-          :channels -> mock_channel_search(q)
-          :playlists -> mock_playlist_search(q, chan_map)
+          :channels -> perform_channel_search(q)
+          :playlists -> perform_playlist_search(q)
         end
 
       send(self(), {:async_search_result, ref, q, results})
@@ -175,7 +173,7 @@ defmodule YtdarrWeb.ContentLive.Add do
     <Layouts.app flash={@flash} nav={:content_add}>
       <.header>
         Add Channel or Playlist
-        <:subtitle>Search YouTube (mock) and add channels or playlists to monitor.</:subtitle>
+        <:subtitle>Search YouTube and add channels or playlists to monitor.</:subtitle>
         <:actions>
           <.button navigate={~p"/channels"}>Back</.button>
         </:actions>
@@ -211,7 +209,7 @@ defmodule YtdarrWeb.ContentLive.Add do
             class="input input-bordered"
             phx-debounce="300"
           />
-          <p class="text-xs opacity-60">Type to search {@mode}. (Mocked data for now.)</p>
+          <p class="text-xs opacity-60">Type to search {@mode}.</p>
         </form>
 
         <div :if={@loading?} class="flex items-center gap-2 text-sm">
@@ -229,7 +227,6 @@ defmodule YtdarrWeb.ContentLive.Add do
                 <th>Avatar</th>
                 <th>Name</th>
                 <th>External ID</th>
-                <th>Subscribers</th>
                 <th></th>
               </tr>
             </thead>
@@ -240,7 +237,6 @@ defmodule YtdarrWeb.ContentLive.Add do
                 </td>
                 <td>{r.name}</td>
                 <td><code>{r.external_id}</code></td>
-                <td>{r.subscriber_count}</td>
                 <td>
                   <span
                     :if={MapSet.member?(@monitored_channel_ids, r.external_id)}
@@ -286,7 +282,7 @@ defmodule YtdarrWeb.ContentLive.Add do
                 <td>{r.name}</td>
                 <td><code>{r.external_id}</code></td>
                 <td>{r.video_count}</td>
-                <td>{Map.get(@channels_lookup, r.channel_id).name}</td>
+                <td>{r.channel_name}</td>
                 <td>
                   <span
                     :if={MapSet.member?(@monitored_playlist_ids, r.external_id)}
@@ -321,44 +317,23 @@ defmodule YtdarrWeb.ContentLive.Add do
     """
   end
 
-  # Mock search helpers (to be replaced with real API integration)
-  defp mock_channel_search(""), do: []
-  defp mock_channel_search(nil), do: []
+  defp perform_channel_search(""), do: []
+  defp perform_channel_search(nil), do: []
 
-  defp mock_channel_search(query) do
-    base = String.replace(query, ~r/\s+/, "-") |> String.downcase()
-
-    for i <- 1..min(5, String.length(query)) do
-      %{
-        name: "#{String.capitalize(query)} Channel #{i}",
-        external_id: "mock-chan-#{base}-#{i}",
-        url: "https://www.youtube.com/@#{base}#{i}",
-        avatar_url: "https://via.placeholder.com/64?text=#{URI.encode(query)}",
-        subscriber_count: Enum.random(1_000..100_000) |> :erlang.integer_to_binary()
-      }
+  defp perform_channel_search(query) do
+    case Content.search_for_channels(query) do
+      {:ok, channels} -> channels
+      _ -> []
     end
   end
 
-  defp mock_playlist_search("", _map), do: []
-  defp mock_playlist_search(nil, _map), do: []
-  defp mock_playlist_search(_query, channels_map) when map_size(channels_map) == 0, do: []
+  defp perform_playlist_search(""), do: []
+  defp perform_playlist_search(nil), do: []
 
-  defp mock_playlist_search(query, channels_map) do
-    channel_ids = Map.keys(channels_map)
-    base = String.replace(query, ~r/\s+/, "-") |> String.downcase()
-
-    for i <- 1..min(5, String.length(query)) do
-      ch_id = Enum.at(channel_ids, rem(i, length(channel_ids)))
-
-      %{
-        name: "#{String.capitalize(query)} Playlist #{i}",
-        external_id: "mock-pl-#{base}-#{i}",
-        url: "https://www.youtube.com/playlist?list=#{base}#{i}",
-        video_count: Enum.random(5..200),
-        channel_id: ch_id,
-        implicitly_monitored?:
-          MapSet.member?(monitored_channel_ids(), Map.get(channels_map, ch_id).external_id)
-      }
+  defp perform_playlist_search(query) do
+    case Content.search_for_playlists(query) do
+      {:ok, playlists} -> playlists
+      _ -> []
     end
   end
 

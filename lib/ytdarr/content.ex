@@ -100,6 +100,62 @@ defmodule Ytdarr.Content do
   end
 
   @doc """
+  Search for playlists from monitored channels via YouTube API.
+  Fetches playlists for each monitored channel and filters by query string.
+  """
+  def search_for_playlists(query) do
+    channels = list_channels!(query: [filter: [is_monitored: true]])
+
+    if channels == [] do
+      {:ok, []}
+    else
+      monitored_playlist_ids =
+        list_playlists!() |> Enum.map(& &1.external_id) |> MapSet.new()
+
+      playlists =
+        channels
+        |> Task.async_stream(
+          fn channel ->
+            case Client.get_channel_playlists(channel.external_id) do
+              {:ok, yt_playlists} ->
+                Enum.map(yt_playlists, fn pl ->
+                  %{
+                    external_id: pl.id,
+                    name: pl.title,
+                    url: pl.url,
+                    video_count: pl.video_count,
+                    channel_id: channel.id,
+                    channel_name: channel.name,
+                    is_monitored: MapSet.member?(monitored_playlist_ids, pl.id)
+                  }
+                end)
+
+              _ ->
+                []
+            end
+          end,
+          timeout: :infinity,
+          max_concurrency: 5
+        )
+        |> Enum.flat_map(fn
+          {:ok, results} -> results
+          _ -> []
+        end)
+        |> filter_playlists_by_query(query)
+
+      {:ok, playlists}
+    end
+  end
+
+  defp filter_playlists_by_query(playlists, query) do
+    query_lower = String.downcase(query)
+
+    Enum.filter(playlists, fn pl ->
+      String.contains?(String.downcase(pl.name), query_lower)
+    end)
+  end
+
+  @doc """
   Sync channel or playlist content with the latest from the source.
   Queues an Oban job to perform the actual sync.
   """
@@ -197,8 +253,8 @@ defmodule Ytdarr.Content do
 
               # Refresh avatar/banner URLs if they've changed
               updates =
-                if yt_channel.thumbnail_url != db_channel.avatar_url do
-                  Map.put(updates, :avatar_url, yt_channel.thumbnail_url)
+                if yt_channel.avatar_url != db_channel.avatar_url do
+                  Map.put(updates, :avatar_url, yt_channel.avatar_url)
                 else
                   updates
                 end
