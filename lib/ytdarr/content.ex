@@ -278,7 +278,11 @@ defmodule Ytdarr.Content do
 
         updates =
           %{}
-          |> maybe_put_changed(:uploads_playlist_id, uploads_playlist_id, db_channel.uploads_playlist_id)
+          |> maybe_put_changed(
+            :uploads_playlist_id,
+            uploads_playlist_id,
+            db_channel.uploads_playlist_id
+          )
           |> maybe_put_changed(:avatar_url, yt_channel.avatar_url, db_channel.avatar_url)
           |> maybe_put_changed(:banner_url, yt_channel.banner_url, db_channel.banner_url)
 
@@ -388,9 +392,7 @@ defmodule Ytdarr.Content do
       Client.get_playlist_items_detailed(db_playlist.external_id)
 
     if status in [:ok, :partial] do
-      Logger.info(
-        "[Content] Linking #{length(entries)} videos to playlist #{db_playlist.name}"
-      )
+      Logger.info("[Content] Linking #{length(entries)} videos to playlist #{db_playlist.name}")
 
       Enum.with_index(entries, fn entry, index ->
         video_details = entry["video_details"] || %{}

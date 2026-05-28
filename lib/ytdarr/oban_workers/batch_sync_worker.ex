@@ -22,7 +22,7 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
   use Oban.Worker,
     queue: :batch_sync,
     max_attempts: 3,
-    unique: [period: 300, states: [:available, :scheduled, :executing]]
+    unique: [period: 300, states: [:available, :scheduled, :executing, :retryable, :suspended]]
 
   alias Ytdarr.Content
   alias Ytdarr.Services.YouTube.Client
@@ -175,7 +175,7 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
       {:ok, yt_channel} ->
         updates =
           %{}
-          |> maybe_put(:avatar_url, yt_channel.thumbnail_url, channel.avatar_url)
+          |> maybe_put(:avatar_url, yt_channel.avatar_url, channel.avatar_url)
           |> maybe_put(:banner_url, yt_channel.banner_url, channel.banner_url)
 
         if map_size(updates) > 0 do

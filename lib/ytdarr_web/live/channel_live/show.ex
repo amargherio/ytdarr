@@ -244,15 +244,13 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    require Ash.Query
-
     channel = Content.get_channel!(id, load: [:playlists, :videos])
 
     # Load videos for each playlist with videos in descending order by upload date
     playlists =
       Enum.map(channel.playlists, fn playlist ->
-        pl = Content.get!(Content.Playlist, playlist.id, load: [:videos])
-        #Ash.load(pl, videos: fn query -> Ash.Query.sort(query, [upload_date: :desc]) end)
+        Ash.get!(Content.Playlist, playlist.id, load: [:videos])
+        |> sort_playlist_videos()
       end)
 
     {:ok,
@@ -290,6 +288,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
             # Update the specific playlist in the list - need to reload with videos
             updated_playlist_with_videos =
               Content.get_playlist!(updated_playlist.id, load: [:videos])
+              |> sort_playlist_videos()
 
             updated_playlists =
               Enum.map(socket.assigns.playlists, fn p ->
@@ -323,6 +322,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
     playlists =
       Enum.map(channel.playlists, fn playlist ->
         Content.get_playlist!(playlist.id, load: [:videos])
+        |> sort_playlist_videos()
       end)
 
     {:noreply,
@@ -344,6 +344,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
     playlists =
       Enum.map(channel.playlists, fn playlist ->
         Content.get_playlist!(playlist.id, load: [:videos])
+        |> sort_playlist_videos()
       end)
 
     {:noreply,
@@ -385,5 +386,10 @@ defmodule YtdarrWeb.ChannelLive.Show do
     {:noreply,
      socket
      |> put_flash(:info, "Channel data refresh in progress.")}
+  end
+
+  defp sort_playlist_videos(playlist) do
+    sorted = Enum.sort_by(playlist.videos, &(&1.upload_date || ~D[1970-01-01]), {:desc, Date})
+    %{playlist | videos: sorted}
   end
 end

@@ -341,7 +341,7 @@ defmodule YtdarrWeb.SettingsLive do
 
       <div :if={@tab == :youtube} id="youtube" class="space-y-6">
         <.form for={@youtube_form} id="youtube-form" phx-submit="save-youtube">
-          <.input field={@youtube_form[:api_key]} type="password" label="Primary API Key" />
+          <.input field={@youtube_form[:api_key]} type="text" label="Primary API Key" />
           <.input field={@youtube_form[:region]} type="text" label="Region" />
           <.button type="submit" class="mt-2">Save YouTube Settings</.button>
         </.form>

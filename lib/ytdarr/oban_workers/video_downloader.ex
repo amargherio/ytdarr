@@ -11,6 +11,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
   alias Ytdarr.Content
   alias Ytdarr.Content.{Channel, Video}
+  require Logger
 
   require Ash.Query
 
@@ -21,6 +22,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     channel = Content.get_channel!(cid)
 
     ytdlp_params = retrieve_ytdlp_parameters()
+    Logger.info("Full yt-dlp parameters: #{inspect(ytdlp_params)}")
 
     # Get the current episode count for the year so we can number the episode.
     episode_number = calculate_episode_number(channel, video.upload_date.year, video)
@@ -36,7 +38,8 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       "#{season_folder}/#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
 
     # trigger yt-dlp to the target URL and out to the correct output file
-    {_, status} = System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
+    {output, status} = System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
+    Logger.info("yt-dlp output: #{output}")
 
     case status do
       0 ->
@@ -53,6 +56,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
         :ok
 
       _ ->
+        Logger.error("yt-dlp failed with status: #{status}")
         {:error, :download_failed}
     end
 
@@ -79,8 +83,10 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
   end
 
   @default_ytdlp_params [
+    #"--postprocessor-args ffmpeg:'-c:a libopus -b:a 128k -c:v libsvtav1 -preset 4 -crf 24 -svtav1-params keyint=10s:tune=0:enable-overlays=1:scd=1:scm=0'",
     "--embed-chapters",
-    "--embed-thumbnails",
+    "--embed-thumbnail",
+    "--embed-metadata",
     "--embed-subs",
     "--write-auto-subs",
     "--merge-output-format",
