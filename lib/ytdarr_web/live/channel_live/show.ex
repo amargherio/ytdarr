@@ -58,7 +58,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
           </div>
         </:actions>
       </.hero_header>
-      
+
     <!-- channel metadata -->
       <div class="flex flex-wrap justify-start gap-4">
         <div class="bg-slate-300 p-2 rounded">
@@ -248,10 +248,11 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
     channel = Content.get_channel!(id, load: [:playlists, :videos])
 
-    # Load videos for each playlist
+    # Load videos for each playlist with videos in descending order by upload date
     playlists =
       Enum.map(channel.playlists, fn playlist ->
-        Content.get_playlist!(playlist.id, load: [:videos])
+        pl = Content.get!(Content.Playlist, playlist.id, load: [:videos])
+        #Ash.load(pl, videos: fn query -> Ash.Query.sort(query, [upload_date: :desc]) end)
       end)
 
     {:ok,

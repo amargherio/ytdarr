@@ -78,11 +78,11 @@ defmodule Ytdarr.ContentOrchestrationTest do
   end
 
   @tag skip:
-         "associate_playlists_and_videos/1 currently requires a live YouTube client and cannot be isolated without adding an injection point"
-  test "associate_playlists_and_videos/1 associates fetched videos" do
+         "sync_playlist_content requires a live YouTube client and cannot be isolated without adding an injection point"
+  test "sync_playlist_content/1 syncs and links playlist videos" do
     playlist = playlist_fixture()
 
-    assert {:ok, :associated} = Content.associate_playlists_and_videos(playlist.id)
+    assert {:ok, :synced} = Content.sync_playlist_content(playlist.id)
   end
 
   defp scratch_dir(prefix) do

@@ -31,6 +31,28 @@ defmodule Ytdarr.Content.PlaylistVideo do
         end
       end
     end
+
+    create :upsert do
+      upsert? true
+      upsert_identity :unique_playlist_video
+      upsert_fields [:position]
+
+      accept [:position, :playlist_id, :video_id]
+
+      change fn changeset, _context ->
+        case Ash.Changeset.get_attribute(changeset, :id) do
+          nil ->
+            Ash.Changeset.force_change_attribute(
+              changeset,
+              :id,
+              System.unique_integer([:positive])
+            )
+
+          _id ->
+            changeset
+        end
+      end
+    end
   end
 
   attributes do

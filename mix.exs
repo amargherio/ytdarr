@@ -12,7 +12,12 @@ defmodule Ytdarr.MixProject do
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
-      consolidate_protocols: Mix.env() != :dev
+      consolidate_protocols: Mix.env() != :dev,
+      release: [
+        overwrite: true,
+        applications: [ytdarr: :permanent],
+        steps: [:assemble, :tar]
+      ]
     ]
   end
 

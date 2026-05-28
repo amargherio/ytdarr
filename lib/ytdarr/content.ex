@@ -35,6 +35,7 @@ defmodule Ytdarr.Content do
       define :get_video, action: :read, get_by: [:id]
       define :get_video_by_external_id, action: :read, get_by: [:external_id]
       define :create_video, action: :create, args: [:channel_id]
+      define :upsert_video, action: :upsert, args: [:channel_id]
       define :update_video, action: :update
       define :mark_video_downloaded, action: :mark_downloaded
       define :destroy_video, action: :destroy
@@ -46,6 +47,7 @@ defmodule Ytdarr.Content do
       define :get_playlist, action: :read, get_by: [:id]
       define :get_playlist_by_external_id, action: :read, get_by: [:external_id]
       define :create_playlist, action: :create, args: [:channel_id]
+      define :upsert_playlist, action: :upsert, args: [:channel_id]
       define :update_playlist, action: :update
       define :monitor_playlist, action: :monitor
       define :unmonitor_playlist, action: :unmonitor
@@ -54,7 +56,10 @@ defmodule Ytdarr.Content do
       define :destroy_playlist, action: :destroy
     end
 
-    resource Ytdarr.Content.PlaylistVideo
+    resource Ytdarr.Content.PlaylistVideo do
+      define :create_playlist_video, action: :create
+      define :upsert_playlist_video, action: :upsert
+    end
   end
 
   ## Complex operations that orchestrate syncing
@@ -177,112 +182,64 @@ defmodule Ytdarr.Content do
   end
 
   @doc """
-  Sync playlists for a channel from the YouTube API.
-  Creates new playlists that don't already exist.
+  Fetch latest content from external API (e.g., YouTube).
+  Creates/updates videos and playlists for a channel, then links them via PlaylistVideo.
+
+  Flow:
+  1. Fetch channel metadata from API, update DB record
+  2. Refresh channel images
+  3. Fetch ALL videos from uploads playlist → upsert each into DB
+  4. Fetch channel playlists from API → upsert each into DB
+  5. For each playlist: fetch items, upsert videos, create PlaylistVideo links
   """
-  def sync_channel_playlists(%Channel{} = channel) do
-    require Ash.Query
+  def sync_channel_content(channel_id) do
+    with {:ok, db_channel} <- get_channel_by_external_id(channel_id),
+         true <- not is_nil(db_channel) do
+      # Step 1: Refresh channel metadata from API
+      {uploads_playlist_id, db_channel} = sync_channel_metadata(db_channel, channel_id)
 
-    case Client.get_channel_playlists(channel.external_id) do
-      {:ok, playlists} ->
-        Enum.each(playlists, fn pl ->
-          case get_playlist_by_external_id(pl.id) do
-            {:ok, nil} ->
-              create_playlist(channel.id, %{
-                external_id: pl.id,
-                name: pl.title,
-                description: pl.description,
-                url: pl.url,
-                video_count: pl.video_count,
-                is_monitored: false
-              })
+      # Step 2: Refresh cached images
+      refresh_channel_images(db_channel)
 
-            {:ok, _existing} ->
-              Logger.info("Playlist #{pl.id} already exists, skipping")
+      # Step 3: Sync all videos from uploads playlist
+      sync_uploads(db_channel, uploads_playlist_id)
 
-            {:error, error} ->
-              Logger.error("Error checking playlist #{pl.id}: #{inspect(error)}")
-          end
-        end)
+      # Step 4 & 5: Fetch playlists, then for each playlist fetch items and link videos
+      sync_playlists_and_link_videos(db_channel, channel_id)
 
-        {:ok, :synced}
-
-      {:error, reason} ->
-        Logger.error(
-          "Error fetching playlists for channel #{channel.external_id}: #{inspect(reason)}"
-        )
-
-        {:error, reason}
+      {:ok, :synced}
+    else
+      {:ok, nil} -> {:error, :channel_not_found}
+      false -> {:error, :channel_not_found}
+      {:error, error} -> {:error, error}
     end
   end
 
   @doc """
-  Fetch latest content from external API (e.g., YouTube).
-  Creates playlists and videos for a channel.
-
-  Fetches the upload playlist separately because it isn't included in the channel playlists.
+  Sync a single playlist's content from the YouTube API.
+  Fetches the playlist's video list, upserts video records,
+  and creates playlist↔video associations. Does NOT auto-queue downloads.
   """
-  def sync_channel_content(channel_id) do
-    require Ash.Query
+  def sync_playlist_content(playlist_id) when is_integer(playlist_id) do
+    case get_playlist(playlist_id) do
+      {:ok, playlist} -> sync_playlist_content(playlist)
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
-    with {:ok, playlists} <- Client.get_channel_playlists(channel_id) do
-      Logger.info("Playlist output: #{inspect(playlists)}")
-      # Create playlists (excluding uploads)
-      sync_playlists(channel_id, playlists)
-
-      # Get videos from uploads playlist
-      case Client.get_channel(channel_id) do
-        {:ok, yt_channel} ->
-          upload_playlist_id = yt_channel.uploads_playlist_id
-
-          # Update the database channel with metadata from the API
-          case get_channel_by_external_id(channel_id) do
-            {:ok, db_channel} when not is_nil(db_channel) ->
-              updates = %{}
-
-              updates =
-                if is_nil(db_channel.uploads_playlist_id) and not is_nil(upload_playlist_id) do
-                  Logger.info(
-                    "Updating channel #{db_channel.id} with uploads_playlist_id: #{upload_playlist_id}"
-                  )
-
-                  Map.put(updates, :uploads_playlist_id, upload_playlist_id)
-                else
-                  updates
-                end
-
-              # Refresh avatar/banner URLs if they've changed
-              updates =
-                if yt_channel.avatar_url != db_channel.avatar_url do
-                  Map.put(updates, :avatar_url, yt_channel.avatar_url)
-                else
-                  updates
-                end
-
-              updates =
-                if yt_channel.banner_url != db_channel.banner_url do
-                  Map.put(updates, :banner_url, yt_channel.banner_url)
-                else
-                  updates
-                end
-
-              if map_size(updates) > 0 do
-                update_channel(db_channel, updates)
-              end
-
-              # Refresh cached images on disk + in memory
-              refresh_channel_images(db_channel)
-
-            _ ->
-              :ok
-          end
-
-          sync_uploads_videos(channel_id, upload_playlist_id)
-
-        {:error, reason} ->
-          Logger.error("Error fetching channel data for #{channel_id}: #{inspect(reason)}")
+  def sync_playlist_content(playlist) do
+    # Load channel for creating video records
+    channel =
+      case Ash.load(playlist, :channel) do
+        {:ok, loaded} -> loaded.channel
+        _ -> nil
       end
 
+    if is_nil(channel) do
+      Logger.error("[Content] Cannot sync playlist #{playlist.id}: no channel found")
+      {:error, :channel_not_found}
+    else
+      fetch_and_link_playlist_videos(channel, playlist)
       {:ok, :synced}
     end
   end
@@ -309,144 +266,191 @@ defmodule Ytdarr.Content do
     end)
   end
 
-  defp sync_playlists(channel_id, playlists) do
-    with {:ok, channel} <- get_channel_by_external_id(channel_id),
-         true <- not is_nil(channel) do
-      Enum.each(playlists, fn pl ->
-        Logger.info("Processing playlist #{pl.id} - #{pl.title}")
+  # ---------------------------------------------------------------------------
+  # Internal sync helpers
+  # ---------------------------------------------------------------------------
 
-        case get_playlist_by_external_id(pl.id) do
-          {:ok, nil} ->
-            create_playlist(channel.id, %{
-              external_id: pl.id,
-              name: pl.title,
-              description: pl.description,
-              url: pl.url,
-              video_count: pl.video_count,
-              is_monitored: false
-            })
+  # Step 1: Fetch channel metadata from API and update DB record
+  defp sync_channel_metadata(db_channel, channel_id) do
+    case Client.get_channel(channel_id) do
+      {:ok, yt_channel} ->
+        uploads_playlist_id = yt_channel.uploads_playlist_id
 
-          {:ok, _existing} ->
-            Logger.info("Playlist #{pl.id} already exists, skipping")
+        updates =
+          %{}
+          |> maybe_put_changed(:uploads_playlist_id, uploads_playlist_id, db_channel.uploads_playlist_id)
+          |> maybe_put_changed(:avatar_url, yt_channel.avatar_url, db_channel.avatar_url)
+          |> maybe_put_changed(:banner_url, yt_channel.banner_url, db_channel.banner_url)
 
-          {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
-            create_playlist(channel.id, %{
-              external_id: pl.id,
-              name: pl.title,
-              description: pl.description,
-              url: pl.url,
-              video_count: pl.video_count,
-              is_monitored: false
-            })
+        db_channel =
+          if map_size(updates) > 0 do
+            case update_channel(db_channel, updates) do
+              {:ok, updated} -> updated
+              _ -> db_channel
+            end
+          else
+            db_channel
+          end
 
-          {:error, error} ->
-            Logger.error("Error checking playlist #{pl.id}: #{inspect(error)}")
-        end
-      end)
-    else
-      _ -> Logger.error("Channel not found for external_id: #{channel_id}")
+        {uploads_playlist_id, db_channel}
+
+      {:error, reason} ->
+        Logger.error("Error fetching channel data for #{channel_id}: #{inspect(reason)}")
+        {db_channel.uploads_playlist_id, db_channel}
     end
   end
 
-  defp sync_uploads_videos(_channel_id, nil), do: :ok
+  defp maybe_put_changed(map, _key, nil, _old), do: map
+  defp maybe_put_changed(map, key, new, old) when new != old, do: Map.put(map, key, new)
+  defp maybe_put_changed(map, _key, _new, _old), do: map
 
-  defp sync_uploads_videos(channel_id, uploads_playlist_id) do
-    with {:ok, channel} <- get_channel_by_external_id(channel_id),
-         true <- not is_nil(channel),
-         {:ok, playlist_detailed} <- Client.get_playlist_items_detailed(uploads_playlist_id) do
+  # Step 3: Fetch and upsert all videos from the uploads playlist
+  defp sync_uploads(_db_channel, nil), do: :ok
+
+  defp sync_uploads(db_channel, uploads_playlist_id) do
+    {status, %{videos: entries}} =
+      Client.get_playlist_items_detailed(uploads_playlist_id)
+
+    if status in [:ok, :partial] do
       Logger.info(
-        "Got playlist details with videos and pagination for larger payloads: #{inspect(playlist_detailed)}"
+        "[Content] Syncing #{length(entries)} upload videos for channel #{db_channel.name}"
       )
 
-      Logger.debug("Videos to sync: #{inspect(playlist_detailed.videos)}")
+      Enum.each(entries, fn entry ->
+        upsert_video_from_api_entry(db_channel, entry, "uploads")
+      end)
+    end
+  end
 
-      Enum.each(playlist_detailed.videos, fn entry ->
-        # Entry is a map with string keys: "video_details" and "playlist_details"
-        # video_details is raw API response with string keys
-        video_details = entry["video_details"] || %{}
-        playlist_item = entry["playlist_details"] || %{}
+  # Step 4 & 5: Fetch playlists from API, upsert them, then for each
+  # fetch items and create PlaylistVideo join records
+  defp sync_playlists_and_link_videos(db_channel, channel_id) do
+    case Client.get_channel_playlists(channel_id) do
+      {:ok, yt_playlists} ->
+        sync_interval = Ytdarr.Settings.get_setting_value(:sync_interval_minutes, 60)
 
-        video_id = video_details["id"]
-        snippet = video_details["snippet"] || %{}
-        content_details = video_details["contentDetails"] || %{}
-        playlist_item_id = playlist_item["id"]
+        Enum.each(yt_playlists, fn yt_playlist ->
+          Logger.info("[Content] Processing playlist #{yt_playlist.id} - #{yt_playlist.title}")
 
-        # Extract video metadata from the API response
-        title = snippet["title"]
-        description = snippet["description"]
-        published_at = snippet["publishedAt"]
+          # Upsert the playlist record
+          case upsert_playlist(db_channel.id, %{
+                 external_id: yt_playlist.id,
+                 name: yt_playlist.title,
+                 description: yt_playlist.description,
+                 url: yt_playlist.url,
+                 video_count: yt_playlist.video_count,
+                 is_monitored: false
+               }) do
+            {:ok, db_playlist} ->
+              if should_fetch_playlist_items?(db_playlist, yt_playlist, sync_interval) do
+                fetch_and_link_playlist_videos(db_channel, db_playlist)
+              else
+                Logger.debug(
+                  "[Content] Skipping playlist item fetch for #{yt_playlist.title} (unchanged)"
+                )
+              end
 
-        thumbnail_url =
-          get_in(snippet, ["thumbnails", "high", "url"]) ||
-            get_in(snippet, ["thumbnails", "default", "url"])
+            {:error, error} ->
+              Logger.error(
+                "[Content] Error upserting playlist #{yt_playlist.id}: #{inspect(error)}"
+              )
+          end
+        end)
 
-        duration = content_details["duration"]
-
-        # Parse upload_date from ISO 8601 datetime string to Date
-        upload_date = parse_upload_date(published_at)
-        # Parse duration from ISO 8601 duration string to integer seconds
-        duration_seconds = parse_iso8601_duration(duration)
-
-        Logger.debug(
-          "Processing video #{video_id} - #{title} (playlist item ID: #{playlist_item_id})"
+      {:error, reason} ->
+        Logger.error(
+          "[Content] Error fetching playlists for channel #{channel_id}: #{inspect(reason)}"
         )
+    end
+  end
 
-        case get_video_by_external_id(video_id) do
-          {:ok, nil} ->
-            result =
-              create_video(channel.id, %{
-                external_id: video_id,
-                title: title,
-                description: description,
-                url: "https://www.youtube.com/watch?v=#{video_id}",
-                thumbnail_url: thumbnail_url,
-                upload_date: upload_date,
-                duration: duration_seconds,
-                discovered_from: "uploads"
+  # Determine whether we need to re-fetch a playlist's items.
+  # Skip if video_count is unchanged AND the playlist was checked within the sync interval.
+  defp should_fetch_playlist_items?(db_playlist, yt_playlist, sync_interval_minutes) do
+    video_count_changed = db_playlist.video_count != yt_playlist.video_count
+
+    recently_checked =
+      case db_playlist.last_checked_at do
+        nil ->
+          false
+
+        last_checked ->
+          cutoff = DateTime.add(DateTime.utc_now(), -sync_interval_minutes, :minute)
+          DateTime.compare(last_checked, cutoff) == :gt
+      end
+
+    video_count_changed or not recently_checked
+  end
+
+  # Fetch a playlist's items from the API, upsert any new videos, and create PlaylistVideo links
+  defp fetch_and_link_playlist_videos(db_channel, db_playlist) do
+    {status, %{videos: entries}} =
+      Client.get_playlist_items_detailed(db_playlist.external_id)
+
+    if status in [:ok, :partial] do
+      Logger.info(
+        "[Content] Linking #{length(entries)} videos to playlist #{db_playlist.name}"
+      )
+
+      Enum.with_index(entries, fn entry, index ->
+        video_details = entry["video_details"] || %{}
+        video_id = video_details["id"]
+
+        if is_binary(video_id) do
+          # Upsert the video (may already exist from uploads sync)
+          case upsert_video_from_api_entry(
+                 db_channel,
+                 entry,
+                 "playlist:#{db_playlist.external_id}"
+               ) do
+            {:ok, db_video} ->
+              upsert_playlist_video(%{
+                playlist_id: db_playlist.id,
+                video_id: db_video.id,
+                position: index
               })
 
-            case result do
-              {:ok, video} ->
-                Logger.info("Created video #{video.id} - #{video.title}")
-
-              {:error, error} ->
-                Logger.error("Failed to create video #{video_id}: #{inspect(error)}")
-            end
-
-          {:ok, _existing} ->
-            Logger.info("Video #{video_id} already exists, skipping")
-
-          {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
-            Logger.info("Video #{video_id} not found, creating new record")
-
-            result =
-              create_video(channel.id, %{
-                external_id: video_id,
-                title: title,
-                description: description,
-                url: "https://www.youtube.com/watch?v=#{video_id}",
-                thumbnail_url: thumbnail_url,
-                upload_date: upload_date,
-                duration: duration_seconds,
-                discovered_from: "uploads"
-              })
-
-            case result do
-              {:ok, video} ->
-                Logger.info("Created video #{video.id} - #{video.title}")
-
-              {:error, error} ->
-                Logger.error("Failed to create video #{video_id}: #{inspect(error)}")
-            end
-
-          {:error, error} ->
-            Logger.error("Error checking video #{video_id}: #{inspect(error)}")
+            {:error, error} ->
+              Logger.error(
+                "[Content] Error upserting video #{video_id} for playlist link: #{inspect(error)}"
+              )
+          end
         end
       end)
+
+      # Mark playlist as checked
+      mark_playlist_checked(db_playlist)
+    end
+  end
+
+  # Upsert a video from a raw API entry (the merged playlist_details/video_details map)
+  defp upsert_video_from_api_entry(db_channel, entry, discovered_from) do
+    video_details = entry["video_details"] || %{}
+    snippet = video_details["snippet"] || %{}
+    content_details = video_details["contentDetails"] || %{}
+
+    video_id = video_details["id"]
+
+    if is_binary(video_id) do
+      thumbnail_url =
+        get_in(snippet, ["thumbnails", "high", "url"]) ||
+          get_in(snippet, ["thumbnails", "default", "url"])
+
+      upload_date = parse_upload_date(snippet["publishedAt"])
+      duration_seconds = parse_iso8601_duration(content_details["duration"])
+
+      upsert_video(db_channel.id, %{
+        external_id: video_id,
+        title: snippet["title"],
+        description: snippet["description"],
+        url: "https://www.youtube.com/watch?v=#{video_id}",
+        thumbnail_url: thumbnail_url,
+        upload_date: upload_date,
+        duration: duration_seconds,
+        discovered_from: discovered_from
+      })
     else
-      {:ok, nil} -> Logger.error("Channel not found for external_id: #{channel_id}")
-      false -> Logger.error("Channel not found for external_id: #{channel_id}")
-      {:error, error} -> Logger.error("Error in sync_uploads_videos: #{inspect(error)}")
+      {:error, :missing_video_id}
     end
   end
 
@@ -454,7 +458,6 @@ defmodule Ytdarr.Content do
   Queue a video for download via Oban
   """
   def queue_video_download(video_id, channel_id) do
-    # Update video state to downloading
     case get_video(video_id) do
       {:ok, video} ->
         update_video(video, %{download_state: :downloading})
@@ -474,7 +477,6 @@ defmodule Ytdarr.Content do
   """
   def delete_video_file(video_id) do
     with {:ok, video} <- get_video(video_id) do
-      # Delete video file
       video_delete_result =
         if video.download_path do
           case File.rm(video.download_path) do
@@ -495,7 +497,6 @@ defmodule Ytdarr.Content do
 
       case video_delete_result do
         :ok ->
-          # Delete NFO file (best effort)
           if video.download_path do
             nfo_path = Path.rootname(video.download_path) <> ".nfo"
 
@@ -505,7 +506,6 @@ defmodule Ytdarr.Content do
             end
           end
 
-          # Update video record
           update_video(video, %{
             download_state: :available,
             is_downloaded: false,
@@ -520,124 +520,9 @@ defmodule Ytdarr.Content do
     end
   end
 
-  @doc """
-  Sync playlist content metadata from YouTube API.
-  Fetches the playlist's video list, creates/updates video records,
-  and creates playlist↔video associations. Does NOT auto-queue downloads.
-  """
-  def sync_playlist_content(playlist_id) do
-    require Ash.Query
-
-    with {:ok, playlist} <- get_playlist(playlist_id),
-         {:ok, playlist_data} <- Client.get_playlist(playlist.external_id) do
-      # Update playlist video count
-      update_playlist(playlist, %{video_count: playlist_data.video_count})
-
-      # Get the channel for creating video records
-      channel =
-        case Ash.load(playlist, :channel) do
-          {:ok, loaded} -> loaded.channel
-          _ -> nil
-        end
-
-      if channel do
-        # Create/update video records from playlist data
-        Enum.each(playlist_data.videos, fn video ->
-          case get_video_by_external_id(video.id) do
-            {:ok, nil} ->
-              create_video(channel.id, %{
-                external_id: video.id,
-                title: video.title,
-                description: video.description,
-                url: video.url,
-                thumbnail_url: video.thumbnail_url,
-                upload_date: video.published_at,
-                duration: video.duration,
-                discovered_from: "playlist:#{playlist.external_id}"
-              })
-
-            {:ok, _existing} ->
-              :ok
-
-            {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
-              create_video(channel.id, %{
-                external_id: video.id,
-                title: video.title,
-                description: video.description,
-                url: video.url,
-                thumbnail_url: video.thumbnail_url,
-                upload_date: video.published_at,
-                duration: video.duration,
-                discovered_from: "playlist:#{playlist.external_id}"
-              })
-
-            {:error, error} ->
-              Logger.error("Error checking video #{video.id}: #{inspect(error)}")
-          end
-        end)
-
-        # Associate playlist with its videos
-        associate_playlists_and_videos(playlist.id)
-      end
-
-      {:ok, :synced}
-    else
-      {:error, reason} ->
-        Logger.error("Error syncing playlist content #{playlist_id}: #{inspect(reason)}")
-        {:error, reason}
-
-      {:partial, _data} ->
-        Logger.warning("Partial sync for playlist #{playlist_id}")
-        {:ok, :partial}
-    end
-  end
-
-  @doc """
-  Associate playlists and videos
-
-  ## Parameters
-    - playlist_id: Internal ID of the playlist to associate videos for
-  """
-  def associate_playlists_and_videos(playlist_id) do
-    require Ash.Query
-    alias Ytdarr.Content.PlaylistVideo
-
-    {:ok, playlist} = get_playlist(playlist_id)
-    videos = Client.get_playlist_videos(playlist.external_id)
-
-    # For each video, query if it's in the DB. If it is, verify the association exists, if not create it
-    Enum.each(videos, fn vid ->
-      case get_video_by_external_id(vid.id) do
-        {:ok, existing_vid} when not is_nil(existing_vid) ->
-          # Check if association exists using Ash.Query
-          case Ash.read(
-                 Ash.Query.filter(
-                   PlaylistVideo,
-                   playlist_id == ^playlist.id and video_id == ^existing_vid.id
-                 )
-               ) do
-            {:ok, []} ->
-              # Create association using Ash.create
-              Ash.create(PlaylistVideo, %{playlist_id: playlist.id, video_id: existing_vid.id})
-
-            {:ok, _existing} ->
-              # Association already exists, skip
-              :ok
-
-            {:error, error} ->
-              Logger.error("Error checking playlist_video association: #{inspect(error)}")
-          end
-
-        _ ->
-          # Video doesn't exist, skip
-          :ok
-      end
-    end)
-
-    {:ok, :associated}
-  end
-
-  # Helper functions for parsing YouTube API data
+  # ---------------------------------------------------------------------------
+  # Parsing helpers
+  # ---------------------------------------------------------------------------
 
   defp parse_upload_date(nil), do: nil
 
@@ -650,29 +535,21 @@ defmodule Ytdarr.Content do
 
   defp parse_upload_date(_), do: nil
 
-  # Parse ISO 8601 duration string (e.g., "PT5M30S") to seconds.
   defp parse_iso8601_duration(nil), do: nil
 
   defp parse_iso8601_duration(duration_string) when is_binary(duration_string) do
-    # Pattern: PT(hours)H(minutes)M(seconds)S
-    # Examples: PT1H2M3S, PT5M30S, PT45S, PT1H
     regex = ~r/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/
 
     case Regex.run(regex, duration_string) do
       [_, hours, minutes, seconds] ->
-        h = parse_int_or_zero(hours)
-        m = parse_int_or_zero(minutes)
-        s = parse_int_or_zero(seconds)
-        h * 3600 + m * 60 + s
+        parse_int_or_zero(hours) * 3600 + parse_int_or_zero(minutes) * 60 +
+          parse_int_or_zero(seconds)
 
       [_, hours, minutes] ->
-        h = parse_int_or_zero(hours)
-        m = parse_int_or_zero(minutes)
-        h * 3600 + m * 60
+        parse_int_or_zero(hours) * 3600 + parse_int_or_zero(minutes) * 60
 
       [_, hours] ->
-        h = parse_int_or_zero(hours)
-        h * 3600
+        parse_int_or_zero(hours) * 3600
 
       _ ->
         Logger.warning("Could not parse duration: #{duration_string}")

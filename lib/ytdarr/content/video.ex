@@ -44,6 +44,31 @@ defmodule Ytdarr.Content.Video do
       change Ytdarr.Content.Video.Changes.SetDiscoveredFields
     end
 
+    create :upsert do
+      accept [
+        :title,
+        :external_id,
+        :url,
+        :description,
+        :duration,
+        :upload_date,
+        :thumbnail_url,
+        :discovered_from,
+        :position_in_uploads
+      ]
+
+      argument :channel_id, :integer do
+        allow_nil? false
+      end
+
+      change manage_relationship(:channel_id, :channel, type: :append)
+      change Ytdarr.Content.Video.Changes.SetDiscoveredFields
+
+      upsert? true
+      upsert_identity :unique_external_id
+      upsert_fields [:title, :description, :duration, :upload_date, :thumbnail_url]
+    end
+
     update :update do
       accept [
         :title,

@@ -36,6 +36,29 @@ defmodule Ytdarr.Content.Playlist do
       change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
     end
 
+    create :upsert do
+      accept [
+        :name,
+        :external_id,
+        :url,
+        :description,
+        :video_count,
+        :is_monitored
+      ]
+
+      argument :channel_id, :integer do
+        allow_nil? false
+      end
+
+      change manage_relationship(:channel_id, :channel, type: :append)
+      change Ytdarr.Content.Playlist.Changes.SetDownloadPath
+      change Ytdarr.Content.Playlist.Changes.SetMonitoredTimestamp
+
+      upsert? true
+      upsert_identity :unique_external_id
+      upsert_fields [:name, :description, :video_count]
+    end
+
     update :update do
       require_atomic? false
 

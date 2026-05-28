@@ -266,38 +266,17 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
   end
 
   defp process_new_videos(videos, channel) do
-    # Create video records for any new videos found
     Enum.each(videos, fn video ->
-      case Content.get_video_by_external_id(video.id) do
-        {:ok, nil} ->
-          Content.create_video(channel.id, %{
-            external_id: video.id,
-            title: video.title,
-            description: video.description,
-            url: video.url,
-            thumbnail_url: video.thumbnail_url,
-            upload_date: video.published_at,
-            duration: video.duration
-          })
-
-        {:ok, _existing} ->
-          # Video already exists, skip
-          :ok
-
-        {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
-          Content.create_video(channel.id, %{
-            external_id: video.id,
-            title: video.title,
-            description: video.description,
-            url: video.url,
-            thumbnail_url: video.thumbnail_url,
-            upload_date: video.published_at,
-            duration: video.duration
-          })
-
-        {:error, error} ->
-          Logger.error("[BatchSyncWorker] Error checking video #{video.id}: #{inspect(error)}")
-      end
+      Content.upsert_video(channel.id, %{
+        external_id: video.id,
+        title: video.title,
+        description: video.description,
+        url: video.url,
+        thumbnail_url: video.thumbnail_url,
+        upload_date: video.published_at,
+        duration: video.duration,
+        discovered_from: "uploads"
+      })
     end)
   end
 end
