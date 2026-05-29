@@ -74,8 +74,8 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
-  def get_channel(channel_identifier) do
-    case API.get_channel(channel_identifier) do
+  def get_channel(channel_identifier, opts \\ []) do
+    case API.get_channel(channel_identifier, opts) do
       {:ok, api_response} ->
         case api_response.items do
           [first | _] ->

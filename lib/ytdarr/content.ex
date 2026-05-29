@@ -7,7 +7,7 @@ defmodule Ytdarr.Content do
     extensions: [AshAdmin.Domain, AshPhoenix]
 
   alias Ytdarr.Content.{Channel, Video, Playlist}
-  alias Ytdarr.Services.YouTube.Client
+  alias Ytdarr.Services.YouTube.{Client, IdentifierParser}
 
   require Ash.Query
   require Logger
@@ -116,6 +116,67 @@ defmodule Ytdarr.Content do
   end
 
   def omnisearch(_query), do: %{channels: [], playlists: [], videos: []}
+
+  @doc """
+  Resolves a YouTube channel identifier (handle, URL, or channel ID) into a
+  channel struct without using the expensive search endpoint.
+
+  Uses `IdentifierParser` to determine the identifier type, then calls the
+  YouTube `channels.list` endpoint (1 quota unit) to fetch channel data.
+
+  If the channel is already tracked in the database, returns
+  `{:already_tracked, %Channel{}}` with the persisted record.
+
+  ## Parameters
+
+    - `input` — a YouTube handle (`@dirty-civilian`), channel URL, or raw
+      channel ID (`UCxxxx`)
+
+  ## Returns
+
+    - `{:ok, %Channel{}}` — resolved channel struct (not yet persisted)
+    - `{:already_tracked, %Channel{}}` — channel already exists in the DB
+    - `{:error, :empty_input}` — blank or nil input
+    - `{:error, :unrecognized}` — input doesn't match any known format
+    - `{:error, :not_found}` — YouTube API returned no results
+    - `{:error, reason}` — other API or network error
+
+  ## Examples
+
+      iex> Content.resolve_channel("@dirty-civilian")
+      {:ok, %Channel{name: "Dirty Civilian", ...}}
+
+      iex> Content.resolve_channel("UCsXVk37bltHxD1rDPwtNM8Q")
+      {:already_tracked, %Channel{id: 42, ...}}
+  """
+  def resolve_channel(input, opts \\ []) do
+    case IdentifierParser.parse(input) do
+      {:channel_id, channel_id} ->
+        resolve_by_api_identifier(channel_id, opts)
+
+      {:handle, handle} ->
+        resolve_by_api_identifier(handle, opts)
+
+      {:username, username} ->
+        resolve_by_api_identifier(username, opts)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp resolve_by_api_identifier(identifier, opts) do
+    case Client.get_channel(identifier, opts) do
+      {:ok, %Channel{} = resolved} ->
+        case get_channel_by_external_id(resolved.external_id) do
+          {:ok, %Channel{} = existing} -> {:already_tracked, existing}
+          _ -> {:ok, resolved}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
   @doc """
   Search for channels via YouTube API and check monitoring status.

@@ -58,12 +58,18 @@ defmodule Ytdarr.Services.YouTube.API do
   end
 
   def get_channel(query, opts \\ []) do
-    # Determine if it's a channel ID or a username
+    base_parts = "id,snippet,status,brandingSettings,contentDetails"
+
     params =
-      if String.starts_with?(query, "UC") do
-        [part: "id,snippet,status,brandingSettings,contentDetails", id: query]
-      else
-        [part: "id,snippet,status,brandingSettings,contentDetails", forUsername: query]
+      cond do
+        String.starts_with?(query, "UC") ->
+          [part: base_parts, id: query]
+
+        String.starts_with?(query, "@") ->
+          [part: base_parts, forHandle: query]
+
+        true ->
+          [part: base_parts, forUsername: query]
       end
 
     client = get_client(opts)
