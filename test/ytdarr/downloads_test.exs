@@ -1,6 +1,6 @@
 defmodule Ytdarr.DownloadsTest do
   use YtdarrWeb.ConnCase
-  use Oban.Testing, repo: Ytdarr.Repo
+  use Oban.Testing, repo: Ytdarr.Repo, engine: Oban.Engines.Lite
 
   import Ytdarr.ContentFixtures
 

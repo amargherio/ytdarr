@@ -40,4 +40,4 @@ config :phoenix_live_view,
 config :ytdarr, :enable_youtube_client, false
 
 # Oban
-config :ytdarr, Oban, testing: :manual
+config :ytdarr, Oban, testing: :manual, engine: Oban.Engines.Lite

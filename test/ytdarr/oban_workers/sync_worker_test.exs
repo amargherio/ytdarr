@@ -1,6 +1,6 @@
 defmodule Ytdarr.ObanWorkers.SyncWorkerTest do
   use Ytdarr.DataCase
-  use Oban.Testing, repo: Ytdarr.Repo
+  use Oban.Testing, repo: Ytdarr.Repo, engine: Oban.Engines.Lite
 
   import Ytdarr.ContentFixtures
 

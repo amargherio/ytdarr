@@ -1,6 +1,6 @@
 defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
   use Ytdarr.DataCase
-  use Oban.Testing, repo: Ytdarr.Repo
+  use Oban.Testing, repo: Ytdarr.Repo, engine: Oban.Engines.Lite
 
   import Ytdarr.ContentFixtures
 
@@ -78,7 +78,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
       params = VideoDownloader.retrieve_ytdlp_parameters()
 
       assert "--embed-chapters" in params
-      assert "--embed-thumbnails" in params
+      assert "--embed-thumbnail" in params
       assert "--embed-subs" in params
       refute "-f" in params
     end

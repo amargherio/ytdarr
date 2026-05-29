@@ -54,7 +54,7 @@ defmodule YtdarrWeb.ChannelLiveTest do
 
       assert {:ok, form_live, _} =
                show_live
-               |> element("a", "Edit channel")
+               |> element("a[title='Edit channel']")
                |> render_click()
                |> follow_redirect(conn, ~p"/channels/#{channel}/edit?return_to=show")
 

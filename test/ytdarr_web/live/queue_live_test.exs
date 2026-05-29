@@ -1,6 +1,6 @@
 defmodule YtdarrWeb.QueueLiveTest do
   use YtdarrWeb.ConnCase
-  use Oban.Testing, repo: Ytdarr.Repo
+  use Oban.Testing, repo: Ytdarr.Repo, engine: Oban.Engines.Lite
 
   import Phoenix.LiveViewTest
   import Ytdarr.ContentFixtures

@@ -1,6 +1,6 @@
 defmodule Ytdarr.ContentOrchestrationTest do
   use Ytdarr.DataCase, async: false
-  use Oban.Testing, repo: Ytdarr.Repo
+  use Oban.Testing, repo: Ytdarr.Repo, engine: Oban.Engines.Lite
 
   import Ytdarr.ContentFixtures
 
