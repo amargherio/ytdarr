@@ -9,6 +9,7 @@ defmodule Ytdarr.Content do
   alias Ytdarr.Content.{Channel, Video, Playlist}
   alias Ytdarr.Services.YouTube.Client
 
+  require Ash.Query
   require Logger
 
   admin do
@@ -77,6 +78,44 @@ defmodule Ytdarr.Content do
   def form_to_update_channel(channel) do
     AshPhoenix.Form.for_update(channel, :update, domain: __MODULE__, as: "channel")
   end
+
+  @doc """
+  Searches channels, playlists, and videos in the local database.
+
+  Returns a map with `:channels`, `:playlists`, and `:videos` keys,
+  each containing at most 5 matching results. Returns empty lists
+  when the query is shorter than 2 characters.
+  """
+  def omnisearch(query) when is_binary(query) and byte_size(query) >= 2 do
+    like = query
+
+    channels =
+      Channel
+      |> Ash.Query.filter(contains(name, ^like) or contains(platform_username, ^like))
+      |> Ash.Query.sort(name: :asc)
+      |> Ash.Query.limit(5)
+      |> Ash.read!()
+
+    playlists =
+      Playlist
+      |> Ash.Query.filter(contains(name, ^like))
+      |> Ash.Query.sort(name: :asc)
+      |> Ash.Query.limit(5)
+      |> Ash.Query.load([:channel])
+      |> Ash.read!()
+
+    videos =
+      Video
+      |> Ash.Query.filter(contains(title, ^like))
+      |> Ash.Query.sort(title: :asc)
+      |> Ash.Query.limit(5)
+      |> Ash.Query.load([:channel])
+      |> Ash.read!()
+
+    %{channels: channels, playlists: playlists, videos: videos}
+  end
+
+  def omnisearch(_query), do: %{channels: [], playlists: [], videos: []}
 
   @doc """
   Search for channels via YouTube API and check monitoring status.

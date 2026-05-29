@@ -26,6 +26,26 @@ import {hooks as colocatedHooks} from "phoenix-colocated/ytdarr"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+
+// OmniSearch hook: "/" shortcut to focus the search input, Escape to blur
+const OmniSearch = {
+  mounted() {
+    this.handleKeyDown = (e) => {
+      const tag = document.activeElement?.tagName
+      const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+      if (e.key === "/" && !isInput) {
+        e.preventDefault()
+        const input = this.el.querySelector("[data-omnisearch-input]")
+        if (input) input.focus()
+      }
+    }
+    document.addEventListener("keydown", this.handleKeyDown)
+  },
+  destroyed() {
+    document.removeEventListener("keydown", this.handleKeyDown)
+  }
+}
+
 const InfiniteScroll = {
   mounted() {
     this.observer = new IntersectionObserver(entries => {
@@ -53,11 +73,11 @@ const InfiniteScroll = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, InfiniteScroll},
+  hooks: {...colocatedHooks, InfiniteScroll, OmniSearch},
 })
 
 // Show progress bar on live navigation and form submits
-topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
+topbar.config({barColors: {0: "#cc0000"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 

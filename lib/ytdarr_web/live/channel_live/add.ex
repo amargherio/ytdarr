@@ -132,7 +132,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} nav={:content_add}>
+    <Layouts.app flash={@flash} nav={:channel_add}>
       <.header>
         Add Channel
         <:subtitle>Search YouTube and add channels to monitor.</:subtitle>

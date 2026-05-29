@@ -40,38 +40,61 @@ defmodule YtdarrWeb.Layouts do
   def app(assigns) do
     ~H"""
     <div class="flex h-screen overflow-hidden">
-      <aside class="hidden md:flex md:flex-col w-56 bg-base-200 border-r border-base-300">
-        <div class="flex items-center gap-2 p-4 h-16 border-b border-base-300">
-          <a href={~p"/dashboard"} class="inline-flex items-center gap-2 font-semibold">
-            <img src={~p"/images/logo.svg"} width="32" />
+      <%!-- Desktop sidebar --%>
+      <aside class="hidden md:flex md:flex-col w-56 bg-base-200 border-r border-base-300 flex-shrink-0">
+        <div class="flex items-center gap-2 p-4 h-14 border-b border-base-300">
+          <a
+            href={~p"/dashboard"}
+            class="inline-flex items-center gap-2 font-semibold text-base-content hover:text-primary transition-colors"
+          >
+            <img src={~p"/images/logo.svg"} width="28" />
             <span>Ytdarr</span>
           </a>
         </div>
-        <nav class="flex-1 overflow-y-auto py-4">
-          <ul class="menu px-2 text-sm">
+        <nav class="flex-1 overflow-y-auto py-3">
+          <ul class="menu px-2 text-sm gap-0.5">
             <li>
-              <a href={~p"/dashboard"} class={[@nav == :dashboard && "active font-semibold"]}>
-                <span class="hero-chart-bar" /> Dashboard
+              <a
+                href={~p"/dashboard"}
+                class={[
+                  "flex items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150",
+                  "hover:bg-base-300/60",
+                  @nav == :dashboard && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-chart-bar" class="size-4" /> Dashboard
               </a>
             </li>
             <li>
               <details open={@nav in [:channels, :channel_add]}>
                 <summary class={[
-                  @nav == :channels && "active font-semibold",
-                  @nav == :channel_add && "font-semibold"
+                  "flex items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 cursor-pointer",
+                  "hover:bg-base-300/60",
+                  @nav in [:channels, :channel_add] && "font-semibold"
                 ]}>
-                  Channels
+                  <.icon name="hero-tv" class="size-4" /> Channels
                 </summary>
-                <ul>
+                <ul class="ml-4 mt-1 space-y-0.5">
                   <li>
-                    <a href={~p"/channels"} class={[@nav == :channels && "active font-semibold"]}>
+                    <a
+                      href={~p"/channels"}
+                      class={[
+                        "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors duration-150",
+                        "hover:bg-base-300/60",
+                        @nav == :channels && "bg-primary/10 text-primary font-semibold"
+                      ]}
+                    >
                       All Channels
                     </a>
                   </li>
                   <li>
                     <a
                       href={~p"/channels/add"}
-                      class={[@nav == :channel_add && "active font-semibold"]}
+                      class={[
+                        "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors duration-150",
+                        "hover:bg-base-300/60",
+                        @nav == :channel_add && "bg-primary/10 text-primary font-semibold"
+                      ]}
                     >
                       Add Channel
                     </a>
@@ -80,36 +103,147 @@ defmodule YtdarrWeb.Layouts do
               </details>
             </li>
             <%!-- TODO: Add queue route when download queue is implemented --%>
-            <%!-- <li>
-              <a href={~p"/queue"} class={[@nav == :queue_view && "active font-semibold"]}>
-                Download Queue
-              </a>
-            </li> --%>
             <li>
-              <a href={~p"/settings"} class={[@nav == :settings && "active font-semibold"]}>
-                Settings
+              <a
+                href={~p"/settings"}
+                class={[
+                  "flex items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150",
+                  "hover:bg-base-300/60",
+                  @nav == :settings && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
               </a>
             </li>
             <li>
-              <a href={~p"/oban"} target="_blank">Oban Jobs</a>
+              <a
+                href={~p"/oban"}
+                target="_blank"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 hover:bg-base-300/60"
+              >
+                <.icon name="hero-queue-list" class="size-4" /> Oban Jobs
+                <.icon name="hero-arrow-top-right-on-square" class="size-3 ml-auto opacity-50" />
+              </a>
             </li>
           </ul>
         </nav>
-        <div class="p-4 border-t border-base-300 flex items-center justify-between text-xs">
+        <div class="p-3 border-t border-base-300 flex items-center justify-between text-xs text-base-content/50">
           <span>Phoenix v{Application.spec(:phoenix, :vsn)}</span>
-          <.theme_toggle />
         </div>
       </aside>
-      <div class="flex flex-col flex-1 min-w-0">
-        <header class="flex md:hidden items-center justify-between gap-2 p-3 border-b border-base-300 bg-base-200">
-          <a href={~p"/dashboard"} class="inline-flex items-center gap-2 font-semibold">
+
+      <%!-- Mobile sidebar drawer (hidden by default) --%>
+      <div
+        id="mobile-sidebar-backdrop"
+        class="fixed inset-0 z-40 bg-black/50 hidden md:hidden"
+        phx-click={
+          JS.add_class("hidden", to: "#mobile-sidebar-backdrop")
+          |> JS.add_class("hidden", to: "#mobile-sidebar")
+        }
+      >
+      </div>
+      <aside
+        id="mobile-sidebar"
+        class="fixed inset-y-0 left-0 z-50 w-64 bg-base-200 border-r border-base-300 hidden md:hidden transform transition-transform duration-200 overflow-y-auto"
+      >
+        <div class="flex items-center justify-between p-4 h-14 border-b border-base-300">
+          <a
+            href={~p"/dashboard"}
+            class="inline-flex items-center gap-2 font-semibold text-base-content"
+          >
             <img src={~p"/images/logo.svg"} width="28" />
             <span>Ytdarr</span>
           </a>
-          <div class="flex items-center gap-2">
+          <button
+            class="btn btn-ghost btn-sm btn-square"
+            phx-click={
+              JS.add_class("hidden", to: "#mobile-sidebar-backdrop")
+              |> JS.add_class("hidden", to: "#mobile-sidebar")
+            }
+          >
+            <.icon name="hero-x-mark" class="size-5" />
+          </button>
+        </div>
+        <nav class="py-3">
+          <ul class="menu px-2 text-sm gap-0.5">
+            <li>
+              <a
+                href={~p"/dashboard"}
+                class={[
+                  "rounded-lg px-3 py-2",
+                  @nav == :dashboard && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-chart-bar" class="size-4" /> Dashboard
+              </a>
+            </li>
+            <li>
+              <a
+                href={~p"/channels"}
+                class={[
+                  "rounded-lg px-3 py-2",
+                  @nav == :channels && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-tv" class="size-4" /> All Channels
+              </a>
+            </li>
+            <li>
+              <a
+                href={~p"/channels/add"}
+                class={[
+                  "rounded-lg px-3 py-2",
+                  @nav == :channel_add && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-plus-circle" class="size-4" /> Add Channel
+              </a>
+            </li>
+            <li>
+              <a
+                href={~p"/settings"}
+                class={[
+                  "rounded-lg px-3 py-2",
+                  @nav == :settings && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
+              </a>
+            </li>
+            <li>
+              <a href={~p"/oban"} target="_blank" class="rounded-lg px-3 py-2">
+                <.icon name="hero-queue-list" class="size-4" /> Oban Jobs
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </aside>
+
+      <%!-- Main content area --%>
+      <div class="flex flex-col flex-1 min-w-0">
+        <%!-- Sticky header with search + actions --%>
+        <header class="sticky top-0 z-30 flex items-center gap-3 px-4 py-2.5 bg-base-100 border-b border-base-300">
+          <%!-- Hamburger (mobile only) --%>
+          <button
+            class="btn btn-ghost btn-sm btn-square md:hidden flex-shrink-0"
+            phx-click={
+              JS.remove_class("hidden", to: "#mobile-sidebar-backdrop")
+              |> JS.remove_class("hidden", to: "#mobile-sidebar")
+            }
+          >
+            <.icon name="hero-bars-3" class="size-5" />
+          </button>
+
+          <%!-- Omnisearch bar --%>
+          <.live_component module={YtdarrWeb.OmnisearchComponent} id="omnisearch" />
+
+          <%!-- Header actions --%>
+          <div class="flex items-center gap-2 flex-shrink-0">
             <.theme_toggle />
           </div>
         </header>
+
+        <%!-- Page content --%>
         <main class="flex-1 overflow-y-auto p-6 space-y-4">
           {render_slot(@inner_block)}
         </main>

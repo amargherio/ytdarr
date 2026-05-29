@@ -9,235 +9,235 @@ defmodule YtdarrWeb.ChannelLive.Show do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} nav={:channels}>
-      <.hero_header banner_url={~p"/images/channels/#{@channel.id}/banner"} mode="ratio" ratio="6/1">
-        <div class="left-06">
-          <div class="flex flex-row flex-wrap justify-start gap-4">
-            <img
-              src={~p"/images/channels/#{@channel.id}/avatar"}
-              alt={@channel.name}
-              class="w-24 h-24 rounded-full"
-            />
-            <h1 class="mb-5 text-5xl font-bold">{@channel.name}</h1>
-            <p class="mb-5">{@channel.description}</p>
-          </div>
+      <%!-- Action toolbar (Sonarr-inspired) --%>
+      <div class="flex flex-wrap items-center gap-2 px-2 py-2 -mx-6 -mt-4 mb-4 bg-base-200/50 border-b border-base-300">
+        <div class="flex flex-wrap items-center gap-1.5 flex-1">
+          <.button
+            title="Refresh channel data"
+            phx-click="refresh-channel-data"
+            phx-value-id={@channel.id}
+            class="btn btn-ghost btn-sm gap-1"
+          >
+            <.icon name="hero-arrow-path" class="size-4" /> Refresh
+          </.button>
+          <.button
+            title="Edit channel"
+            navigate={~p"/channels/#{@channel}/edit?return_to=show"}
+            class="btn btn-ghost btn-sm gap-1"
+          >
+            <.icon name="hero-pencil-square" class="size-4" /> Edit
+          </.button>
+          <.button
+            title={"#{if @channel.is_monitored, do: "Unmonitor", else: "Monitor"} channel"}
+            phx-click="toggle-monitor"
+            phx-value-id={@channel.id}
+            phx-value-type="channel"
+            class={
+              if(@channel.is_monitored,
+                do: "btn btn-sm gap-1 btn-ghost",
+                else: "btn btn-sm gap-1 btn-primary btn-soft"
+              )
+            }
+          >
+            <%= if @channel.is_monitored do %>
+              <.icon name="hero-bookmark-solid" class="size-4" /> Monitored
+            <% else %>
+              <.icon name="hero-bookmark" class="size-4" /> Monitor
+            <% end %>
+          </.button>
+          <.button
+            title="Delete downloaded videos"
+            phx-click="delete-channel-files"
+            phx-value-id={@channel.id}
+            class="btn btn-ghost btn-sm gap-1 text-error hover:bg-error/10"
+          >
+            <.icon name="hero-trash" class="size-4" /> Delete Files
+          </.button>
         </div>
-        <:actions>
-          <div class="flex flex-col flex-wrap justify-center gap-2">
-            <%!-- <.button navigate={~p"/channels"}>
-              <.icon name="hero-arrow-left" />
-            </.button> --%>
-            <.button title="Edit channel" navigate={~p"/channels/#{@channel}/edit?return_to=show"}>
-              <.icon name="hero-pencil-square" /> Edit channel
-            </.button>
-            <.button
-              title={"#{if @channel.is_monitored, do: "Unmonitor", else: "Monitor"} channel"}
-              phx-click="toggle-monitor"
-              phx-value-id={@channel.id}
-              phx-value-type="channel"
-            >
-              <%= if @channel.is_monitored do %>
-                <.icon name="hero-bookmark-solid" /> Unmonitor channel
-              <% else %>
-                <.icon name="hero-bookmark" /> Monitor channel
-              <% end %>
-            </.button>
-            <.button
-              title="Refresh channel data"
-              phx-click="refresh-channel-data"
-              phx-value-id={@channel.id}
-            >
-              <.icon name="hero-arrow-path" /> Refresh channel data
-            </.button>
-            <.button
-              title="Delete downloaded videos"
-              phx-click="delete-channel-files"
-              phx-value-id={@channel.id}
-            >
-              <.icon name="hero-trash" /> Delete downloaded videos
-            </.button>
-          </div>
-        </:actions>
-      </.hero_header>
-
-    <!-- channel metadata -->
-      <div class="flex flex-wrap justify-start gap-4">
-        <div class="bg-slate-300 p-2 rounded">
-          <.icon name="hero-folder-arrow-down" /> {@channel.base_path}
-        </div>
-        <div class="bg-slate-300 p-2 rounded">
-          <%= if @channel.is_monitored do %>
-            <.icon name="hero-bookmark-solid" /> Monitored
-          <% else %>
-            <.icon name="hero-bookmark" /> Not Monitored
-          <% end %>
-        </div>
-        <%= if @channel.is_monitored do %>
-          <div class="bg-slate-300 p-2 rounded">
-            <.icon name="hero-clock" /> Monitored since: {@channel.is_monitored_since}
-          </div>
-        <% end %>
-        <div class="bg-slate-300 p-2 rounded">
-          <.icon name="hero-clock" /> Last checked at: {@channel.last_checked_at}
-        </div>
-        <div class="bg-slate-300 p-2 rounded">
-          <.icon name="hero-link" /> <a href={@channel.url}>{@channel.platform_username}</a>
+        <div class="flex items-center gap-1.5">
+          <button
+            title={if(@all_expanded?, do: "Collapse all", else: "Expand all")}
+            phx-click="toggle-expand-all"
+            class="btn btn-ghost btn-sm gap-1"
+          >
+            <%= if @all_expanded? do %>
+              <.icon name="hero-chevron-double-up" class="size-4" /> Collapse All
+            <% else %>
+              <.icon name="hero-chevron-double-down" class="size-4" /> Expand All
+            <% end %>
+          </button>
         </div>
       </div>
 
+      <%!-- Hero header with banner + channel info (Sonarr-style) --%>
+      <.hero_header banner_url={~p"/images/channels/#{@channel.id}/banner"} mode="ratio" ratio="6/1">
+        <div class="flex items-start gap-5">
+          <img
+            src={~p"/images/channels/#{@channel.id}/avatar"}
+            alt={@channel.name}
+            class="w-28 h-28 rounded-xl shadow-lg border-2 border-white/20 flex-shrink-0 hidden sm:block"
+          />
+          <div class="flex-1 min-w-0 space-y-2">
+            <h1 class="text-3xl md:text-4xl font-bold truncate">{@channel.name}</h1>
+            <%= if @channel.platform_username do %>
+              <p class="text-sm text-white/70">@{@channel.platform_username}</p>
+            <% end %>
+            <%= if @channel.description do %>
+              <p class="text-sm text-white/60 line-clamp-2 max-w-2xl">{@channel.description}</p>
+            <% end %>
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/15 text-white/90">
+                <.icon name="hero-play" class="size-3" /> {length(@videos)} videos
+              </span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/15 text-white/90">
+                <.icon name="hero-queue-list" class="size-3" /> {length(@playlists)} playlists
+              </span>
+              <%= if @channel.is_monitored do %>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/30 text-white">
+                  <.icon name="hero-bookmark-solid" class="size-3" /> Monitored
+                </span>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </.hero_header>
+
+      <%!-- Metadata pills --%>
+      <div class="flex flex-wrap items-center gap-2">
+        <%= if @channel.base_path do %>
+          <.data_pill variant="info" size="sm">
+            <.icon name="hero-folder-arrow-down" class="size-3.5" /> {@channel.base_path}
+          </.data_pill>
+        <% end %>
+        <.data_pill variant={if(@channel.is_monitored, do: "success", else: "warning")} size="sm">
+          <%= if @channel.is_monitored do %>
+            <.icon name="hero-bookmark-solid" class="size-3.5" /> Monitored
+          <% else %>
+            <.icon name="hero-bookmark" class="size-3.5" /> Not Monitored
+          <% end %>
+        </.data_pill>
+        <%= if @channel.is_monitored && @channel.is_monitored_since do %>
+          <.data_pill variant="info" size="sm">
+            <.icon name="hero-clock" class="size-3.5" />
+            Since: {format_datetime(@channel.is_monitored_since)}
+          </.data_pill>
+        <% end %>
+        <%= if @channel.last_checked_at do %>
+          <.data_pill variant="info" size="sm">
+            <.icon name="hero-clock" class="size-3.5" />
+            Checked: {format_datetime(@channel.last_checked_at)}
+          </.data_pill>
+        <% end %>
+        <.data_pill variant="secondary" size="sm" href={@channel.url}>
+          <.icon name="hero-link" class="size-3.5" /> {@channel.platform_username || @channel.url}
+        </.data_pill>
+      </div>
+
+      <%!-- Playlists (Sonarr season pattern) --%>
       <%= for playlist <- @playlists do %>
-        <details class="group border border-base-300 bg-base-100 rounded-lg">
-          <summary class="flex cursor-pointer items-center gap-4 p-4 text-xl font-medium">
-            <span class="flex-1">{playlist.name}</span>
-            <div class="relative z-10 flex flex-wrap justify-end gap-2">
-              <.button
-                title={"#{if playlist.is_monitored, do: "Unmonitor", else: "Monitor"} playlist"}
-                phx-click="toggle-monitor"
-                phx-value-id={playlist.id}
-                phx-value-type="playlist"
-              >
-                <%= if playlist.is_monitored do %>
-                  <.icon name="hero-bookmark-solid" />
-                <% else %>
-                  <.icon name="hero-bookmark" />
-                <% end %>
-              </.button>
-              <.button
+        <% downloaded_count = Enum.count(playlist.videos, &(&1.download_state == :downloaded)) %>
+        <% total_count = length(playlist.videos) %>
+        <% expanded? = MapSet.member?(@expanded_playlists, playlist.id) %>
+        <div class="border border-base-300 bg-base-100 rounded-xl overflow-hidden">
+          <%!-- Playlist header --%>
+          <div class="flex items-center gap-3 px-4 py-3">
+            <button
+              title={"#{if playlist.is_monitored, do: "Unmonitor", else: "Monitor"} playlist"}
+              phx-click="toggle-monitor"
+              phx-value-id={playlist.id}
+              phx-value-type="playlist"
+              class="btn btn-ghost btn-xs btn-square flex-shrink-0"
+            >
+              <%= if playlist.is_monitored do %>
+                <.icon name="hero-bookmark-solid" class="size-4 text-success" />
+              <% else %>
+                <.icon name="hero-bookmark" class="size-4 text-base-content/40" />
+              <% end %>
+            </button>
+            <button
+              phx-click="toggle-playlist-expand"
+              phx-value-id={to_string(playlist.id)}
+              class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
+            >
+              <span class="font-medium truncate">{playlist.name}</span>
+              <span class="badge badge-sm badge-ghost">{total_count} videos</span>
+            </button>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-xs text-base-content/50">{downloaded_count}/{total_count}</span>
+              <button
                 title="Delete playlist files"
                 phx-click="delete-playlist-files"
                 phx-value-id={playlist.external_id}
+                class="btn btn-ghost btn-xs btn-square text-error/60 hover:text-error"
               >
-                <.icon name="hero-trash" />
-              </.button>
+                <.icon name="hero-trash" class="size-3.5" />
+              </button>
+              <button
+                phx-click="toggle-playlist-expand"
+                phx-value-id={to_string(playlist.id)}
+                class="btn btn-ghost btn-xs btn-square"
+              >
+                <.icon
+                  name={if(expanded?, do: "hero-chevron-up", else: "hero-chevron-down")}
+                  class="size-4 transition-transform duration-200"
+                />
+              </button>
             </div>
-            <.icon name="hero-chevron-down" class="size-5 transition-transform group-open:rotate-180" />
-          </summary>
-          <div class="p-4 pt-0">
-            <.table id={"videos-#{playlist.id}"} rows={playlist.videos}>
-              <:col :let={video} label="Title">{video.title}</:col>
-              <:col :let={video} label="Upload Date">{video.upload_date}</:col>
-              <:col :let={video} label="Download Status">
-                <%= case video.download_state do %>
-                  <% :available -> %>
-                    <div class="flex items-center gap-1 text-slate-500">
-                      <.icon name="hero-cloud-arrow-down" /> Available
-                    </div>
-                  <% :downloading -> %>
-                    <div class="flex items-center gap-1 text-yellow-600">
-                      <.icon name="hero-arrow-path" class="animate-spin" /> Downloading
-                    </div>
-                  <% :downloaded -> %>
-                    <div class="flex items-center gap-1 text-green-600">
-                      <.icon name="hero-check-badge" /> Downloaded
-                    </div>
-                  <% :missing -> %>
-                    <div class="flex items-center gap-1 text-red-600">
-                      <.icon name="hero-exclamation-triangle" /> Missing
-                    </div>
-                  <% _ -> %>
-                    <div class="flex items-center gap-1 text-slate-400">
-                      <.icon name="hero-question-mark-circle" /> Unknown
-                    </div>
-                <% end %>
-              </:col>
-              <:col :let={video} label="Actions">
-                <%= if video.download_state == :downloaded do %>
-                  <.button
-                    title="Delete downloaded video"
-                    phx-click="delete-video"
-                    phx-value-id={video.id}
-                    class="btn-sm bg-red-100 hover:bg-red-200 text-red-700 border-red-200"
-                    data-confirm="Are you sure you want to delete this video file?"
-                  >
-                    <.icon name="hero-trash" />
-                  </.button>
-                <% else %>
-                  <%= if video.download_state in [:available, :missing] do %>
-                    <.button
-                      title="Queue Download"
-                      phx-click="queue-download"
-                      phx-value-id={video.id}
-                      phx-value-channel-id={@channel.id}
-                      class="btn-sm"
-                    >
-                      <.icon name="hero-arrow-down-tray" />
-                    </.button>
-                  <% end %>
-                <% end %>
-              </:col>
-            </.table>
           </div>
-        </details>
+          <%!-- Progress bar --%>
+          <.progress_bar completed={downloaded_count} total={total_count} class="mx-4" />
+          <%!-- Expanded video table --%>
+          <%= if expanded? do %>
+            <div class="px-4 py-3 border-t border-base-200">
+              <.video_table
+                id={"videos-#{playlist.id}"}
+                videos={playlist.videos}
+                channel_id={@channel.id}
+              />
+            </div>
+          <% end %>
+        </div>
       <% end %>
 
-      <details class="group border border-base-300 bg-base-100 rounded-lg">
-        <summary class="flex cursor-pointer items-center gap-4 p-4 text-xl font-medium">
-          <span class="flex-1">Videos</span>
-          <div class="relative z-10 flex flex-wrap justify-end gap-2">
-            <.button
+      <%!-- All Videos section --%>
+      <% all_downloaded = Enum.count(@videos, &(&1.download_state == :downloaded)) %>
+      <div class="border border-base-300 bg-base-100 rounded-xl overflow-hidden">
+        <div class="flex items-center gap-3 px-4 py-3">
+          <.icon name="hero-film" class="size-5 text-base-content/50 flex-shrink-0" />
+          <button
+            phx-click="toggle-videos-expand"
+            class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
+          >
+            <span class="font-medium">All Videos</span>
+            <span class="badge badge-sm badge-ghost">{length(@videos)} videos</span>
+          </button>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span class="text-xs text-base-content/50">{all_downloaded}/{length(@videos)}</span>
+            <button
               title="Delete all video files"
               phx-click="delete-video-files"
+              class="btn btn-ghost btn-xs btn-square text-error/60 hover:text-error"
             >
-              <.icon name="hero-trash" />
-            </.button>
+              <.icon name="hero-trash" class="size-3.5" />
+            </button>
+            <button
+              phx-click="toggle-videos-expand"
+              class="btn btn-ghost btn-xs btn-square"
+            >
+              <.icon
+                name={if(@videos_expanded?, do: "hero-chevron-up", else: "hero-chevron-down")}
+                class="size-4 transition-transform duration-200"
+              />
+            </button>
           </div>
-          <.icon name="hero-chevron-down" class="size-5 transition-transform group-open:rotate-180" />
-        </summary>
-        <div class="p-4 pt-0">
-          <.table id="videos" rows={@videos}>
-            <:col :let={video} label="Title">{video.title}</:col>
-            <:col :let={video} label="Upload Date">{video.upload_date}</:col>
-            <:col :let={video} label="Download Status">
-              <%= case video.download_state do %>
-                <% :available -> %>
-                  <div class="flex items-center gap-1 text-slate-500">
-                    <.icon name="hero-cloud-arrow-down" /> Available
-                  </div>
-                <% :downloading -> %>
-                  <div class="flex items-center gap-1 text-yellow-600">
-                    <.icon name="hero-arrow-path" class="animate-spin" /> Downloading
-                  </div>
-                <% :downloaded -> %>
-                  <div class="flex items-center gap-1 text-green-600">
-                    <.icon name="hero-check-badge" /> Downloaded
-                  </div>
-                <% :missing -> %>
-                  <div class="flex items-center gap-1 text-red-600">
-                    <.icon name="hero-exclamation-triangle" /> Missing
-                  </div>
-                <% _ -> %>
-                  <div class="flex items-center gap-1 text-slate-400">
-                    <.icon name="hero-question-mark-circle" /> Unknown
-                  </div>
-              <% end %>
-            </:col>
-            <:col :let={video} label="Actions">
-              <%= if video.download_state == :downloaded do %>
-                <.button
-                  title="Delete downloaded video"
-                  phx-click="delete-video"
-                  phx-value-id={video.id}
-                  class="btn-sm bg-red-100 hover:bg-red-200 text-red-700 border-red-200"
-                  data-confirm="Are you sure you want to delete this video file?"
-                >
-                  <.icon name="hero-trash" />
-                </.button>
-              <% else %>
-                <%= if video.download_state in [:available, :missing] do %>
-                  <.button
-                    title="Queue Download"
-                    phx-click="queue-download"
-                    phx-value-id={video.id}
-                    phx-value-channel-id={@channel.id}
-                    class="btn-sm"
-                  >
-                    <.icon name="hero-arrow-down-tray" />
-                  </.button>
-                <% end %>
-              <% end %>
-            </:col>
-          </.table>
         </div>
-      </details>
+        <.progress_bar completed={all_downloaded} total={length(@videos)} class="mx-4" />
+        <%= if @videos_expanded? do %>
+          <div class="px-4 py-3 border-t border-base-200">
+            <.video_table id="all-videos" videos={@videos} channel_id={@channel.id} />
+          </div>
+        <% end %>
+      </div>
     </Layouts.app>
     """
   end
@@ -253,12 +253,65 @@ defmodule YtdarrWeb.ChannelLive.Show do
         |> sort_playlist_videos()
       end)
 
+    playlist_ids = MapSet.new(playlists, & &1.id)
+
     {:ok,
      socket
      |> assign(:page_title, channel.name)
      |> assign(:channel, channel)
      |> assign(:playlists, playlists)
-     |> assign(:videos, channel.videos)}
+     |> assign(:videos, channel.videos)
+     |> assign(:expanded_playlists, MapSet.new())
+     |> assign(:all_expanded?, false)
+     |> assign(:videos_expanded?, false)
+     |> assign(:all_playlist_ids, playlist_ids)}
+  end
+
+  @impl true
+  def handle_event("toggle-playlist-expand", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+
+    expanded =
+      if MapSet.member?(socket.assigns.expanded_playlists, id),
+        do: MapSet.delete(socket.assigns.expanded_playlists, id),
+        else: MapSet.put(socket.assigns.expanded_playlists, id)
+
+    all_expanded? = MapSet.equal?(expanded, socket.assigns.all_playlist_ids)
+
+    {:noreply,
+     socket
+     |> assign(:expanded_playlists, expanded)
+     |> assign(:all_expanded?, all_expanded? && socket.assigns.videos_expanded?)}
+  end
+
+  @impl true
+  def handle_event("toggle-videos-expand", _params, socket) do
+    videos_expanded? = !socket.assigns.videos_expanded?
+
+    all_expanded? =
+      MapSet.equal?(socket.assigns.expanded_playlists, socket.assigns.all_playlist_ids) &&
+        videos_expanded?
+
+    {:noreply,
+     socket
+     |> assign(:videos_expanded?, videos_expanded?)
+     |> assign(:all_expanded?, all_expanded?)}
+  end
+
+  @impl true
+  def handle_event("toggle-expand-all", _params, socket) do
+    expanding? = !socket.assigns.all_expanded?
+
+    expanded_playlists =
+      if expanding?,
+        do: socket.assigns.all_playlist_ids,
+        else: MapSet.new()
+
+    {:noreply,
+     socket
+     |> assign(:expanded_playlists, expanded_playlists)
+     |> assign(:videos_expanded?, expanding?)
+     |> assign(:all_expanded?, expanding?)}
   end
 
   @impl true
@@ -392,4 +445,12 @@ defmodule YtdarrWeb.ChannelLive.Show do
     sorted = Enum.sort_by(playlist.videos, &(&1.upload_date || ~D[1970-01-01]), {:desc, Date})
     %{playlist | videos: sorted}
   end
+
+  defp format_datetime(nil), do: "—"
+
+  defp format_datetime(%DateTime{} = dt) do
+    Calendar.strftime(dt, "%Y-%m-%d %H:%M")
+  end
+
+  defp format_datetime(other), do: to_string(other)
 end

@@ -83,7 +83,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
   end
 
   @default_ytdlp_params [
-    #"--postprocessor-args ffmpeg:'-c:a libopus -b:a 128k -c:v libsvtav1 -preset 4 -crf 24 -svtav1-params keyint=10s:tune=0:enable-overlays=1:scd=1:scm=0'",
+    # "--postprocessor-args ffmpeg:'-c:a libopus -b:a 128k -c:v libsvtav1 -preset 4 -crf 24 -svtav1-params keyint=10s:tune=0:enable-overlays=1:scd=1:scm=0'",
     "--embed-chapters",
     "--embed-thumbnail",
     "--embed-metadata",

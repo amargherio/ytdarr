@@ -2,6 +2,8 @@ defmodule YtdarrWeb.CustomComponents do
   use Phoenix.Component
   use Gettext, backend: YtdarrWeb.Gettext
 
+  import YtdarrWeb.CoreComponents, only: [icon: 1]
+
   attr :variant, :string,
     values: ~w(primary secondary info success warning error),
     default: "primary"
@@ -155,4 +157,160 @@ defmodule YtdarrWeb.CustomComponents do
 
   defp banner_box_class(%{mode: "ratio", ratio: ratio}),
     do: "relative aspect-[#{ratio}] max-h-[30rem] min-h-[16rem]"
+
+  @doc """
+  Renders a thin progress bar showing a ratio of completed / total.
+  Used for playlist download progress indicators (Sonarr-style).
+
+  ## Examples
+
+      <.progress_bar completed={3} total={10} />
+  """
+  attr :completed, :integer, required: true
+  attr :total, :integer, required: true
+  attr :class, :string, default: nil
+
+  def progress_bar(assigns) do
+    pct =
+      if assigns.total > 0,
+        do: Float.round(assigns.completed / assigns.total * 100, 1),
+        else: 0.0
+
+    assigns = assign(assigns, :pct, pct)
+
+    ~H"""
+    <div class={["w-full bg-base-300 rounded-full h-1.5 overflow-hidden", @class]}>
+      <div
+        class={[
+          "h-full rounded-full transition-all duration-300",
+          if(@pct == 100, do: "bg-success", else: "bg-primary")
+        ]}
+        style={"width: #{@pct}%"}
+        title={"#{@completed}/#{@total} downloaded (#{@pct}%)"}
+      >
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a styled badge for video download state.
+
+  ## Examples
+
+      <.download_status_badge state={:downloaded} />
+      <.download_status_badge state={:downloading} />
+  """
+  attr :state, :atom, required: true
+
+  def download_status_badge(assigns) do
+    ~H"""
+    <%= case @state do %>
+      <% :available -> %>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-200 text-base-content/60">
+          <.icon name="hero-cloud-arrow-down" class="size-3.5" /> Available
+        </span>
+      <% :downloading -> %>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/15 text-warning">
+          <.icon name="hero-arrow-path" class="size-3.5 animate-spin" /> Downloading
+        </span>
+      <% :downloaded -> %>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success">
+          <.icon name="hero-check-badge" class="size-3.5" /> Downloaded
+        </span>
+      <% :missing -> %>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error">
+          <.icon name="hero-exclamation-triangle" class="size-3.5" /> Missing
+        </span>
+      <% _ -> %>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-200 text-base-content/40">
+          <.icon name="hero-question-mark-circle" class="size-3.5" /> Unknown
+        </span>
+    <% end %>
+    """
+  end
+
+  @doc """
+  Renders a reusable video table for channel/playlist views.
+  Used in the channel show page for both playlist videos and all-videos sections.
+
+  ## Examples
+
+      <.video_table id="playlist-videos-1" videos={playlist.videos} channel_id={@channel.id} />
+  """
+  attr :id, :string, required: true
+  attr :videos, :list, required: true
+  attr :channel_id, :any, required: true
+
+  def video_table(assigns) do
+    ~H"""
+    <div class="overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr class="text-xs text-base-content/50 uppercase tracking-wider">
+            <th class="w-20">Thumb</th>
+            <th>Title</th>
+            <th class="w-28">Upload Date</th>
+            <th class="w-32">Status</th>
+            <th class="w-20">Actions</th>
+          </tr>
+        </thead>
+        <tbody id={@id}>
+          <%= for video <- @videos do %>
+            <tr class="hover:bg-base-200/50 transition-colors">
+              <td>
+                <%= if video.thumbnail_url do %>
+                  <img
+                    src={video.thumbnail_url}
+                    alt={video.title}
+                    class="w-16 h-9 rounded object-cover bg-base-300"
+                    loading="lazy"
+                  />
+                <% else %>
+                  <div class="w-16 h-9 rounded bg-base-300 flex items-center justify-center">
+                    <.icon name="hero-play" class="size-4 text-base-content/30" />
+                  </div>
+                <% end %>
+              </td>
+              <td class="max-w-xs">
+                <span class="text-sm font-medium truncate block">{video.title}</span>
+              </td>
+              <td>
+                <span class="text-xs text-base-content/60">{video.upload_date}</span>
+              </td>
+              <td>
+                <.download_status_badge state={video.download_state} />
+              </td>
+              <td>
+                <%= if video.download_state == :downloaded do %>
+                  <button
+                    title="Delete downloaded video"
+                    phx-click="delete-video"
+                    phx-value-id={video.id}
+                    class="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                    data-confirm="Are you sure you want to delete this video file?"
+                  >
+                    <.icon name="hero-trash" class="size-3.5" />
+                  </button>
+                <% else %>
+                  <%= if video.download_state in [:available, :missing] do %>
+                    <button
+                      title="Queue Download"
+                      phx-click="queue-download"
+                      phx-value-id={video.id}
+                      phx-value-channel-id={@channel_id}
+                      class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
+                    >
+                      <.icon name="hero-arrow-down-tray" class="size-3.5" />
+                    </button>
+                  <% end %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    """
+  end
 end
