@@ -50,7 +50,7 @@ defmodule Ytdarr.MixProject do
       {:picosat_elixir, "~> 0.2"},
       {:sourceror, "~> 1.8", only: [:dev, :test]},
       {:usage_rules, "~> 0.1", only: [:dev]},
-      {:live_debugger, "~> 0.5", only: [:dev]},
+      {:live_debugger, "~> 1.0", only: [:dev]},
       {:ash_state_machine, "~> 0.2"},
       {:ash_admin, "~> 0.13"},
       {:ash_authentication_phoenix, "~> 2.0"},

@@ -55,11 +55,6 @@ defmodule YtdarrWeb.Layouts do
               </a>
             </li>
             <li>
-              <a href={~p"/content/add"} class={[@nav == :content_add && "active font-semibold"]}>
-                Add Content
-              </a>
-            </li>
-            <li>
               <details open={@nav in [:channels, :channel_add]}>
                 <summary class={[
                   @nav == :channels && "active font-semibold",

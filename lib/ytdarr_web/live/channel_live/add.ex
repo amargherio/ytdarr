@@ -36,12 +36,11 @@ defmodule YtdarrWeb.ChannelLive.Add do
   def handle_event("search", %{"q" => q}, socket) do
     # Cancel previous pending by ignoring its message when ref doesn't match
     ref = make_ref()
-    _mode = socket.assigns.mode
-    _chan_map = socket.assigns.channels_lookup
+    lv = self()
 
     Task.start(fn ->
       results = perform_channel_search(q)
-      send(self(), {:async_search_result, ref, q, results})
+      send(lv, {:async_search_result, ref, q, results})
     end)
 
     {:noreply,
@@ -51,17 +50,13 @@ defmodule YtdarrWeb.ChannelLive.Add do
      |> assign(:loading?, q != "")}
   end
 
-  def handle_event("queue-search", %{"q" => q}, socket) do
-    # For future async handling (Task + handle_info) if needed
-    {:noreply, assign(socket, search: q, loading?: true)}
-  end
-
   def handle_event(
         "add",
         %{"external_id" => external_id} = params,
         %{assigns: %{mode: :channels}} = socket
       ) do
     should_sync = Map.get(params, "sync", "true") == "true"
+    should_monitor = Map.get(params, "monitor", "true") == "true"
     selected_channel = Enum.find(socket.assigns.results, &(&1.external_id == external_id))
 
     cond do
@@ -89,8 +84,13 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
         case Content.create_channel(attrs) do
           {:ok, channel} ->
-            if should_sync do
-              Content.sync_content("channel", channel.id)
+            if should_monitor do
+              Content.toggle_channel_monitor(channel.id)
+            end
+
+            if !should_monitor && should_sync do
+              # For channels that are added without monitoring but with sync, we still want to trigger an initial sync to populate videos. We can do this asynchronously without blocking the response.
+              Task.start(fn -> Content.sync_channel_content(channel.external_id) end)
             end
 
             {:noreply,
@@ -152,18 +152,23 @@ defmodule YtdarrWeb.ChannelLive.Add do
             Channels
           </button>
         </div>
-        <form phx-keyup="search" phx-submit="noop" class="flex flex-col gap-2" autocomplete="off">
-          <input
-            type="text"
-            name="q"
-            value={@search}
-            placeholder={
-              (@mode == :channels && "Search YouTube channels...") || "Search YouTube playlists..."
-            }
-            class="input input-bordered"
-            phx-debounce="300"
-          />
-          <p class="text-xs opacity-60">Type to search {@mode}.</p>
+        <form phx-submit="search" class="flex flex-col gap-2" autocomplete="off">
+          <div class="flex gap-2">
+            <input
+              type="text"
+              name="q"
+              value={@search}
+              placeholder={
+                (@mode == :channels && "Search YouTube channels...") ||
+                  "Search YouTube playlists..."
+              }
+              class="input input-bordered flex-1"
+            />
+            <.button type="submit" phx-disable-with="Searching...">
+              <.icon name="hero-magnifying-glass" class="w-5 h-5" /> Search
+            </.button>
+          </div>
+          <p class="text-xs opacity-60">Press Enter or click Search to find {@mode}.</p>
         </form>
 
         <div :if={@loading?} class="flex items-center gap-2 text-sm">
@@ -178,9 +183,9 @@ defmodule YtdarrWeb.ChannelLive.Add do
           <table class="table">
             <thead>
               <tr>
-                <th>Avatar</th>
+                <th></th>
                 <th>Name</th>
-                <th>External ID</th>
+                <th>Channel Alias</th>
                 <th></th>
               </tr>
             </thead>
@@ -190,7 +195,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
                   <img :if={r.avatar_url} src={r.avatar_url} class="w-10 h-10 rounded-full" />
                 </td>
                 <td>{r.name}</td>
-                <td><code>{r.external_id}</code></td>
+                <td><code>{r.platform_username}</code></td>
                 <td>
                   <span
                     :if={r.is_monitored or MapSet.member?(@monitored_channel_ids, r.external_id)}
@@ -208,8 +213,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
                       phx-click="add"
                       phx-value-external_id={r.external_id}
                       phx-value-sync="true"
-                      variant="primary"
-                      class="btn-xs join-item"
                       disabled={MapSet.member?(@adding_ids, r.external_id)}
                     >
                       <span
@@ -218,11 +221,21 @@ defmodule YtdarrWeb.ChannelLive.Add do
                       />
                       {(MapSet.member?(@adding_ids, r.external_id) && "Adding...") || "Add & Sync"}
                     </.button>
+
+                    <.button
+                      phx-click="add"
+                      phx-value-external_id={r.external_id}
+                      phx-value-sync="true"
+                      phx-value-monitor="true"
+                      disabled={MapSet.member?(@adding_ids, r.external_id)}
+                    >
+                      Add, Monitor, & Sync
+                    </.button>
+
                     <.button
                       phx-click="add"
                       phx-value-external_id={r.external_id}
                       phx-value-sync="false"
-                      class="btn-xs join-item"
                       disabled={MapSet.member?(@adding_ids, r.external_id)}
                     >
                       Add Only
@@ -239,7 +252,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
             <thead>
               <tr>
                 <th>Name</th>
-                <th>External ID</th>
+                <th>Channel Alias</th>
                 <th>Videos</th>
                 <th>Channel</th>
                 <th></th>
@@ -248,7 +261,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
             <tbody>
               <tr :for={r <- @results}>
                 <td>{r.name}</td>
-                <td><code>{r.external_id}</code></td>
+                <td><code>{r.platform_username}</code></td>
                 <td>{r.video_count}</td>
                 <td>{Map.get(@channels_lookup, r.channel_id).name}</td>
                 <td>
