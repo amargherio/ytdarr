@@ -13,6 +13,10 @@ defmodule Ytdarr.MixProject do
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
       consolidate_protocols: Mix.env() != :dev,
+      dialyzer: [
+        plt_core_path: "priv/plts/core.plt",
+        plt_local_path: "priv/plts/project.plt"
+      ],
       release: [
         overwrite: true,
         applications: [ytdarr: :permanent],
@@ -88,7 +92,8 @@ defmodule Ytdarr.MixProject do
       {:oban_web, "~> 2.11"},
       {:cachex, "~> 4.0"},
       {:igniter, "~> 0.5", only: [:dev]},
-      {:ecto_sqlite3_extras, "~> 1.2.0"}
+      {:ecto_sqlite3_extras, "~> 1.2.0"},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
