@@ -170,6 +170,122 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
     Enum.each(Settings.list_media_root_folders!(), &Settings.deactivate_media_root_folder/1)
   end
 
+  describe "perform/1 with Port-based progress tracking" do
+    test "streams progress through the tracker and broadcasts events", %{
+      downloads_root: downloads_root
+    } do
+      deactivate_all_media_root_folders()
+      assert {:ok, _folder} = Settings.create_media_root_folder(%{path: downloads_root})
+
+      unique = System.unique_integer([:positive])
+
+      channel =
+        channel_fixture(%{
+          name: "Port Channel #{unique}",
+          external_id: "port-channel-#{unique}"
+        })
+
+      video =
+        video_fixture(%{
+          channel_id: channel.id,
+          title: "Port Video #{unique}",
+          description: "Port test description",
+          external_id: "port-video-#{unique}",
+          upload_date: ~D[2025-06-01]
+        })
+
+      Ytdarr.Downloads.subscribe()
+
+      job = %Oban.Job{
+        id: System.unique_integer([:positive]),
+        args: %{"video_id" => video.id, "channel_id" => channel.id},
+        queue: "video_downloader",
+        worker: "Ytdarr.ObanWorkers.VideoDownloader"
+      }
+
+      assert :ok = VideoDownloader.perform(job)
+
+      updated_video = Content.get_video!(video.id)
+      assert updated_video.download_state == :downloaded
+      assert updated_video.is_downloaded
+
+      # Verify download_started was broadcast
+      assert_received {:download_started, _, _, %{title: _, channel_name: _}}
+
+      # Verify download_completed was broadcast
+      assert_received {:download_completed, _, _}
+
+      # Verify progress was tracked (the stub emits progress lines)
+      assert_received {:download_progress, _, _, %{pct: _, speed: _, eta: _}}
+
+      # Tracker should be cleaned up after completion
+      assert Ytdarr.Downloads.Tracker.get_progress(video.id) == nil
+    end
+
+    test "broadcasts download_failed on non-zero exit", %{
+      downloads_root: downloads_root
+    } do
+      deactivate_all_media_root_folders()
+      assert {:ok, _folder} = Settings.create_media_root_folder(%{path: downloads_root})
+
+      unique = System.unique_integer([:positive])
+
+      channel =
+        channel_fixture(%{
+          name: "Fail Channel #{unique}",
+          external_id: "fail-channel-#{unique}"
+        })
+
+      video =
+        video_fixture(%{
+          channel_id: channel.id,
+          title: "Fail Video #{unique}",
+          description: "Fail test",
+          external_id: "fail-video-#{unique}",
+          upload_date: ~D[2025-06-01]
+        })
+
+      # Replace stub with a failing script
+      bin_dir = System.get_env("PATH") |> String.split(":") |> List.first()
+      failing_script = Path.join(bin_dir, "yt-dlp")
+
+      File.write!(failing_script, """
+      #!/bin/sh
+      echo "ERROR: unable to download video"
+      exit 1
+      """)
+
+      File.chmod!(failing_script, 0o755)
+
+      Ytdarr.Downloads.subscribe()
+
+      job = %Oban.Job{
+        id: System.unique_integer([:positive]),
+        args: %{"video_id" => video.id, "channel_id" => channel.id},
+        queue: "video_downloader",
+        worker: "Ytdarr.ObanWorkers.VideoDownloader"
+      }
+
+      assert {:error, :download_failed} = VideoDownloader.perform(job)
+
+      assert_received {:download_started, _, _, _}
+      assert_received {:download_failed, _, _, :download_failed}
+
+      # Tracker cleaned up even on failure
+      assert Ytdarr.Downloads.Tracker.get_progress(video.id) == nil
+    end
+  end
+
+  defp clear_default_param_sets do
+    Enum.each(Settings.list_yt_dlp_param_sets!(), fn param_set ->
+      Settings.update_yt_dlp_param_set(param_set, %{is_default: false})
+    end)
+  end
+
+  defp deactivate_all_media_root_folders do
+    Enum.each(Settings.list_media_root_folders!(), &Settings.deactivate_media_root_folder/1)
+  end
+
   defp yt_dlp_stub_script do
     """
     #!/bin/sh
@@ -183,6 +299,12 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
 
       previous="$arg"
     done
+
+    # Emit progress template lines like real yt-dlp with --progress-template
+    echo "download: 25.0%  5.0MiB/s 00:30"
+    echo "download: 50.0%  6.2MiB/s 00:15"
+    echo "download:100.0%  7.1MiB/s 00:00"
+    echo "[Merger] Merging formats into mp4"
 
     if [ -n "$output" ]; then
       mkdir -p "$(dirname "$output")"

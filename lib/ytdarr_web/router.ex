@@ -52,6 +52,9 @@ defmodule YtdarrWeb.Router do
     live "/channels/:id/edit", ChannelLive.Form, :edit
     live "/channels/:id", ChannelLive.Show, :show
 
+    # Download queue
+    live "/queue", QueueLive, :index
+
     # Settings
     live "/settings", SettingsLive, :index
 

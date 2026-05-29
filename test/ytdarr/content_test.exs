@@ -4,7 +4,7 @@ defmodule Ytdarr.ContentTest do
   alias Ytdarr.Content
 
   describe "videos" do
-    test "queue_video_download updates state to downloading" do
+    test "queue_video_download updates state to queued" do
       {:ok, channel} =
         Content.create_channel(%{
           external_id: "channel1",
@@ -23,7 +23,7 @@ defmodule Ytdarr.ContentTest do
       assert {:ok, _job} = Content.queue_video_download(video.id, channel.id)
 
       {:ok, updated_video} = Content.get_video(video.id)
-      assert updated_video.download_state == :downloading
+      assert updated_video.download_state == :queued
     end
 
     test "delete_video_file deletes file and resets state" do

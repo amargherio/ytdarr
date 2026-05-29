@@ -159,6 +159,96 @@ defmodule YtdarrWeb.CustomComponents do
     do: "relative aspect-[#{ratio}] max-h-[30rem] min-h-[16rem]"
 
   @doc """
+  Renders a download progress bar with speed and ETA information.
+
+  Used on the download queue page to show real-time download progress.
+  When `pct` is nil, renders an indeterminate animated bar.
+
+  ## Examples
+
+      <.download_progress_bar pct={45.2} speed="12.5MiB/s" eta="00:42" />
+      <.download_progress_bar pct={nil} />
+      <.download_progress_bar pct={100.0} post_processing?={true} />
+  """
+  attr :pct, :float, default: nil
+  attr :speed, :string, default: nil
+  attr :eta, :string, default: nil
+  attr :post_processing?, :boolean, default: false
+  attr :class, :string, default: nil
+
+  def download_progress_bar(assigns) do
+    pct =
+      case assigns.pct do
+        pct when is_number(pct) ->
+          pct
+          |> Kernel.*(1.0)
+          |> max(0.0)
+          |> min(100.0)
+          |> Float.round(1)
+
+        _ ->
+          nil
+      end
+
+    status_text =
+      cond do
+        assigns.post_processing? -> gettext("Post-processing...")
+        is_nil(pct) -> gettext("Downloading...")
+        true -> "#{pct}%"
+      end
+
+    meta_text =
+      [assigns.speed, if(assigns.eta, do: gettext("ETA %{eta}", eta: assigns.eta))]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" • ")
+
+    fill_class =
+      cond do
+        assigns.post_processing? -> "bg-warning animate-pulse"
+        pct == 100.0 -> "bg-success"
+        true -> "bg-primary"
+      end
+
+    bar_width =
+      cond do
+        assigns.post_processing? and is_nil(pct) -> 100.0
+        is_nil(pct) -> nil
+        true -> pct
+      end
+
+    assigns =
+      assigns
+      |> assign(:pct, pct)
+      |> assign(:status_text, status_text)
+      |> assign(:meta_text, meta_text)
+      |> assign(:fill_class, fill_class)
+      |> assign(:bar_width, bar_width)
+
+    ~H"""
+    <div class={["w-full space-y-1.5", @class]}>
+      <div class="relative w-full h-2 overflow-hidden rounded-full bg-base-300">
+        <%= if is_nil(@bar_width) do %>
+          <div class="absolute inset-y-0 left-0 w-2/5 rounded-full bg-linear-to-r from-transparent via-primary to-transparent animate-pulse">
+          </div>
+        <% else %>
+          <div
+            class={["h-full rounded-full transition-all duration-300", @fill_class]}
+            style={"width: #{@bar_width}%"}
+          >
+          </div>
+        <% end %>
+      </div>
+      <div class="flex items-center justify-between gap-3 text-xs text-base-content/70">
+        <span class="truncate font-medium">{@status_text}</span>
+        <span :if={@meta_text != ""} class="shrink-0 text-right">
+          {@meta_text}
+        </span>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders a thin progress bar showing a ratio of completed / total.
   Used for playlist download progress indicators (Sonarr-style).
 
@@ -209,6 +299,10 @@ defmodule YtdarrWeb.CustomComponents do
       <% :available -> %>
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-200 text-base-content/60">
           <.icon name="hero-cloud-arrow-down" class="size-3.5" /> Available
+        </span>
+      <% :queued -> %>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-info/15 text-info">
+          <.icon name="hero-clock" class="size-3.5" /> Queued
         </span>
       <% :downloading -> %>
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/15 text-warning">

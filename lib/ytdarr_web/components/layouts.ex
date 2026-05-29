@@ -102,7 +102,18 @@ defmodule YtdarrWeb.Layouts do
                 </ul>
               </details>
             </li>
-            <%!-- TODO: Add queue route when download queue is implemented --%>
+            <li>
+              <a
+                href={~p"/queue"}
+                class={[
+                  "flex items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150",
+                  "hover:bg-base-300/60",
+                  @nav == :queue && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-arrow-down-tray" class="size-4" /> Queue
+              </a>
+            </li>
             <li>
               <a
                 href={~p"/settings"}
@@ -197,6 +208,17 @@ defmodule YtdarrWeb.Layouts do
                 ]}
               >
                 <.icon name="hero-plus-circle" class="size-4" /> Add Channel
+              </a>
+            </li>
+            <li>
+              <a
+                href={~p"/queue"}
+                class={[
+                  "rounded-lg px-3 py-2",
+                  @nav == :queue && "bg-primary/10 text-primary font-semibold"
+                ]}
+              >
+                <.icon name="hero-arrow-down-tray" class="size-4" /> Queue
               </a>
             </li>
             <li>

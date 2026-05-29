@@ -6,14 +6,14 @@ defmodule Ytdarr.ContentOrchestrationTest do
 
   alias Ytdarr.Content
 
-  test "queue_video_download/2 enqueues a downloader job and marks the video as downloading" do
+  test "queue_video_download/2 enqueues a downloader job and marks the video as queued" do
     channel = channel_fixture()
     video = video_fixture(%{channel_id: channel.id})
 
     assert {:ok, _job} = Content.queue_video_download(video.id, channel.id)
 
     assert {:ok, updated_video} = Content.get_video(video.id)
-    assert updated_video.download_state == :downloading
+    assert updated_video.download_state == :queued
 
     assert_enqueued(
       worker: Ytdarr.ObanWorkers.VideoDownloader,

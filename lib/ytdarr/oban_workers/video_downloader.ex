@@ -11,15 +11,20 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
   alias Ytdarr.Content
   alias Ytdarr.Content.{Channel, Video}
+  alias Ytdarr.Downloads
+  alias Ytdarr.Downloads.{Tracker, YtdlpProgressParser}
   require Logger
 
   require Ash.Query
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"video_id" => vid, "channel_id" => cid}}) do
+  def perform(%Oban.Job{args: %{"video_id" => vid, "channel_id" => cid}} = job) do
     # Retrieve video details and settings
     video = Content.get_video!(vid)
     channel = Content.get_channel!(cid)
+
+    # Transition from :queued to :downloading now that the job is executing
+    Content.update_video(video, %{download_state: :downloading})
 
     ytdlp_params = retrieve_ytdlp_parameters()
     Logger.info("Full yt-dlp parameters: #{inspect(ytdlp_params)}")
@@ -37,30 +42,83 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     ytdlp_out =
       "#{season_folder}/#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
 
+    progress_flags = [
+      "--newline",
+      "--no-color",
+      "--progress-template",
+      "download:%(progress._percent_str)s %(progress._speed_str)s %(progress._eta_str)s"
+    ]
+
     # trigger yt-dlp to the target URL and out to the correct output file
-    {output, status} = System.cmd("yt-dlp", [video.url | ytdlp_params ++ ["-o", ytdlp_out]])
-    Logger.info("yt-dlp output: #{output}")
+    Tracker.track_start(job.id, vid)
 
-    case status do
-      0 ->
-        generate_nfo_file(channel, video, episode_number, ytdlp_out)
+    Downloads.broadcast(
+      {:download_started, job.id, vid, %{title: video.title, channel_name: channel.name}}
+    )
 
-        # Update video status in DB
-        Content.update_video(video, %{
-          download_state: :downloaded,
-          download_path: ytdlp_out,
-          is_downloaded: true,
-          downloaded_at: DateTime.utc_now()
-        })
+    try do
+      ytdlp_path = System.find_executable("yt-dlp") || raise "yt-dlp not found in PATH"
 
-        :ok
+      port =
+        Port.open({:spawn_executable, ytdlp_path}, [
+          :binary,
+          :exit_status,
+          :stderr_to_stdout,
+          args: [video.url | ytdlp_params ++ progress_flags ++ ["-o", ytdlp_out]]
+        ])
 
-      _ ->
-        Logger.error("yt-dlp failed with status: #{status}")
-        {:error, :download_failed}
+      try do
+        {output, status} = stream_port_output(port, job.id, vid, [])
+        Logger.info("yt-dlp output: #{output}")
+
+        case status do
+          0 ->
+            generate_nfo_file(channel, video, episode_number, ytdlp_out)
+
+            # Update video status in DB
+            Content.update_video(video, %{
+              download_state: :downloaded,
+              download_path: ytdlp_out,
+              is_downloaded: true,
+              downloaded_at: DateTime.utc_now()
+            })
+
+            Downloads.broadcast({:download_completed, job.id, vid})
+            :ok
+
+          _ ->
+            Logger.error("yt-dlp failed with status: #{status}")
+            Downloads.broadcast({:download_failed, job.id, vid, :download_failed})
+            {:error, :download_failed}
+        end
+      after
+        if Port.info(port) != nil, do: Port.close(port)
+      end
+    after
+      Tracker.track_complete(job.id, vid)
     end
+  end
 
-    #   end
+  defp stream_port_output(port, job_id, video_id, output_acc) do
+    receive do
+      {^port, {:data, data}} ->
+        lines = String.split(data, "\n", trim: true)
+
+        Enum.each(lines, fn line ->
+          case YtdlpProgressParser.parse_line(line) do
+            {:progress, progress_data} ->
+              Tracker.update_progress(job_id, video_id, progress_data)
+
+            _ ->
+              :ok
+          end
+        end)
+
+        stream_port_output(port, job_id, video_id, [output_acc, data])
+
+      {^port, {:exit_status, status}} ->
+        {IO.iodata_to_binary(output_acc), status}
+    end
   end
 
   def calculate_episode_number(%Channel{} = _channel, year, %Video{} = video) do

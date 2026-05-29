@@ -159,7 +159,7 @@ defmodule Ytdarr.Content.Video do
     end
 
     attribute :download_state, :atom do
-      constraints one_of: [:available, :downloading, :downloaded, :missing]
+      constraints one_of: [:available, :queued, :downloading, :downloaded, :missing]
       default :available
       allow_nil? false
       public? true

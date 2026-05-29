@@ -1,7 +1,14 @@
 defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetry do
   @moduledoc """
   Telemetry handler for VideoDownloader Oban jobs.
-  Resets video state if the job is cancelled or discarded.
+
+  Resets video download state to `:available` when a job reaches a terminal
+  failure state (cancelled or discarded). Retryable failures are NOT reset
+  because the job will be retried automatically by Oban.
+
+  This handles videos in both `:queued` and `:downloading` states, since a job
+  could be cancelled before it starts executing (while still queued) or while
+  actively downloading.
   """
   require Logger
   alias Ytdarr.Content
@@ -11,7 +18,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetry do
   end
 
   def handle_event([:oban, :job, :stop], measurements, meta, _config) do
-    # Check if state is cancelled or discarded
+    # Only reset on terminal states (cancelled/discarded), not retryable failures
     if meta.state in [:cancelled, :discarded] do
       handle_failure(measurements, meta)
     else

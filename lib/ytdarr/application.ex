@@ -45,6 +45,8 @@ defmodule Ytdarr.Application do
       Ytdarr.Services.YouTube.ClientSupervisor,
       # YouTube API quota tracker (must start after Repo for persistence)
       Ytdarr.Services.YouTube.QuotaTracker,
+      # Download progress tracker (must start before Oban so it's ready for job events)
+      Ytdarr.Downloads.Tracker,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:ytdarr, Oban)},
       # Image cache (in-memory layer backed by filesystem)

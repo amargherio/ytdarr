@@ -496,12 +496,20 @@ defmodule Ytdarr.Content do
   end
 
   @doc """
-  Queue a video for download via Oban
+  Queue a video for download via Oban.
+
+  Sets the video's `download_state` to `:queued` (not `:downloading`) to indicate
+  it is waiting for an Oban worker slot. The `VideoDownloader.perform/1` callback
+  transitions the state to `:downloading` when the job actually begins executing.
+
+  The Oban `video_downloader` queue has a configured concurrency limit (e.g. 2),
+  meaning only that many jobs execute simultaneously. Additional jobs remain in
+  "available" state until a slot opens.
   """
   def queue_video_download(video_id, channel_id) do
     case get_video(video_id) do
       {:ok, video} ->
-        update_video(video, %{download_state: :downloading})
+        update_video(video, %{download_state: :queued})
 
         %{"video_id" => video_id, "channel_id" => channel_id}
         |> Ytdarr.ObanWorkers.VideoDownloader.new()
