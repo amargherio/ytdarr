@@ -23,11 +23,34 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
 
   alias Ytdarr.Content
   alias Ytdarr.Content.{Channel, Playlist}
+  alias Ytdarr.Services.YouTube.QuotaTracker
 
   require Logger
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"source_type" => source_type, "source_id" => source_id}}) do
+    estimated_cost =
+      case source_type do
+        "channel" -> QuotaTracker.estimate_batch_cost(:channel_sync, 1)
+        "playlist" -> QuotaTracker.estimate_batch_cost(:playlist_sync, 1)
+        _ -> 0
+      end
+
+    if QuotaTracker.can_afford?(:read, estimated_cost) do
+      perform_sync(source_type, source_id)
+    else
+      %{remaining: remaining} = QuotaTracker.get_usage()
+
+      Logger.warning(
+        "[SyncWorker] Insufficient quota for #{source_type} sync. " <>
+          "Estimated cost: #{estimated_cost}, remaining: #{remaining}. Deferring."
+      )
+
+      {:snooze, seconds_until_quota_reset()}
+    end
+  end
+
+  defp perform_sync(source_type, source_id) do
     case source_type do
       "channel" ->
         Content.get_channel!(source_id)
@@ -63,5 +86,26 @@ defmodule Ytdarr.ObanWorkers.SyncWorker do
 
     Logger.info("[SyncWorker] Completed sync for playlist: #{playlist.name}")
     :ok
+  end
+
+  # Calculates seconds until the YouTube API quota resets (midnight PT).
+  defp seconds_until_quota_reset do
+    now = DateTime.utc_now()
+    # YouTube resets at midnight Pacific Time (UTC-8 / UTC-7 DST)
+    # Use UTC-8 as worst case (longest wait)
+    pt_offset_hours = -8
+    pt_now = DateTime.add(now, pt_offset_hours * 3600, :second)
+    midnight_pt = %{pt_now | hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
+
+    next_midnight_pt =
+      if DateTime.compare(pt_now, midnight_pt) == :gt do
+        DateTime.add(midnight_pt, 86_400, :second)
+      else
+        midnight_pt
+      end
+
+    # Convert back to UTC and calculate diff
+    next_midnight_utc = DateTime.add(next_midnight_pt, -pt_offset_hours * 3600, :second)
+    max(DateTime.diff(next_midnight_utc, now, :second), 60)
   end
 end

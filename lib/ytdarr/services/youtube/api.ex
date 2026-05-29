@@ -1,14 +1,31 @@
 defmodule Ytdarr.Services.YouTube.API do
   @moduledoc """
-  Low-level wrapper implementation for the YouTube v3 Data API.
+  Low-level wrapper for the YouTube Data API v3.
 
-  All functions accept an optional `:client` option for dependency injection
-  during testing. If not provided, uses the default ClientSupervisor client.
+  Each public function maps to a single YouTube API endpoint, accepts raw
+  parameters, and returns parsed `Models.APIResponse` structs. All calls
+  automatically record quota usage via `QuotaTracker` unless the caller
+  passes `skip_quota_tracking: true` (useful in tests).
 
-  ## Quota Tracking
+  ## Dependency Injection
 
-  All API calls automatically track quota usage via the QuotaTracker.
-  Pass `skip_quota_tracking: true` in opts to disable (useful for tests).
+  Every function accepts an optional `:client` keyword for injecting a
+  custom `Req` client (e.g., a Req test plug). When omitted, the default
+  `ClientSupervisor` pool is used.
+
+  ## Endpoints and Quota Costs
+
+  | Function                  | YouTube Endpoint        | Quota Cost |
+  |---------------------------|-------------------------|------------|
+  | `search_channels/2`       | `search.list`           | 100 units  |
+  | `get_channel/2`           | `channels.list`         | 1 unit     |
+  | `get_channels_by_ids/2`   | `channels.list` (batch) | 1 unit / 50 IDs |
+  | `get_playlists_by_channel/2` | `playlists.list`     | 1 unit     |
+  | `get_playlists_by_ids/2`  | `playlists.list` (batch)| 1 unit / 50 IDs |
+  | `get_playlist_items/2`    | `playlistItems.list`    | 1 unit     |
+  | `get_videos_by_ids/2`     | `videos.list` (batch)   | 1 unit / 50 IDs |
+
+  See `docs/youtube-api-integration.md` for the full quota optimization guide.
   """
 
   alias Ytdarr.Services.YouTube.{ClientSupervisor, Models, QuotaTracker}

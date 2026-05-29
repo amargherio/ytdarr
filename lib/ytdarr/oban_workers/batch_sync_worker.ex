@@ -1,22 +1,40 @@
 defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
   @moduledoc """
-  Oban worker for batch synchronization of all monitored content.
+  Oban worker for scheduled batch synchronization of all monitored content.
 
-  This worker efficiently syncs all monitored channels and playlists in a single
-  job, batching YouTube API calls to optimize quota usage. It replaces the
-  per-channel/per-playlist scheduling approach with a consolidated sync.
+  Runs on a configurable interval (default 60 minutes) and syncs every
+  monitored channel and playlist in a single job, using batched and
+  incremental API calls to minimize YouTube quota consumption.
 
-  ## Quota Optimization
+  ## Quota Optimization Strategies
 
-  - Batches channel metadata fetches (up to 50 channels per API call)
-  - Batches video detail fetches (up to 50 videos per API call)
-  - Uses incremental sync when possible (only fetching new content)
-  - Tracks quota usage through the QuotaTracker
+  1. **Pre-flight check:** Before starting, estimates the total cost via
+     `QuotaTracker.estimate_batch_cost/2` and aborts if the remaining
+     daily budget is insufficient.
+
+  2. **Batched metadata refresh:** All monitored channel metadata is fetched
+     in a single `Client.get_channels_batch/1` call (1 unit per 50 channels)
+     instead of N individual calls.
+
+  3. **Incremental uploads sync:** Uses `Client.check_uploads_for_new_videos/2`
+     with the channel's `last_checked_at` timestamp, stopping pagination early
+     once it encounters old items.
+
+  4. **Incremental playlist sync:** Uses `Client.check_playlist_for_new_videos/3`
+     with the playlist's `last_checked_at`, applying the same early-termination
+     strategy.
+
+  5. **Video cache threading:** During full channel syncs, the uploads video
+     cache is threaded through to playlist syncs to avoid redundant detail
+     fetches (handled by `Content.sync_channel_content/1`).
 
   ## Scheduling
 
-  This worker is scheduled via Oban's cron plugin or can be triggered manually.
-  It reschedules itself after completion based on the configured sync interval.
+  After each run, the worker schedules its next execution based on the
+  `sync_interval_minutes` setting. Manual runs can be triggered with
+  `force_full_sync: true` to bypass incremental mode.
+
+  See `docs/youtube-api-integration.md` for the full integration guide.
   """
 
   use Oban.Worker,
@@ -26,6 +44,7 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
 
   alias Ytdarr.Content
   alias Ytdarr.Services.YouTube.Client
+  alias Ytdarr.Services.YouTube.QuotaTracker
 
   require Logger
 
@@ -44,13 +63,31 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
   def perform(%Oban.Job{args: args}) do
     Logger.info("[BatchSyncWorker] Starting batch sync of all monitored content")
 
-    # Check if this is a manual/forced sync or a scheduled sync
     force_full_sync = Map.get(args, "force_full_sync", false)
 
+    # Pre-flight quota check: estimate cost and verify we have enough budget
+    channels = Content.list_monitored_channels!()
+    playlists = Content.list_monitored_playlists!()
+
+    estimated_cost =
+      QuotaTracker.estimate_batch_cost(:channel_sync, length(channels)) +
+        QuotaTracker.estimate_batch_cost(:playlist_sync, length(playlists))
+
     result =
-      with :ok <- sync_monitored_channels(force_full_sync),
-           :ok <- sync_monitored_playlists(force_full_sync) do
-        Logger.info("[BatchSyncWorker] Batch sync completed successfully")
+      if QuotaTracker.can_afford?(:read, estimated_cost) do
+        with :ok <- sync_monitored_channels(force_full_sync),
+             :ok <- sync_monitored_playlists(force_full_sync) do
+          Logger.info("[BatchSyncWorker] Batch sync completed successfully")
+          :ok
+        end
+      else
+        %{remaining: remaining} = QuotaTracker.get_usage()
+
+        Logger.warning(
+          "[BatchSyncWorker] Insufficient quota for batch sync. " <>
+            "Estimated cost: #{estimated_cost}, remaining: #{remaining}. Skipping this run."
+        )
+
         :ok
       end
 
@@ -71,12 +108,19 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
     else
       Logger.info("[BatchSyncWorker] Syncing #{length(channels)} monitored channels")
 
-      # Process channels - for now we process sequentially but with batched video fetches
-      # In the future, we can add batched channel metadata refresh here
+      # For incremental syncs, batch-refresh channel metadata upfront (1 API call per 50 channels)
+      # instead of N individual calls. Full syncs refresh metadata inline.
+      channel_metadata =
+        if not force_full_sync do
+          batch_refresh_channel_metadata(channels)
+        else
+          %{}
+        end
+
       errors =
         channels
         |> Task.async_stream(
-          fn channel -> sync_single_channel(channel, force_full_sync) end,
+          fn channel -> sync_single_channel(channel, force_full_sync, channel_metadata) end,
           max_concurrency: 2,
           timeout: :timer.minutes(5)
         )
@@ -104,7 +148,7 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
     end
   end
 
-  defp sync_single_channel(channel, force_full_sync) do
+  defp sync_single_channel(channel, force_full_sync, channel_metadata) do
     Logger.debug("[BatchSyncWorker] Syncing channel: #{channel.name} (#{channel.external_id})")
 
     try do
@@ -119,8 +163,8 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
       # Use the optimized check_uploads_for_new_videos for incremental sync
       result =
         if since_datetime do
-          # Incremental sync — also refresh channel metadata + images
-          refresh_channel_metadata(channel)
+          # Incremental sync — apply pre-fetched metadata and refresh images
+          apply_batched_metadata(channel, channel_metadata)
 
           Client.check_uploads_for_new_videos(channel.external_id, since_datetime)
         else
@@ -168,8 +212,49 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
     end
   end
 
-  # Refresh channel metadata (avatar/banner URLs) and cached images during incremental sync.
-  # Full syncs already handle this via Content.sync_channel_content/1.
+  # Batch-fetch metadata for all channels with a single API call (per 50 channels)
+  # instead of one API call per channel. Returns a map of %{external_id => yt_channel}.
+  defp batch_refresh_channel_metadata(channels) do
+    channel_ids = Enum.map(channels, & &1.external_id)
+
+    case Client.get_channels_batch(channel_ids) do
+      {:ok, yt_channels} ->
+        Map.new(yt_channels, fn ch -> {ch.id, ch} end)
+
+      {:partial, yt_channels, _errors} ->
+        Map.new(yt_channels, fn ch -> {ch.id, ch} end)
+
+      {:error, reason} ->
+        Logger.warning(
+          "[BatchSyncWorker] Batch channel metadata fetch failed: #{inspect(reason)}"
+        )
+
+        %{}
+    end
+  end
+
+  # Apply pre-fetched channel metadata and refresh images.
+  # Falls back to per-channel fetch if metadata wasn't available in the batch result.
+  defp apply_batched_metadata(channel, channel_metadata) do
+    case Map.get(channel_metadata, channel.external_id) do
+      nil ->
+        refresh_channel_metadata(channel)
+
+      yt_channel ->
+        updates =
+          %{}
+          |> maybe_put(:avatar_url, yt_channel.avatar_url, channel.avatar_url)
+          |> maybe_put(:banner_url, yt_channel.banner_url, channel.banner_url)
+
+        if map_size(updates) > 0 do
+          Content.update_channel(channel, updates)
+        end
+
+        Content.refresh_channel_images(channel)
+    end
+  end
+
+  # Per-channel metadata refresh fallback (1 API call per channel).
   defp refresh_channel_metadata(channel) do
     case Client.get_channel(channel.external_id) do
       {:ok, yt_channel} ->
@@ -234,26 +319,57 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
     end
   end
 
-  defp sync_single_playlist(playlist, _force_full_sync) do
+  defp sync_single_playlist(playlist, force_full_sync) do
     Logger.debug("[BatchSyncWorker] Syncing playlist: #{playlist.name} (#{playlist.external_id})")
 
     try do
-      # Fetch playlist items
-      case Client.get_playlist(playlist.external_id) do
-        {:ok, playlist_data} ->
-          Logger.info(
-            "[BatchSyncWorker] Playlist #{playlist.name} has #{playlist_data.video_count} videos"
-          )
+      since_datetime =
+        if not force_full_sync and playlist.last_checked_at do
+          playlist.last_checked_at
+        end
 
-          # Mark playlist as checked
-          Content.mark_playlist_checked(playlist)
-          :ok
+      if since_datetime do
+        # Incremental sync: only fetch videos added since last check
+        Logger.info(
+          "[BatchSyncWorker] Incremental sync for playlist #{playlist.name} since #{since_datetime}"
+        )
 
-        {:partial, _playlist_data} ->
-          Logger.warning("[BatchSyncWorker] Partial fetch for playlist #{playlist.name}")
+        case Client.check_playlist_for_new_videos(playlist.external_id, since_datetime) do
+          {status, entries} when status in [:ok, :partial] ->
+            Logger.info(
+              "[BatchSyncWorker] Found #{length(entries)} new items in playlist #{playlist.name}"
+            )
 
-          Content.mark_playlist_checked(playlist)
-          :ok
+            process_playlist_entries(playlist, entries)
+            Content.mark_playlist_checked(playlist)
+            :ok
+
+          {:ok, []} ->
+            Logger.debug("[BatchSyncWorker] No new items in playlist #{playlist.name}")
+            Content.mark_playlist_checked(playlist)
+            :ok
+
+          {:error, reason} ->
+            Logger.error(
+              "[BatchSyncWorker] Error in incremental sync for #{playlist.name}: #{inspect(reason)}"
+            )
+
+            {:error, {:playlist_sync, playlist.id, reason}}
+        end
+      else
+        # Full sync: fetch all playlist items with details
+        Logger.info("[BatchSyncWorker] Full sync for playlist #{playlist.name}")
+
+        case Client.get_playlist_items_detailed(playlist.external_id) do
+          {status, %{videos: entries}} when status in [:ok, :partial] ->
+            Logger.info(
+              "[BatchSyncWorker] Fetched #{length(entries)} items for playlist #{playlist.name}"
+            )
+
+            process_playlist_entries(playlist, entries)
+            Content.mark_playlist_checked(playlist)
+            :ok
+        end
       end
     rescue
       e ->
@@ -263,6 +379,10 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
 
         {:error, {:playlist_exception, playlist.id, Exception.message(e)}}
     end
+  end
+
+  defp process_playlist_entries(playlist, entries) do
+    Content.upsert_and_link_playlist_entries(playlist, entries)
   end
 
   defp process_new_videos(videos, channel) do

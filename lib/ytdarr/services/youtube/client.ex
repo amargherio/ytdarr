@@ -1,28 +1,76 @@
 defmodule Ytdarr.Services.YouTube.Client do
   @moduledoc """
-  High-level YouTube API client for fetching channel, playlist, and video data.
+  High-level YouTube API client with batching, pagination, and caching.
+
+  Sits between the low-level `API` module and the `Content` domain,
+  composing multiple API calls into logical operations while minimizing
+  quota consumption.
+
+  ## Key Optimizations
+
+  - **Batch splitting:** Video, channel, and playlist IDs are chunked into
+    groups of 50 (YouTube's per-request maximum) so that N items cost
+    ⌈N/50⌉ quota units instead of N.
+
+  - **Video detail cache:** `get_playlist_items_detailed/2` accepts a
+    `:video_cache` option — a map of `%{video_id => raw_api_data}`. Videos
+    found in the cache are skipped, and the updated cache is returned in
+    the result for threading through subsequent calls.
+
+  - **Incremental sync:** `check_uploads_for_new_videos/2` and
+    `check_playlist_for_new_videos/3` stop pagination early once they
+    encounter items published before a given `since_datetime`, avoiding
+    full traversal of large playlists.
+
+  - **Search quota guard:** `search_channels/1` checks `QuotaTracker.can_afford?(:search)`
+    before executing a 100-unit search call.
+
+  See `docs/youtube-api-integration.md` for the full integration guide.
   """
 
   alias Ytdarr.Services.YouTube.{API, Parser, Models}
+  alias Ytdarr.Services.YouTube.QuotaTracker
 
   require Logger
 
+  @doc """
+  Searches YouTube for channels matching `query`.
+
+  Search is the most expensive YouTube API operation at 100 units per call
+  (1% of the daily 10,000 unit budget). A pre-flight quota check ensures
+  we don't burn units when the budget is already exhausted.
+
+  Returns `{:ok, channels}`, `{:error, :no_results}`,
+  `{:error, :quota_insufficient}`, or `{:error, reason}`.
+  """
   def search_channels(query) do
-    case API.search_channels(query) do
-      {:ok, api_response} ->
-        channels =
-          api_response.items
-          |> Enum.map(&Models.Channel.from_api/1)
-          |> Enum.map(&Parser.create_ytdarr_channel/1)
+    if QuotaTracker.can_afford?(:search) do
+      Logger.info("[Client] Executing search (100 quota units): #{inspect(query)}")
 
-        if channels == [] do
-          {:error, :no_results}
-        else
-          {:ok, channels}
-        end
+      case API.search_channels(query) do
+        {:ok, api_response} ->
+          channels =
+            api_response.items
+            |> Enum.map(&Models.Channel.from_api/1)
+            |> Enum.map(&Parser.create_ytdarr_channel/1)
 
-      {:error, reason} ->
-        {:error, reason}
+          if channels == [] do
+            {:error, :no_results}
+          else
+            {:ok, channels}
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      %{remaining: remaining} = QuotaTracker.get_usage()
+
+      Logger.warning(
+        "[Client] Search blocked: insufficient quota (remaining: #{remaining}, search cost: 100)"
+      )
+
+      {:error, :quota_insufficient}
     end
   end
 
@@ -55,43 +103,6 @@ defmodule Ytdarr.Services.YouTube.Client do
       {:ok, api_response} ->
         playlists = Enum.map(api_response.items, &Models.Playlist.from_api/1)
         {:ok, playlists}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  @doc """
-  Deprecated: Use get_playlist_items_detailed/2 instead.
-  """
-  def get_playlist_videos(playlist_id, opts \\ []) do
-    case API.get_playlist_items(playlist_id, opts) do
-      {:ok, api_response} ->
-        case api_response.items do
-          [] ->
-            {:error, :not_found}
-
-          items ->
-            # Extract video IDs from playlist items
-            video_ids =
-              items
-              |> Enum.map(&get_in(&1, ["snippet", "resourceId", "videoId"]))
-              |> Enum.filter(&is_binary/1)
-
-            if video_ids == [] do
-              {:error, :not_found}
-            else
-              # Fetch full video details
-              case API.get_videos_by_ids(video_ids) do
-                {:ok, videos_response} ->
-                  videos = Enum.map(videos_response.items, &Models.Video.from_api/1)
-                  {:ok, videos}
-
-                {:error, reason} ->
-                  {:error, reason}
-              end
-            end
-        end
 
       {:error, reason} ->
         {:error, reason}
@@ -152,6 +163,58 @@ defmodule Ytdarr.Services.YouTube.Client do
 
           {status, videos}
       end
+    end
+  end
+
+  @doc """
+  Incrementally checks a playlist for new videos added since `since_datetime`.
+
+  Uses the same early-termination strategy as uploads: fetches playlist items
+  and stops pagination when it encounters items published before `since_datetime`.
+
+  Returns `{:ok, merged_entries}` or `{:partial, merged_entries}` where entries
+  include both playlistItem and video detail data, or `{:error, reason}`.
+
+  ## Options
+
+    * `:video_cache` - A `%{video_id => raw_api_data}` map of already-fetched
+      video details. Videos found in the cache skip the details API call.
+  """
+  def check_playlist_for_new_videos(playlist_id, since_datetime, opts \\ []) do
+    video_cache = Keyword.get(opts, :video_cache, %{})
+
+    case fetch_playlist_items_until(playlist_id, since_datetime, nil, []) do
+      {:ok, []} ->
+        {:ok, []}
+
+      {:ok, new_items} ->
+        video_ids =
+          new_items
+          |> Enum.map(&get_in(&1, ["snippet", "resourceId", "videoId"]))
+          |> Enum.filter(&is_binary/1)
+
+        {cached_ids, uncached_ids} =
+          Enum.split_with(video_ids, fn id -> Map.has_key?(video_cache, id) end)
+
+        {fresh_videos, errors} =
+          if uncached_ids == [] do
+            {[], []}
+          else
+            fetch_videos_in_batches(uncached_ids)
+          end
+
+        cached_videos = Enum.map(cached_ids, &Map.get(video_cache, &1))
+        all_videos = fresh_videos ++ cached_videos
+        merged = merge_playlist_and_video_data(new_items, all_videos)
+
+        if errors == [] do
+          {:ok, merged}
+        else
+          {:partial, merged}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -262,30 +325,67 @@ defmodule Ytdarr.Services.YouTube.Client do
   @doc """
   Fetches all playlist items with full video details, paginating through all results.
 
-  Returns:
-  - `{:ok, %{videos: merged_items, total_results: count, errors: []}}` on complete success
-  - `{:partial, %{videos: partial_items, total_results: count, errors: [...]}}` on partial failure
+  ## Options
+
+    - `:limit` - Maximum number of items to fetch
+    - `:video_cache` - Map of `video_id => raw_video_data` to avoid re-fetching
+      video details that are already known (e.g., from a prior uploads sync).
+      Only video IDs not present in the cache will be fetched from the API.
+
+  ## Returns
+
+    - `{:ok, %{videos: merged_items, total_results: count, errors: [], video_cache: map}}` on success
+    - `{:partial, %{...}}` on partial failure
+
+  The returned `video_cache` is the union of the input cache and any newly fetched
+  video details, suitable for passing to subsequent calls.
 
   Errors are tuples of `{:playlist_page, page_token, reason}` or `{:video_batch, batch_index, reason}`.
   """
   def get_playlist_items_detailed(playlist_id, opts \\ []) do
     max_results = Keyword.get(opts, :limit)
+    video_cache = Keyword.get(opts, :video_cache, %{})
 
     # Phase 1: Fetch all playlist items with pagination (accumulates errors)
     {playlist_items, playlist_errors} =
       fetch_all_playlist_items(playlist_id, nil, [], [], max_results)
 
-    # Phase 2: Extract video IDs
-    video_ids =
+    # Phase 2: Extract video IDs, separating cached from uncached
+    all_video_ids =
       playlist_items
       |> Enum.map(&get_in(&1, ["snippet", "resourceId", "videoId"]))
       |> Enum.filter(&is_binary/1)
 
-    Logger.info("Collected #{length(video_ids)} video IDs for playlist #{playlist_id}")
+    {cached_ids, uncached_ids} =
+      Enum.split_with(all_video_ids, &Map.has_key?(video_cache, &1))
 
-    if video_ids != [] do
-      # Phase 3: Fetch video details in batches of 50 (accumulates errors)
-      {all_videos, video_errors} = fetch_videos_in_batches(video_ids)
+    if cached_ids != [] do
+      Logger.info(
+        "Playlist #{playlist_id}: #{length(cached_ids)} videos from cache, " <>
+          "#{length(uncached_ids)} to fetch"
+      )
+    else
+      Logger.info("Collected #{length(all_video_ids)} video IDs for playlist #{playlist_id}")
+    end
+
+    if all_video_ids != [] do
+      # Phase 3: Fetch video details only for uncached IDs
+      {freshly_fetched, video_errors} =
+        if uncached_ids != [] do
+          fetch_videos_in_batches(uncached_ids)
+        else
+          {[], []}
+        end
+
+      # Build combined video list: cached entries + freshly fetched
+      cached_videos = Enum.map(cached_ids, &Map.fetch!(video_cache, &1))
+      all_videos = cached_videos ++ freshly_fetched
+
+      # Update the cache with newly fetched videos
+      updated_cache =
+        Enum.reduce(freshly_fetched, video_cache, fn video, cache ->
+          Map.put(cache, video["id"], video)
+        end)
 
       # Phase 4: Merge playlist items with video details
       merged_items = merge_playlist_and_video_data(playlist_items, all_videos)
@@ -295,7 +395,8 @@ defmodule Ytdarr.Services.YouTube.Client do
       result = %{
         videos: merged_items,
         total_results: length(merged_items),
-        errors: all_errors
+        errors: all_errors,
+        video_cache: updated_cache
       }
 
       if all_errors == [] do
@@ -308,7 +409,7 @@ defmodule Ytdarr.Services.YouTube.Client do
         {:partial, result}
       end
     else
-      result = %{videos: [], total_results: 0, errors: playlist_errors}
+      result = %{videos: [], total_results: 0, errors: playlist_errors, video_cache: video_cache}
 
       if playlist_errors == [] do
         {:ok, result}

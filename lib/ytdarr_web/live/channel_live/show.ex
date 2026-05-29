@@ -80,7 +80,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
           <div class="flex-1 min-w-0 space-y-2">
             <h1 class="text-3xl md:text-4xl font-bold truncate">{@channel.name}</h1>
             <%= if @channel.platform_username do %>
-              <p class="text-sm text-white/70">@{@channel.platform_username}</p>
+              <p class="text-sm text-white/70">{@channel.platform_username}</p>
             <% end %>
             <%= if @channel.description do %>
               <p class="text-sm text-white/60 line-clamp-2 max-w-2xl">{@channel.description}</p>

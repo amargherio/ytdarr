@@ -240,11 +240,12 @@ defmodule Ytdarr.Content do
       # Step 2: Refresh cached images
       refresh_channel_images(db_channel)
 
-      # Step 3: Sync all videos from uploads playlist
-      sync_uploads(db_channel, uploads_playlist_id)
+      # Step 3: Sync all videos from uploads playlist, building a video detail cache
+      video_cache = sync_uploads(db_channel, uploads_playlist_id)
 
-      # Step 4 & 5: Fetch playlists, then for each playlist fetch items and link videos
-      sync_playlists_and_link_videos(db_channel, channel_id)
+      # Step 4 & 5: Fetch playlists, then for each playlist fetch items and link videos.
+      # Reuses video_cache from uploads to avoid re-fetching the same video details.
+      sync_playlists_and_link_videos(db_channel, channel_id, video_cache)
 
       {:ok, :synced}
     else
@@ -347,11 +348,12 @@ defmodule Ytdarr.Content do
   defp maybe_put_changed(map, key, new, old) when new != old, do: Map.put(map, key, new)
   defp maybe_put_changed(map, _key, _new, _old), do: map
 
-  # Step 3: Fetch and upsert all videos from the uploads playlist
-  defp sync_uploads(_db_channel, nil), do: :ok
+  # Step 3: Fetch and upsert all videos from the uploads playlist.
+  # Returns a video_cache map (%{video_id => raw_api_data}) for reuse by playlist sync.
+  defp sync_uploads(_db_channel, nil), do: %{}
 
   defp sync_uploads(db_channel, uploads_playlist_id) do
-    {status, %{videos: entries}} =
+    {status, %{videos: entries, video_cache: video_cache}} =
       Client.get_playlist_items_detailed(uploads_playlist_id)
 
     if status in [:ok, :partial] do
@@ -362,17 +364,22 @@ defmodule Ytdarr.Content do
       Enum.each(entries, fn entry ->
         upsert_video_from_api_entry(db_channel, entry, "uploads")
       end)
+
+      video_cache
+    else
+      %{}
     end
   end
 
   # Step 4 & 5: Fetch playlists from API, upsert them, then for each
-  # fetch items and create PlaylistVideo join records
-  defp sync_playlists_and_link_videos(db_channel, channel_id) do
+  # fetch items and create PlaylistVideo join records.
+  # Accepts a video_cache from the uploads sync to avoid redundant video detail fetches.
+  defp sync_playlists_and_link_videos(db_channel, channel_id, video_cache) do
     case Client.get_channel_playlists(channel_id) do
       {:ok, yt_playlists} ->
         sync_interval = Ytdarr.Settings.get_setting_value(:sync_interval_minutes, 60)
 
-        Enum.each(yt_playlists, fn yt_playlist ->
+        Enum.reduce(yt_playlists, video_cache, fn yt_playlist, acc_cache ->
           Logger.info("[Content] Processing playlist #{yt_playlist.id} - #{yt_playlist.title}")
 
           # Upsert the playlist record
@@ -386,17 +393,21 @@ defmodule Ytdarr.Content do
                }) do
             {:ok, db_playlist} ->
               if should_fetch_playlist_items?(db_playlist, yt_playlist, sync_interval) do
-                fetch_and_link_playlist_videos(db_channel, db_playlist)
+                fetch_and_link_playlist_videos(db_channel, db_playlist, acc_cache)
               else
                 Logger.debug(
                   "[Content] Skipping playlist item fetch for #{yt_playlist.title} (unchanged)"
                 )
+
+                acc_cache
               end
 
             {:error, error} ->
               Logger.error(
                 "[Content] Error upserting playlist #{yt_playlist.id}: #{inspect(error)}"
               )
+
+              acc_cache
           end
         end)
 
@@ -425,10 +436,12 @@ defmodule Ytdarr.Content do
     video_count_changed or not recently_checked
   end
 
-  # Fetch a playlist's items from the API, upsert any new videos, and create PlaylistVideo links
-  defp fetch_and_link_playlist_videos(db_channel, db_playlist) do
-    {status, %{videos: entries}} =
-      Client.get_playlist_items_detailed(db_playlist.external_id)
+  # Fetch a playlist's items from the API, upsert any new videos, and create PlaylistVideo links.
+  # Accepts an optional video_cache to avoid re-fetching video details already known.
+  # Returns the updated video_cache.
+  defp fetch_and_link_playlist_videos(db_channel, db_playlist, video_cache \\ %{}) do
+    {status, %{videos: entries, video_cache: updated_cache}} =
+      Client.get_playlist_items_detailed(db_playlist.external_id, video_cache: video_cache)
 
     if status in [:ok, :partial] do
       Logger.info("[Content] Linking #{length(entries)} videos to playlist #{db_playlist.name}")
@@ -461,6 +474,10 @@ defmodule Ytdarr.Content do
 
       # Mark playlist as checked
       mark_playlist_checked(db_playlist)
+
+      updated_cache
+    else
+      video_cache
     end
   end
 
@@ -492,6 +509,57 @@ defmodule Ytdarr.Content do
       })
     else
       {:error, :missing_video_id}
+    end
+  end
+
+  @doc """
+  Upserts videos from raw API entries and links them to a playlist.
+
+  Accepts a playlist (with loaded `:channel` association) and a list of raw API
+  entries (maps with `"video_details"` from `Client.get_playlist_items_detailed`
+  or `Client.check_playlist_for_new_videos`). Each entry is upserted as a video
+  and linked to the playlist via a PlaylistVideo record.
+  """
+  def upsert_and_link_playlist_entries(playlist, entries) do
+    channel =
+      case Ash.load(playlist, :channel) do
+        {:ok, loaded} -> loaded.channel
+        _ -> nil
+      end
+
+    if is_nil(channel) do
+      Logger.error(
+        "[Content] Cannot upsert entries for playlist #{playlist.id}: no channel found"
+      )
+
+      {:error, :channel_not_found}
+    else
+      Enum.with_index(entries, fn entry, index ->
+        video_details = entry["video_details"] || %{}
+        video_id = video_details["id"]
+
+        if is_binary(video_id) do
+          case upsert_video_from_api_entry(
+                 channel,
+                 entry,
+                 "playlist:#{playlist.external_id}"
+               ) do
+            {:ok, db_video} ->
+              upsert_playlist_video(%{
+                playlist_id: playlist.id,
+                video_id: db_video.id,
+                position: index
+              })
+
+            {:error, error} ->
+              Logger.error(
+                "[Content] Error upserting video #{video_id} for playlist link: #{inspect(error)}"
+              )
+          end
+        end
+      end)
+
+      :ok
     end
   end
 
