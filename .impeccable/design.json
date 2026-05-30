@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-29T23:25:00Z",
+  "title": "Design System: Ytdarr",
+  "extensions": {
+    "colorMeta": {
+      "signal-red": {
+        "role": "primary",
+        "displayName": "Signal Red",
+        "canonical": "oklch(57% 0.24 27.33)",
+        "tonalRamp": [
+          "oklch(15% 0.08 27.33)",
+          "oklch(25% 0.12 27.33)",
+          "oklch(35% 0.16 27.33)",
+          "oklch(45% 0.20 27.33)",
+          "oklch(57% 0.24 27.33)",
+          "oklch(68% 0.20 27.33)",
+          "oklch(80% 0.14 27.33)",
+          "oklch(92% 0.06 27.33)"
+        ]
+      },
+      "bright-signal": {
+        "role": "accent",
+        "displayName": "Bright Signal",
+        "canonical": "oklch(62% 0.25 27.33)",
+        "tonalRamp": [
+          "oklch(15% 0.08 27.33)",
+          "oklch(25% 0.13 27.33)",
+          "oklch(38% 0.18 27.33)",
+          "oklch(50% 0.22 27.33)",
+          "oklch(62% 0.25 27.33)",
+          "oklch(72% 0.20 27.33)",
+          "oklch(83% 0.12 27.33)",
+          "oklch(93% 0.05 27.33)"
+        ]
+      },
+      "deep-signal": {
+        "role": "accent",
+        "displayName": "Deep Signal",
+        "canonical": "oklch(52% 0.24 27.33)",
+        "tonalRamp": [
+          "oklch(15% 0.08 27.33)",
+          "oklch(22% 0.12 27.33)",
+          "oklch(32% 0.16 27.33)",
+          "oklch(42% 0.20 27.33)",
+          "oklch(52% 0.24 27.33)",
+          "oklch(65% 0.20 27.33)",
+          "oklch(78% 0.14 27.33)",
+          "oklch(90% 0.06 27.33)"
+        ]
+      },
+      "console-slate": {
+        "role": "secondary",
+        "displayName": "Console Slate",
+        "canonical": "oklch(55% 0.02 260)",
+        "tonalRamp": [
+          "oklch(15% 0.005 260)",
+          "oklch(25% 0.008 260)",
+          "oklch(35% 0.012 260)",
+          "oklch(45% 0.016 260)",
+          "oklch(55% 0.02 260)",
+          "oklch(68% 0.016 260)",
+          "oklch(80% 0.010 260)",
+          "oklch(92% 0.005 260)"
+        ]
+      },
+      "deep-console": {
+        "role": "neutral",
+        "displayName": "Deep Console",
+        "canonical": "oklch(21% 0.006 285.885)",
+        "tonalRamp": [
+          "oklch(10% 0.003 285.885)",
+          "oklch(14.5% 0.004 285.885)",
+          "oklch(17.5% 0.005 285.885)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(30% 0.008 285.885)",
+          "oklch(45% 0.010 285.885)",
+          "oklch(65% 0.006 285.885)",
+          "oklch(85% 0.003 285.885)"
+        ]
+      },
+      "console-white": {
+        "role": "neutral",
+        "displayName": "Console White",
+        "canonical": "oklch(99% 0 0)",
+        "tonalRamp": [
+          "oklch(40% 0.005 286)",
+          "oklch(55% 0.004 286)",
+          "oklch(70% 0.003 286)",
+          "oklch(80% 0.002 286)",
+          "oklch(88% 0.002 286)",
+          "oklch(92% 0.002 286)",
+          "oklch(96.5% 0.002 286)",
+          "oklch(99% 0 0)"
+        ]
+      },
+      "queue-blue": {
+        "role": "semantic",
+        "displayName": "Queue Blue",
+        "canonical": "oklch(62% 0.19 240)",
+        "tonalRamp": [
+          "oklch(15% 0.06 240)",
+          "oklch(25% 0.10 240)",
+          "oklch(35% 0.13 240)",
+          "oklch(48% 0.16 240)",
+          "oklch(62% 0.19 240)",
+          "oklch(72% 0.15 240)",
+          "oklch(83% 0.09 240)",
+          "oklch(93% 0.04 240)"
+        ]
+      },
+      "complete-green": {
+        "role": "semantic",
+        "displayName": "Complete Green",
+        "canonical": "oklch(64% 0.15 160)",
+        "tonalRamp": [
+          "oklch(15% 0.05 160)",
+          "oklch(25% 0.08 160)",
+          "oklch(35% 0.10 160)",
+          "oklch(48% 0.12 160)",
+          "oklch(64% 0.15 160)",
+          "oklch(74% 0.12 160)",
+          "oklch(84% 0.08 160)",
+          "oklch(93% 0.04 160)"
+        ]
+      },
+      "caution-amber": {
+        "role": "semantic",
+        "displayName": "Caution Amber",
+        "canonical": "oklch(72% 0.17 70)",
+        "tonalRamp": [
+          "oklch(15% 0.05 70)",
+          "oklch(28% 0.08 70)",
+          "oklch(40% 0.11 70)",
+          "oklch(55% 0.14 70)",
+          "oklch(72% 0.17 70)",
+          "oklch(80% 0.14 70)",
+          "oklch(88% 0.09 70)",
+          "oklch(94% 0.04 70)"
+        ]
+      },
+      "fault-red": {
+        "role": "semantic",
+        "displayName": "Fault Red",
+        "canonical": "oklch(58% 0.24 27)",
+        "tonalRamp": [
+          "oklch(15% 0.08 27)",
+          "oklch(25% 0.12 27)",
+          "oklch(35% 0.16 27)",
+          "oklch(46% 0.20 27)",
+          "oklch(58% 0.24 27)",
+          "oklch(68% 0.20 27)",
+          "oklch(80% 0.14 27)",
+          "oklch(92% 0.06 27)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles and hero headings. Channel names in the hero header banner." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings. 'All Videos,' 'Playlists,' settings group titles." },
+      "title": { "displayName": "Title", "purpose": "Card headings, table group labels, modal titles." },
+      "body": { "displayName": "Body", "purpose": "Default text. Table cells, descriptions, form help text. Max line length: 65ch." },
+      "label": { "displayName": "Label", "purpose": "Table column headers, metadata labels, badge text. Uppercase with tracking." }
+    },
+    "shadows": [
+      {
+        "name": "ambient-overlay",
+        "value": "0 4px 24px oklch(0% 0 0 / 0.12)",
+        "purpose": "Reserved for floating overlays (dropdowns, tooltips, modals). Never for static elements."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-state",
+        "value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        "purpose": "Default easing for hover/focus state transitions. 150ms duration."
+      },
+      {
+        "name": "ease-progress",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Progress bar fill transitions. 300ms duration."
+      }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid Signal Red button for primary actions. Used for destructive-weight actions and primary submission.",
+      "html": "<button class=\"ds-btn-primary\">Queue Download</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; background: oklch(57% 0.24 27.33); color: oklch(96% 0.002 286.375); padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 0.5rem; cursor: pointer; transition: background 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94); } .ds-btn-primary:hover { background: oklch(52% 0.22 27.33); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(57% 0.24 27.33 / 0.5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Soft Button",
+      "kind": "button",
+      "refersTo": "button-soft",
+      "description": "Tinted background button for secondary CTAs and contextual actions. Default when no variant is specified.",
+      "html": "<button class=\"ds-btn-soft\">Add Channel</button>",
+      "css": ".ds-btn-soft { display: inline-flex; align-items: center; gap: 0.5rem; background: oklch(57% 0.24 27.33 / 0.15); color: oklch(57% 0.24 27.33); padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 0.5rem; cursor: pointer; transition: background 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94); } .ds-btn-soft:hover { background: oklch(57% 0.24 27.33 / 0.25); } .ds-btn-soft:focus-visible { outline: 2px solid oklch(57% 0.24 27.33 / 0.5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Transparent background button for table row actions and toolbar controls. Icon-only or text.",
+      "html": "<button class=\"ds-btn-ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" width=\"16\" height=\"16\"><path d=\"M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z\"/></svg></button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; background: transparent; color: oklch(96% 0.002 286.375); padding: 0.375rem; font-size: 0.875rem; border: none; border-radius: 0.5rem; cursor: pointer; transition: background 0.15s; } .ds-btn-ghost:hover { background: oklch(92% 0.004 286.32 / 0.6); } .ds-btn-ghost:focus-visible { outline: 2px solid oklch(57% 0.24 27.33 / 0.5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badge: Downloaded",
+      "kind": "chip",
+      "refersTo": "badge-success",
+      "description": "Pill badge indicating a video has been downloaded. Icon + text, never color alone.",
+      "html": "<span class=\"ds-badge-success\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" width=\"14\" height=\"14\"><path fill-rule=\"evenodd\" d=\"M16.403 12.652a3 3 0 0 0 0-5.304 3 3 0 0 0-3.75-3.751 3 3 0 0 0-5.305 0 3 3 0 0 0-3.751 3.75 3 3 0 0 0 0 5.305 3 3 0 0 0 3.75 3.751 3 3 0 0 0 5.305 0 3 3 0 0 0 3.751-3.75Zm-2.546-4.46a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z\" clip-rule=\"evenodd\"/></svg> Downloaded</span>",
+      "css": ".ds-badge-success { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: oklch(64% 0.15 160 / 0.15); color: oklch(64% 0.15 160); }"
+    },
+    {
+      "name": "Status Badge: Queued",
+      "kind": "chip",
+      "refersTo": "badge-info",
+      "description": "Pill badge indicating a video is queued for download.",
+      "html": "<span class=\"ds-badge-info\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" width=\"14\" height=\"14\"><path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z\" clip-rule=\"evenodd\"/></svg> Queued</span>",
+      "css": ".ds-badge-info { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: oklch(62% 0.19 240 / 0.15); color: oklch(62% 0.19 240); }"
+    },
+    {
+      "name": "Status Badge: Downloading",
+      "kind": "chip",
+      "refersTo": "badge-warning",
+      "description": "Pill badge indicating active download. Icon animates unless prefers-reduced-motion is set.",
+      "html": "<span class=\"ds-badge-warning\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" width=\"14\" height=\"14\" class=\"ds-spin\"><path fill-rule=\"evenodd\" d=\"M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H4.28a.75.75 0 0 0-.75.75v3.955a.75.75 0 0 0 1.5 0v-2.064l.443.443a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.401Zm1.06-7.753a.75.75 0 0 0-1.5 0v2.064l-.443-.443a7 7 0 0 0-11.712 3.138.75.75 0 0 0 1.449.401 5.5 5.5 0 0 1 9.201-2.466l.312.311H11.25a.75.75 0 0 0 0 1.5h3.955a.75.75 0 0 0 .75-.75V3.671Z\" clip-rule=\"evenodd\"/></svg> Downloading</span>",
+      "css": ".ds-badge-warning { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: oklch(72% 0.17 70 / 0.15); color: oklch(72% 0.17 70); } @keyframes ds-spin { to { transform: rotate(360deg); } } .ds-spin { animation: ds-spin 1s linear infinite; } @media (prefers-reduced-motion: reduce) { .ds-spin { animation: none; } }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Standard text input with border stroke and focus ring. Used across all forms.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-label\">Channel URL</label><input type=\"text\" class=\"ds-input\" placeholder=\"https://youtube.com/@channel\" /></div>",
+      "css": ".ds-field { margin-bottom: 0.5rem; } .ds-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; color: oklch(96% 0.002 286.375); } .ds-input { width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; color: oklch(96% 0.002 286.375); background: transparent; border: 1px solid oklch(14.5% 0.004 285.885); border-radius: 0.5rem; transition: border-color 0.15s; } .ds-input::placeholder { color: oklch(96% 0.002 286.375 / 0.4); } .ds-input:focus { outline: none; border-color: oklch(57% 0.24 27.33); box-shadow: 0 0 0 2px oklch(57% 0.24 27.33 / 0.2); }"
+    },
+    {
+      "name": "Data Pill",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Full-radius pill button/link used for variant-colored data actions. Supports all semantic color variants.",
+      "html": "<button class=\"ds-data-pill\">Monitored</button>",
+      "css": ".ds-data-pill { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 500; border: 1px solid oklch(57% 0.24 27.33); background: oklch(57% 0.24 27.33); color: oklch(96% 0.002 286.375); border-radius: 9999px; cursor: pointer; transition: all 0.2s; } .ds-data-pill:hover { background: oklch(52% 0.22 27.33); border-color: oklch(52% 0.22 27.33); } .ds-data-pill:focus-visible { outline: 2px solid oklch(57% 0.24 27.33 / 0.5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar navigation link with icon. Active state uses Signal Red tint background.",
+      "html": "<a class=\"ds-nav-item\" href=\"#\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" width=\"16\" height=\"16\"><path d=\"M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 1.5 1.5h1a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16.5 2h-1ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 9.5 18h1a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 10.5 6h-1ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 3.5 18h1A1.5 1.5 0 0 0 6 16.5v-5A1.5 1.5 0 0 0 4.5 10h-1Z\"/></svg> Dashboard</a>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; color: oklch(96% 0.002 286.375); text-decoration: none; border-radius: 0.5rem; transition: background 0.15s; } .ds-nav-item:hover { background: oklch(14.5% 0.004 285.885 / 0.6); } .ds-nav-item--active { background: oklch(57% 0.24 27.33 / 0.1); color: oklch(57% 0.24 27.33); font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Control Room",
+    "overview": "Ytdarr is an operations console for your media pipeline. The interface is a focused instrument panel: every element communicates system state, every control is within reach, and nothing decorates for decoration's sake. The design philosophy descends from broadcast control rooms and industrial monitoring: information density earned through clear hierarchy, not crammed in through small fonts.\n\nThe system is flat, fast, and honest. Surface tone establishes depth. Signal Red marks what needs attention. The rest stays quiet. When a user opens Ytdarr, they should know the health of their pipeline in under two seconds without reading a word.\n\nThis system explicitly rejects YouTube's engagement-driven density, Sonarr's raw utilitarian default, and generic SaaS dashboard templates with hero metric cards and gradient accents. Ytdarr borrows the *arr mental model (channels as series, videos as episodes) but executes it with its own visual voice: tighter, darker, more purposeful.",
+    "keyCharacteristics": [
+      "State-first hierarchy. Status badges, progress bars, and queue counts are the loudest elements. Chrome recedes.",
+      "Tactile controls. Buttons, toggles, and actions feel like physical switches. Immediate, confident feedback.",
+      "Tonal depth. No shadows. Surface layers are distinguished by luminance steps (base-100 → base-200 → base-300).",
+      "Operational red. Signal Red is reserved for primary actions and active states. Its rarity on any given screen is the point.",
+      "Density without clutter. Tables and lists show enough to decide without drilling down, but whitespace rhythm prevents wall-of-text fatigue."
+    ],
+    "rules": [
+      { "name": "The Signal Scarcity Rule", "body": "Signal Red appears on no more than 10% of any screen's surface area. Its power comes from rarity. If a screen feels 'too red,' something is using Signal Red decoratively instead of operationally.", "section": "colors" },
+      { "name": "The No Pure Black, No Pure White Rule", "body": "Every neutral is tinted toward the blue-gray hue family (285°). #000 and #fff are prohibited. The darkest surface is oklch(14.5% 0.004 285.885); the lightest is oklch(99% 0 0).", "section": "colors" },
+      { "name": "The 14px Floor Rule", "body": "Body text never drops below 0.875rem (14px). Label text at 0.75rem (12px) is reserved for secondary metadata and table headers only. Nothing smaller exists in the system.", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "Surfaces are flat. Tonal steps (base-100/200/300) create depth. Shadows appear only for floating overlays (dropdowns, tooltips, modals) and never for cards, panels, or sections.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Signal Red only for primary actions and active states. Its scarcity is intentional.",
+      "Do communicate status through icon + text together. A color-blind user should understand every state.",
+      "Do use the three-tier tonal system (base-100/200/300) for spatial hierarchy instead of shadows.",
+      "Do respect prefers-reduced-motion by disabling all CSS animations and transitions.",
+      "Do maintain WCAG AA contrast ratios in both themes. Test each semantic color against its content pair.",
+      "Do use daisyUI semantic classes (btn-primary, alert-info, badge) as the component foundation.",
+      "Do keep tables dense but readable. Label-scale headers, body-scale cells, generous horizontal padding."
+    ],
+    "donts": [
+      "Don't use Signal Red decoratively. No red gradients, no red borders as accents, no red backgrounds larger than a button.",
+      "Don't build hero metric dashboards with big numbers, small labels, and gradient cards.",
+      "Don't use border-left or border-right greater than 1px as a colored accent stripe on cards or list items.",
+      "Don't use gradient text (background-clip: text with gradient).",
+      "Don't use identical card grids with icon + heading + text repeated in a row.",
+      "Don't clone YouTube's layout patterns. No recommendation carousels, no engagement feeds, no autoplay UI.",
+      "Don't clone Sonarr's visual treatment verbatim. Ytdarr borrows the mental model, not the stylesheet.",
+      "Don't use modals as the first design impulse. Inline editing, expandable rows, and slide-over panels should be exhausted first.",
+      "Don't animate CSS layout properties (width, height, top, left). Use transform and opacity only.",
+      "Don't use glassmorphism decoratively. Reserve for rare, justified overlays.",
+      "Don't use pure #000 or #fff. Every surface has a faint blue-gray tint."
+    ]
+  }
+}
