@@ -47,10 +47,31 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
+  # Grab all allowed hosts and split them into a list
+  allowed_hosts =
+    case System.get_env("ALLOWED_HOSTS") do
+      nil ->
+        ["//#{host}"]
+
+      hosts ->
+        hosts
+        |> String.split(",")
+        |> Enum.map(fn h ->
+          h = String.trim(h)
+
+          if String.starts_with?(h, "//") do
+            h
+          else
+            "//#{h}"
+          end
+        end)
+    end
+
   config :ytdarr, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :ytdarr, YtdarrWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
+    check_origin: allowed_hosts,
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.

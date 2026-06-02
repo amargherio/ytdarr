@@ -1,0 +1,18 @@
+[Unit]
+Description=Ytdarr container instance
+Documentation=https://github.com/amargherio/ytdarr
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/amargherio/ytdarr:latest
+Network=host
+Volume=/var/lib/homeassistant:/config:Z
+Environment=TZ=America/Chicago
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target default.target

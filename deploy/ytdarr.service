@@ -1,0 +1,17 @@
+[Unit]
+Description=YouTube video downloader
+After=network.target
+
+[Service]
+Type=exec
+User=ytdarr
+Group=ytdarr
+WorkingDirectory=/opt/ytdarr
+EnvironmentFile=/opt/ytdarr/.env
+ExecStart=/opt/armory/bin/armory start
+ExecStop=/opt/armory/bin/armory stop
+Restart=on-failure
+RestartSec=5
+
+[Install]
+Wanted-By=multi-user.target
