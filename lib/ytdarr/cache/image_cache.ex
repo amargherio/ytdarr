@@ -1,4 +1,19 @@
 defmodule Ytdarr.Cache.ImageCache do
+  use Nebulex.Cache,
+    otp_app: :ytdarr,
+    adapter: Nebulex.Adapters.Local
+
+  require Logger
+
+  @cache_name :image_cache
+  @type_config %{
+    "avatar" => :avatar_url,
+    "banner" => :banner_url
+  }
+end
+
+
+defmodule Ytdarr.Cache.ImageCache do
   @moduledoc """
   Two-tier image cache for channel avatars and banners.
 

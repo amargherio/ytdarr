@@ -90,10 +90,13 @@ defmodule Ytdarr.MixProject do
       {:bandit, "~> 1.5"},
       {:oban, "~> 2.20"},
       {:oban_web, "~> 2.11"},
-      {:cachex, "~> 4.0"},
       {:igniter, "~> 0.5", only: [:dev]},
       {:ecto_sqlite3_extras, "~> 1.2.0"},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:nebulex, "~> 3.0"},
+      {:nebulex_local, "~> 3.0"},
+      {:decorator, "~> 1.4"},
+      {:telemetry, "~> 1.0"}
     ]
   end
 

@@ -21,7 +21,7 @@ defmodule Ytdarr.Content.Channel.Changes.CleanupOnDestroy do
         end
       end
 
-      Ytdarr.Cache.ImageCache.evict(result.id)
+      Ytdarr.Cache.ImageCache.delete(result.id)
 
       {:ok, result}
     end)
