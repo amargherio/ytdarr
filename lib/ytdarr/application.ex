@@ -5,8 +5,6 @@ defmodule Ytdarr.Application do
 
   use Application
 
-  require Cachex.Spec
-
   @impl true
   def start(_type, _args) do
     # Attach Oban telemetry logger (this is not a child spec, just setup)

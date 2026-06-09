@@ -5,7 +5,7 @@ defmodule Ytdarr.Cache.ImageCacheTest do
 
   alias Ytdarr.Cache.ImageCache
 
-  test "get/2 fetches cache misses remotely and serves later hits from memory" do
+  test "get_image/2 fetches cache misses remotely and serves later hits from memory" do
     {base_url, state_pid} =
       start_image_server(%{
         body: "avatar-v1",
@@ -16,17 +16,17 @@ defmodule Ytdarr.Cache.ImageCacheTest do
 
     channel = build_channel("memory-hit", base_url)
 
-    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get(channel, "avatar")
+    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get_image(channel, "avatar")
     assert Agent.get(state_pid, & &1.requests) == 1
     assert File.exists?(Path.join(channel.base_path, "avatar.png"))
 
     Agent.update(state_pid, &Map.merge(&1, %{body: "avatar-v2", etag: "etag-v2"}))
 
-    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get(channel, "avatar")
+    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get_image(channel, "avatar")
     assert Agent.get(state_pid, & &1.requests) == 1
   end
 
-  test "evict/1 clears the in-memory entry and falls back to disk" do
+  test "delete_entry/2 clears the in-memory entry and falls back to disk" do
     {base_url, state_pid} =
       start_image_server(%{
         body: "avatar-v1",
@@ -37,17 +37,17 @@ defmodule Ytdarr.Cache.ImageCacheTest do
 
     channel = build_channel("disk-hit", base_url)
 
-    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get(channel, "avatar")
+    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get_image(channel, "avatar")
     assert Agent.get(state_pid, & &1.requests) == 1
 
-    assert :ok = ImageCache.evict(channel.id)
+    assert :ok = ImageCache.delete_entry(channel, "avatar")
     Agent.update(state_pid, &Map.merge(&1, %{body: "avatar-v2", etag: "etag-v2"}))
 
-    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get(channel, "avatar")
+    assert {:ok, "avatar-v1", "image/png"} = ImageCache.get_image(channel, "avatar")
     assert Agent.get(state_pid, & &1.requests) == 1
 
     assert {:ok, {"avatar-v1", "image/png"}} =
-             Cachex.get(:image_cache, cache_key(channel.id, "avatar"))
+             ImageCache.fetch(cache_key(channel.id, "avatar"))
   end
 
   test "refresh/2 updates cached content and honors not-modified responses" do
@@ -64,18 +64,18 @@ defmodule Ytdarr.Cache.ImageCacheTest do
     assert :refreshed = ImageCache.refresh(channel, "avatar")
     assert Agent.get(state_pid, & &1.requests) == 1
 
-    assert :ok = ImageCache.evict(channel.id)
+    assert :ok = ImageCache.delete_entry(channel, "avatar")
     assert :not_modified = ImageCache.refresh(channel, "avatar")
     assert Agent.get(state_pid, & &1.requests) == 2
 
     assert {:ok, {"avatar-v1", "image/png"}} =
-             Cachex.get(:image_cache, cache_key(channel.id, "avatar"))
+             ImageCache.fetch(cache_key(channel.id, "avatar"))
   end
 
-  test "get/2 returns an error when no remote URL is configured" do
+  test "get_image/2 returns an error when no remote URL is configured" do
     channel = %{build_channel("missing-url", "http://127.0.0.1:1") | avatar_url: nil}
 
-    assert {:error, :no_url} = ImageCache.get(channel, "avatar")
+    assert {:error, :no_url} = ImageCache.get_image(channel, "avatar")
   end
 
   defp build_channel(prefix, base_url) do
@@ -84,8 +84,8 @@ defmodule Ytdarr.Cache.ImageCacheTest do
     on_exit(fn -> File.rm_rf(cache_root) end)
 
     channel = channel_fixture()
-    ImageCache.evict(channel.id)
-    on_exit(fn -> ImageCache.evict(channel.id) end)
+    ImageCache.delete_all()
+    on_exit(fn -> ImageCache.delete_all() end)
 
     %{
       channel

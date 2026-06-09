@@ -10,7 +10,7 @@ defmodule YtdarrWeb.ImageController do
       when type in @valid_types do
     case Content.get_channel(channel_id) do
       {:ok, channel} ->
-        case ImageCache.get(channel, type) do
+        case ImageCache.get_image(channel, type) do
           {:ok, data, content_type} ->
             conn
             |> put_resp_content_type(content_type, nil)
