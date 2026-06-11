@@ -53,7 +53,14 @@ defmodule Ytdarr.Services.YouTube.QuotaTrackerTest do
   end
 
   test "resets quota when the scheduled rollover check sees a stale day" do
-    stale_date = Date.add(Date.utc_today(), -1)
+    utc_now = DateTime.utc_now()
+    pt_offset_hours = -8
+
+    utc_now
+    |> DateTime.add(pt_offset_hours * 3600, :second)
+    |> DateTime.to_date()
+
+    stale_date = Date.add(utc_now, -1)
 
     :sys.replace_state(QuotaTracker, fn state ->
       %{state | used: 250, reset_date: stale_date}

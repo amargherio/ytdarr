@@ -630,7 +630,7 @@ defmodule Ytdarr.Services.YouTube.Client do
     if channel_ids == [] do
       {:ok, %{}}
     else
-      results =
+      {results_map, errors} =
         channel_ids
         |> Task.async_stream(
           fn channel_id ->
@@ -643,25 +643,23 @@ defmodule Ytdarr.Services.YouTube.Client do
           max_concurrency: 5,
           timeout: :timer.seconds(30)
         )
-        |> Enum.reduce({%{}, []}, fn result, {acc_map, acc_errors} ->
-          case result do
-            {:ok, {:ok, channel_id, videos}} ->
+        |> Enum.reduce({%{}, []}, fn
+            {:ok, {:channel_ok, channel_id, videos}}, {acc_map, acc_errors} ->
               {Map.put(acc_map, channel_id, videos), acc_errors}
 
-            {:ok, {:partial, channel_id, videos}} ->
+            {:ok, {:channel_partial, channel_id, videos}}, {acc_map, acc_errors} ->
               {Map.put(acc_map, channel_id, videos), acc_errors}
 
-            {:ok, {:error, channel_id, reason}} ->
+            {:ok, {:channel_error, channel_id, reason}}, {acc_map, acc_errors} ->
               {acc_map, acc_errors ++ [{:channel_check, channel_id, reason}]}
 
-            {:exit, reason} ->
+            {:exit, reason}, {acc_map, acc_errors} ->
               {acc_map, acc_errors ++ [{:task_exit, reason}]}
-          end
-        end)
+          end)
 
-      case results do
-        {results_map, []} -> {:ok, results_map}
-        {results_map, errors} -> {:partial, results_map, errors}
+      case errors do
+        [] -> {:ok, results_map}
+        _ -> {:partial, results_map, errors}
       end
     end
   end
