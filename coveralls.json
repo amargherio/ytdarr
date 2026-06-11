@@ -1,0 +1,41 @@
+{
+  "skip_files": [
+    "lib/ytdarr/application.ex",
+    "lib/ytdarr/mailer.ex",
+    "lib/ytdarr/accounts/user/senders/",
+    "lib/ytdarr_web/telemetry.ex",
+    "lib/ytdarr_web/endpoint.ex",
+    "lib/ytdarr_web/gettext.ex",
+    "lib/ytdarr_web/controllers/error_html.ex",
+    "lib/ytdarr_web/controllers/error_json.ex",
+    "lib/ytdarr_web/controllers/page_html.ex",
+    "lib/ytdarr_web/components/layouts.ex",
+    "lib/ytdarr_web/auth_overrides.ex",
+    "lib/mix/tasks/",
+    "test/",
+    "deps/"
+  ],
+  "coverage_options": {
+    "treat_no_relevant_lines_as_covered": true,
+    "output_dir": "cover/",
+    "minimum_coverage": 80
+  },
+  "path_thresholds": [
+    { "pattern": "^lib/ytdarr/content(/.*)?\\.ex$", "minimum": 90 },
+    { "pattern": "^lib/ytdarr/settings(/.*)?\\.ex$", "minimum": 90 },
+    { "pattern": "^lib/ytdarr/downloads(/.*)?\\.ex$", "minimum": 85 },
+    { "pattern": "^lib/ytdarr/services/youtube/models(/.*)?\\.ex$", "minimum": 90 },
+    { "pattern": "^lib/ytdarr/services/youtube/parser\\.ex$", "minimum": 90 },
+    { "pattern": "^lib/ytdarr/services/youtube/identifier_parser\\.ex$", "minimum": 90 },
+    { "pattern": "^lib/ytdarr/services/youtube/(api|client|client_supervisor|quota_tracker)\\.ex$", "minimum": 85 },
+    { "pattern": "^lib/ytdarr/oban_workers/.*\\.ex$", "minimum": 85 },
+    { "pattern": "^lib/ytdarr/cache/.*\\.ex$", "minimum": 80 },
+    { "pattern": "^lib/ytdarr/accounts(/.*)?\\.ex$", "minimum": 85 },
+    { "pattern": "^lib/ytdarr/secrets\\.ex$", "minimum": 90 },
+    { "pattern": "^lib/ytdarr_web/controllers/.*\\.ex$", "minimum": 75 },
+    { "pattern": "^lib/ytdarr_web/live_user_auth\\.ex$", "minimum": 75 },
+    { "pattern": "^lib/ytdarr_web/live/.*\\.ex$", "minimum": 70 },
+    { "pattern": "^lib/ytdarr_web/components/.*\\.ex$", "minimum": 70 },
+    { "pattern": "^lib/ytdarr_web/router\\.ex$", "minimum": 70 }
+  ]
+}

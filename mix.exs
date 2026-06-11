@@ -22,30 +22,7 @@ defmodule Ytdarr.MixProject do
         applications: [ytdarr: :permanent],
         steps: [:assemble, :tar]
       ],
-      test_coverage: [
-        summary: [
-          threshold: 80
-        ],
-        ignore_modules: [
-          Ytdarr.Application,
-          Ytdarr.Mailer,
-          Ytdarr.DataCase,
-          Ytdarr.ContentFixtures,
-          Ytdarr.YouTubeMocks,
-          YtdarrWeb.Telemetry,
-          YtdarrWeb.Endpoint,
-          YtdarrWeb.Gettext,
-          YtdarrWeb.ErrorHTML,
-          YtdarrWeb.ErrorJSON,
-          YtdarrWeb.PageHTML,
-          YtdarrWeb.Layouts,
-          YtdarrWeb.AuthOverrides,
-          YtdarrWeb.ConnCase,
-          ~r/^Inspect\./,
-          ~r/Ytdarr\.Accounts\.User\.Senders\./,
-          ~r/\.MixProject$/
-        ]
-      ]
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -61,7 +38,15 @@ defmodule Ytdarr.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [
+        precommit: :test,
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test,
+        "coveralls.github": :test,
+        "coveralls.path_check": :test
+      ]
     ]
   end
 
@@ -117,6 +102,7 @@ defmodule Ytdarr.MixProject do
       {:igniter, "~> 0.5", only: [:dev]},
       {:ecto_sqlite3_extras, "~> 1.2.0"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: :test},
       {:nebulex, "~> 3.0"},
       {:nebulex_local, "~> 3.0"},
       {:decorator, "~> 1.4"},
