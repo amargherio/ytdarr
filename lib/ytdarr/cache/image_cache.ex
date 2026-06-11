@@ -21,6 +21,7 @@ defmodule Ytdarr.Cache.ImageCache do
     case fetch(cache_key) do
       {:ok, {data, content_type}} when is_binary(data) ->
         {:ok, data, content_type}
+
       {:error, %Nebulex.KeyError{}} ->
         # Memory miss — try disk, then remote
         case read_from_disk(channel, type) do
@@ -58,11 +59,11 @@ defmodule Ytdarr.Cache.ImageCache do
   end
 
   @doc """
-  Evict a channel's images from the in-memory cache. This won't delete files from disk if the
+  Evict a channel's image from the in-memory cache. This won't delete files from disk if the
   channel isn't destroyed.
   """
   def delete_entry(channel, type) when type in ~w(avatar banner) do
-    delete!(cache_key(channel.id, type))
+    delete(cache_key(channel.id, type))
     :ok
   end
 

@@ -96,8 +96,8 @@ config :ytdarr, Oban,
   repo: Ytdarr.Repo
 
 # Nebulex
-config :ytdarr, Ytdarr.Cache,
-    gc_interval: :timer.hours(12),
-    max_size: 1_000,
-    allocated_memory: 512_000_000,
-    gc_memory_check_interval: :timer.minutes(1)
+config :ytdarr, Ytdarr.Cache.ImageCache,
+  gc_interval: :timer.hours(12),
+  max_size: 1_000,
+  allocated_memory: 512_000_000,
+  gc_memory_check_interval: :timer.minutes(1)

@@ -52,7 +52,7 @@ gen-secret:
 deploy host user="ytdarr" path="/opt/ytdarr":
     rsync -avP _build/prod/rel/ytdarr/releases/ytdarr-{{app_version}}/ytdarr.tar.gz {{user}}@{{host}}:{{path}}
 
-build-and-deploy:
+build-and-deploy: release
     rsync -avP _build/prod/rel/ytdarr/releases/ytdarr-{{app_version}}/ytdarr.tar.gz user@remote-server:/opt/ytdarr
 
 remote-restart host user="ytdarr" path="/opt/ytdarr":

@@ -41,3 +41,10 @@ config :ytdarr, :enable_youtube_client, false
 
 # Oban
 config :ytdarr, Oban, testing: :manual, engine: Oban.Engines.Lite
+
+# Nebulex
+config :ytdarr, Ytdarr.Cache.ImageCache,
+  gc_interval: :timer.hours(12),
+  max_size: 1_000,
+  allocated_memory: 512_000_000,
+  gc_memory_check_interval: :timer.minutes(1)

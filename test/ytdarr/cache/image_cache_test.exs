@@ -84,8 +84,13 @@ defmodule Ytdarr.Cache.ImageCacheTest do
     on_exit(fn -> File.rm_rf(cache_root) end)
 
     channel = channel_fixture()
-    ImageCache.delete_all()
-    on_exit(fn -> ImageCache.delete_all() end)
+    ImageCache.delete(cache_key(channel.id, "avatar"))
+    ImageCache.delete(cache_key(channel.id, "banner"))
+
+    on_exit(fn ->
+      ImageCache.delete(cache_key(channel.id, "avatar"))
+      ImageCache.delete(cache_key(channel.id, "banner"))
+    end)
 
     %{
       channel
