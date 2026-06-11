@@ -77,6 +77,50 @@ defmodule Ytdarr.Services.YouTube.QuotaTrackerTest do
     refute :sys.get_state(QuotaTracker).reset_date == stale_date
   end
 
+  test "record_usage returns :warning past 80% and :critical past 95%" do
+    usage = QuotaTracker.get_usage()
+    eighty_pct = trunc(usage.limit * 0.81)
+    assert {:warning, _} = QuotaTracker.record_usage(:read, eighty_pct)
+
+    QuotaTracker.reset()
+    ninety_six_pct = trunc(usage.limit * 0.96)
+    assert {:critical, _} = QuotaTracker.record_usage(:read, ninety_six_pct)
+  end
+
+  test "get_cost returns the configured cost per operation" do
+    assert QuotaTracker.get_cost(:read) == 1
+    assert QuotaTracker.get_cost(:search) == 100
+    assert QuotaTracker.get_cost(:write) == 50
+    assert QuotaTracker.get_cost(:upload) == 1_600
+    assert QuotaTracker.get_cost(:thumbnail) == 50
+    # Unknown operations fall back to 1
+    assert QuotaTracker.get_cost(:unknown) == 1
+  end
+
+  test "estimate_batch_cost handles each operation shape" do
+    # :channel_sync = ceil(count/50) + count + count*2
+    assert QuotaTracker.estimate_batch_cost(:channel_sync, 10) == 1 + 10 + 20
+    # :playlist_sync = count*2 + count*2
+    assert QuotaTracker.estimate_batch_cost(:playlist_sync, 5) == 10 + 10
+    # :search uses the per-call search cost
+    assert QuotaTracker.estimate_batch_cost(:search, 3) == 300
+    # Unknown operation falls back to read cost (1) × count
+    assert QuotaTracker.estimate_batch_cost(:unknown_op, 7) == 7
+  end
+
+  test "reset/0 clears used and refreshes reset_date" do
+    QuotaTracker.record_usage(:search)
+    assert QuotaTracker.get_usage().used > 0
+    assert :ok = QuotaTracker.reset()
+    assert QuotaTracker.get_usage().used == 0
+  end
+
+  test "get_usage exposes the configured limit and next reset time" do
+    usage = QuotaTracker.get_usage()
+    assert usage.limit > 0
+    assert %DateTime{} = usage.reset_at
+  end
+
   defp delete_setting(key) do
     case Settings.delete_setting(key) do
       :ok -> :ok
