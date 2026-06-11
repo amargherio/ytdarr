@@ -105,6 +105,34 @@ defmodule Ytdarr.Services.YouTube.ModelsTest do
       assert channel.video_count == 100
       assert channel.view_count == 1_000_000
     end
+
+    test "accepts integer statistics already parsed" do
+      item = %{
+        "id" => "UCIntStats",
+        "snippet" => %{"title" => "Int Stats", "thumbnails" => %{}},
+        "statistics" => %{
+          "subscriberCount" => 7_500,
+          "videoCount" => 12,
+          "viewCount" => 999_999
+        }
+      }
+
+      channel = Models.Channel.from_api(item)
+      assert channel.subscriber_count == 7_500
+      assert channel.video_count == 12
+      assert channel.view_count == 999_999
+    end
+
+    test "parses search-result id format with channelId" do
+      item = %{
+        "id" => %{"channelId" => "UCSearchHit"},
+        "snippet" => %{"title" => "Search Hit", "thumbnails" => %{}}
+      }
+
+      channel = Models.Channel.from_api(item)
+      assert channel.id == "UCSearchHit"
+      assert channel.title == "Search Hit"
+    end
   end
 
   describe "Video.from_api/1" do
@@ -196,6 +224,22 @@ defmodule Ytdarr.Services.YouTube.ModelsTest do
       playlist = Models.Playlist.from_api(playlist_data)
       assert playlist.video_count == nil
     end
+
+    test "parses search-result id format with playlistId" do
+      playlist_data = %{
+        "id" => %{"playlistId" => "PLSearchHit"},
+        "snippet" => %{
+          "title" => "Playlist Search Hit",
+          "channelId" => "UCSearchOwner",
+          "thumbnails" => %{}
+        }
+      }
+
+      playlist = Models.Playlist.from_api(playlist_data)
+      assert playlist.id == "PLSearchHit"
+      assert playlist.title == "Playlist Search Hit"
+      assert playlist.url == "https://www.youtube.com/playlist?list=PLSearchHit"
+    end
   end
 
   describe "PlaylistItem.from_api/1" do
@@ -217,6 +261,24 @@ defmodule Ytdarr.Services.YouTube.ModelsTest do
     test "returns nil for invalid data" do
       assert Models.PlaylistItem.from_api(%{}) == nil
       assert Models.PlaylistItem.from_api("invalid") == nil
+    end
+
+    test "yields a nil url when neither resourceId nor contentDetails.videoId is present" do
+      data = %{
+        "id" => "PLITEM-NOVID",
+        "snippet" => %{
+          "title" => "Orphan Item",
+          "playlistId" => "PLHost",
+          "channelId" => "UCHost",
+          "position" => 3,
+          "thumbnails" => %{}
+        }
+      }
+
+      item = Models.PlaylistItem.from_api(data)
+      assert item.video_id == nil
+      assert item.url == nil
+      assert item.position == 3
     end
   end
 
@@ -298,6 +360,17 @@ defmodule Ytdarr.Services.YouTube.ModelsTest do
         "webpage_url" => "https://example.com",
         "title" => "No Formats",
         "formats" => []
+      }
+
+      info = Models.DownloadInfo.from_json(data)
+      assert info.formats == []
+      assert info.file_size == nil
+    end
+
+    test "handles missing formats key" do
+      data = %{
+        "webpage_url" => "https://example.com",
+        "title" => "Missing Formats"
       }
 
       info = Models.DownloadInfo.from_json(data)

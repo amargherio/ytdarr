@@ -6,10 +6,11 @@ defmodule Ytdarr.Cache.ImageCache do
   Images are stored on disk alongside channel content in base_path,
   with a metadata sidecar file tracking content type and ETag.
   """
+  use Nebulex.Cache,
+    otp_app: :ytdarr,
+    adapter: Nebulex.Adapters.Local
 
   require Logger
-
-  @cache_name :image_cache
 
   @type_config %{
     "avatar" => :avatar_url,
@@ -21,24 +22,31 @@ defmodule Ytdarr.Cache.ImageCache do
 
   Returns `{:ok, binary, content_type}` or `{:error, reason}`.
   """
-  def get(channel, type) when type in ~w(avatar banner) do
+  def get_image(channel, type) when type in ~w(avatar banner) do
     cache_key = cache_key(channel.id, type)
 
-    case Cachex.get(@cache_name, cache_key) do
+    case fetch(cache_key) do
       {:ok, {data, content_type}} when is_binary(data) ->
         {:ok, data, content_type}
 
-      _ ->
+      {:error, %Nebulex.KeyError{}} ->
         # Memory miss — try disk, then remote
         case read_from_disk(channel, type) do
           {:ok, data, content_type} ->
-            Cachex.put(@cache_name, cache_key, {data, content_type})
+            put(cache_key, {data, content_type})
             {:ok, data, content_type}
 
           :miss ->
             remote_url = Map.get(channel, @type_config[type])
             fetch_and_store(channel, type, remote_url)
         end
+
+      {:error, reason} ->
+        Logger.warning(
+          "ImageCache: error fetching #{type} for channel #{channel.id}: #{inspect(reason)}"
+        )
+
+        {:error, reason}
     end
   end
 
@@ -58,12 +66,11 @@ defmodule Ytdarr.Cache.ImageCache do
   end
 
   @doc """
-  Evict a channel's images from the in-memory cache.
-  Disk files are retained.
+  Evict a channel's image from the in-memory cache. This won't delete files from disk if the
+  channel isn't destroyed.
   """
-  def evict(channel_id) do
-    Cachex.del(@cache_name, cache_key(channel_id, "avatar"))
-    Cachex.del(@cache_name, cache_key(channel_id, "banner"))
+  def delete_entry(channel, type) when type in ~w(avatar banner) do
+    delete(cache_key(channel.id, type))
     :ok
   end
 
@@ -83,7 +90,7 @@ defmodule Ytdarr.Cache.ImageCache do
 
         case read_from_disk(channel, type) do
           {:ok, data, content_type} ->
-            Cachex.put(@cache_name, cache_key, {data, content_type})
+            put(cache_key, {data, content_type})
 
           :miss ->
             :ok
@@ -105,7 +112,7 @@ defmodule Ytdarr.Cache.ImageCache do
         })
 
         cache_key = cache_key(channel.id, type)
-        Cachex.put(@cache_name, cache_key, {body, content_type})
+        put(cache_key, {body, content_type})
 
         Logger.debug("ImageCache: refreshed #{type} for channel #{channel.id}")
         :refreshed
@@ -139,7 +146,7 @@ defmodule Ytdarr.Cache.ImageCache do
         write_meta(channel, type, %{"content_type" => content_type, "etag" => etag, "ext" => ext})
 
         cache_key = cache_key(channel.id, type)
-        Cachex.put(@cache_name, cache_key, {body, content_type})
+        put(cache_key, {body, content_type})
 
         Logger.debug("ImageCache: fetched #{type} for channel #{channel.id}")
         {:ok, body, content_type}

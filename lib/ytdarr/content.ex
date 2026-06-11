@@ -181,8 +181,8 @@ defmodule Ytdarr.Content do
   @doc """
   Search for channels via YouTube API and check monitoring status.
   """
-  def search_for_channels(query) do
-    case Client.search_channels(query) do
+  def search_for_channels(query, opts \\ []) do
+    case Client.search_channels(query, opts) do
       {:ok, channels} ->
         enriched_channels =
           Enum.map(channels, fn channel ->
@@ -208,7 +208,7 @@ defmodule Ytdarr.Content do
   Search for playlists from monitored channels via YouTube API.
   Fetches playlists for each monitored channel and filters by query string.
   """
-  def search_for_playlists(query) do
+  def search_for_playlists(query, opts \\ []) do
     channels = list_channels!(query: [filter: [is_monitored: true]])
 
     if channels == [] do
@@ -221,7 +221,7 @@ defmodule Ytdarr.Content do
         channels
         |> Task.async_stream(
           fn channel ->
-            case Client.get_channel_playlists(channel.external_id) do
+            case Client.get_channel_playlists(channel.external_id, opts) do
               {:ok, yt_playlists} ->
                 Enum.map(yt_playlists, fn pl ->
                   %{
@@ -292,21 +292,21 @@ defmodule Ytdarr.Content do
   4. Fetch channel playlists from API → upsert each into DB
   5. For each playlist: fetch items, upsert videos, create PlaylistVideo links
   """
-  def sync_channel_content(channel_id) do
+  def sync_channel_content(channel_id, opts \\ []) do
     with {:ok, db_channel} <- get_channel_by_external_id(channel_id),
          true <- not is_nil(db_channel) do
       # Step 1: Refresh channel metadata from API
-      {uploads_playlist_id, db_channel} = sync_channel_metadata(db_channel, channel_id)
+      {uploads_playlist_id, db_channel} = sync_channel_metadata(db_channel, channel_id, opts)
 
       # Step 2: Refresh cached images
       refresh_channel_images(db_channel)
 
       # Step 3: Sync all videos from uploads playlist, building a video detail cache
-      video_cache = sync_uploads(db_channel, uploads_playlist_id)
+      video_cache = sync_uploads(db_channel, uploads_playlist_id, opts)
 
       # Step 4 & 5: Fetch playlists, then for each playlist fetch items and link videos.
       # Reuses video_cache from uploads to avoid re-fetching the same video details.
-      sync_playlists_and_link_videos(db_channel, channel_id, video_cache)
+      sync_playlists_and_link_videos(db_channel, channel_id, video_cache, opts)
 
       {:ok, :synced}
     else
@@ -321,14 +321,16 @@ defmodule Ytdarr.Content do
   Fetches the playlist's video list, upserts video records,
   and creates playlist↔video associations. Does NOT auto-queue downloads.
   """
-  def sync_playlist_content(playlist_id) when is_integer(playlist_id) do
+  def sync_playlist_content(playlist_id, opts \\ [])
+
+  def sync_playlist_content(playlist_id, opts) when is_integer(playlist_id) do
     case get_playlist(playlist_id) do
-      {:ok, playlist} -> sync_playlist_content(playlist)
+      {:ok, playlist} -> sync_playlist_content(playlist, opts)
       {:error, reason} -> {:error, reason}
     end
   end
 
-  def sync_playlist_content(playlist) do
+  def sync_playlist_content(playlist, opts) do
     # Load channel for creating video records
     channel =
       case Ash.load(playlist, :channel) do
@@ -340,7 +342,7 @@ defmodule Ytdarr.Content do
       Logger.error("[Content] Cannot sync playlist #{playlist.id}: no channel found")
       {:error, :channel_not_found}
     else
-      fetch_and_link_playlist_videos(channel, playlist)
+      fetch_and_link_playlist_videos(channel, playlist, %{}, opts)
       {:ok, :synced}
     end
   end
@@ -372,8 +374,8 @@ defmodule Ytdarr.Content do
   # ---------------------------------------------------------------------------
 
   # Step 1: Fetch channel metadata from API and update DB record
-  defp sync_channel_metadata(db_channel, channel_id) do
-    case Client.get_channel(channel_id) do
+  defp sync_channel_metadata(db_channel, channel_id, opts) do
+    case Client.get_channel(channel_id, opts) do
       {:ok, yt_channel} ->
         uploads_playlist_id = yt_channel.uploads_playlist_id
 
@@ -411,11 +413,11 @@ defmodule Ytdarr.Content do
 
   # Step 3: Fetch and upsert all videos from the uploads playlist.
   # Returns a video_cache map (%{video_id => raw_api_data}) for reuse by playlist sync.
-  defp sync_uploads(_db_channel, nil), do: %{}
+  defp sync_uploads(_db_channel, nil, _opts), do: %{}
 
-  defp sync_uploads(db_channel, uploads_playlist_id) do
+  defp sync_uploads(db_channel, uploads_playlist_id, opts) do
     {status, %{videos: entries, video_cache: video_cache}} =
-      Client.get_playlist_items_detailed(uploads_playlist_id)
+      Client.get_playlist_items_detailed(uploads_playlist_id, opts)
 
     if status in [:ok, :partial] do
       Logger.info(
@@ -435,8 +437,8 @@ defmodule Ytdarr.Content do
   # Step 4 & 5: Fetch playlists from API, upsert them, then for each
   # fetch items and create PlaylistVideo join records.
   # Accepts a video_cache from the uploads sync to avoid redundant video detail fetches.
-  defp sync_playlists_and_link_videos(db_channel, channel_id, video_cache) do
-    case Client.get_channel_playlists(channel_id) do
+  defp sync_playlists_and_link_videos(db_channel, channel_id, video_cache, opts) do
+    case Client.get_channel_playlists(channel_id, opts) do
       {:ok, yt_playlists} ->
         sync_interval = Ytdarr.Settings.get_setting_value(:sync_interval_minutes, 60)
 
@@ -454,7 +456,7 @@ defmodule Ytdarr.Content do
                }) do
             {:ok, db_playlist} ->
               if should_fetch_playlist_items?(db_playlist, yt_playlist, sync_interval) do
-                fetch_and_link_playlist_videos(db_channel, db_playlist, acc_cache)
+                fetch_and_link_playlist_videos(db_channel, db_playlist, acc_cache, opts)
               else
                 Logger.debug(
                   "[Content] Skipping playlist item fetch for #{yt_playlist.title} (unchanged)"
@@ -500,9 +502,12 @@ defmodule Ytdarr.Content do
   # Fetch a playlist's items from the API, upsert any new videos, and create PlaylistVideo links.
   # Accepts an optional video_cache to avoid re-fetching video details already known.
   # Returns the updated video_cache.
-  defp fetch_and_link_playlist_videos(db_channel, db_playlist, video_cache \\ %{}) do
+  defp fetch_and_link_playlist_videos(db_channel, db_playlist, video_cache \\ %{}, opts \\ []) do
     {status, %{videos: entries, video_cache: updated_cache}} =
-      Client.get_playlist_items_detailed(db_playlist.external_id, video_cache: video_cache)
+      Client.get_playlist_items_detailed(
+        db_playlist.external_id,
+        Keyword.put(opts, :video_cache, video_cache)
+      )
 
     if status in [:ok, :partial] do
       Logger.info("[Content] Linking #{length(entries)} videos to playlist #{db_playlist.name}")

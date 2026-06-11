@@ -5,7 +5,7 @@ defmodule Ytdarr.MixProject do
     [
       app: :ytdarr,
       version: "0.1.0",
-      elixir: "~> 1.15",
+      elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -21,7 +21,8 @@ defmodule Ytdarr.MixProject do
         overwrite: true,
         applications: [ytdarr: :permanent],
         steps: [:assemble, :tar]
-      ]
+      ],
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -37,7 +38,15 @@ defmodule Ytdarr.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [
+        precommit: :test,
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test,
+        "coveralls.github": :test,
+        "coveralls.path_check": :test
+      ]
     ]
   end
 
@@ -90,10 +99,14 @@ defmodule Ytdarr.MixProject do
       {:bandit, "~> 1.5"},
       {:oban, "~> 2.20"},
       {:oban_web, "~> 2.11"},
-      {:cachex, "~> 4.0"},
       {:igniter, "~> 0.5", only: [:dev]},
       {:ecto_sqlite3_extras, "~> 1.2.0"},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: :test},
+      {:nebulex, "~> 3.0"},
+      {:nebulex_local, "~> 3.0"},
+      {:decorator, "~> 1.4"},
+      {:telemetry, "~> 1.0"}
     ]
   end
 

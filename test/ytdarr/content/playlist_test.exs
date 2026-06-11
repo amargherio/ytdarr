@@ -50,6 +50,46 @@ defmodule Ytdarr.Content.PlaylistTest do
       refute updated_playlist.is_monitored
       assert is_nil(updated_playlist.is_monitored_since)
     end
+
+    test "leaves is_monitored_since untouched when monitor state is unchanged" do
+      playlist = playlist_fixture(%{is_monitored: true})
+      original_since = playlist.is_monitored_since
+
+      assert {:ok, updated} =
+               Content.update_playlist(playlist, %{description: "unchanged monitor"})
+
+      assert updated.is_monitored
+      assert updated.is_monitored_since == original_since
+    end
+  end
+
+  describe "SetDownloadPath" do
+    test "sets download_path from channel base_path and sanitized name on update" do
+      channel = channel_fixture()
+      playlist = playlist_fixture(%{channel_id: channel.id, name: "Initial Name"})
+
+      # Reload with channel association so the change sees it in data
+      {:ok, loaded} = Ash.load(playlist, :channel)
+
+      assert {:ok, updated} = Content.update_playlist(loaded, %{name: "My Cool Playlist! 2025"})
+
+      assert updated.download_path ==
+               Path.join(channel.base_path, "my_cool_playlist_2025")
+    end
+
+    test "leaves download_path nil on initial create (channel not in data yet)" do
+      channel = channel_fixture()
+
+      {:ok, playlist} =
+        Content.create_playlist(channel.id, %{
+          name: "Detached Playlist #{System.unique_integer([:positive])}",
+          external_id: "PLDETACHED#{System.unique_integer([:positive])}",
+          url: "https://www.youtube.com/playlist?list=PLDETACHED",
+          video_count: 0
+        })
+
+      assert is_nil(playlist.download_path)
+    end
   end
 
   describe "toggle_playlist_monitor/1" do

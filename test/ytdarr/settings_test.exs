@@ -46,6 +46,39 @@ defmodule Ytdarr.SettingsTest do
       {:ok, setting} = Settings.get_app_setting_by_key("youtube.primary_api_key")
       assert setting.value == %{"v" => "startup_key"}
     end
+
+    test "get_setting_value returns default when no record and no env override" do
+      System.delete_env("YTDARR_YOUTUBE_API_KEY")
+      assert Settings.get_setting_value("unknown.setting.key", :fallback) == :fallback
+      assert Settings.get_setting_value("unknown.setting.key") == nil
+    end
+
+    test "put_setting infers types correctly" do
+      assert {:ok, %{type: "integer"}} = Settings.put_setting("misc.int_setting", 42)
+      assert Settings.get_setting_value("misc.int_setting") == 42
+
+      assert {:ok, %{type: "boolean"}} = Settings.put_setting("misc.bool_setting", true)
+      assert Settings.get_setting_value("misc.bool_setting") == true
+
+      assert {:ok, %{type: "json"}} =
+               Settings.put_setting("misc.list_setting", [1, 2, 3])
+    end
+
+    test "put_setting passes maps through wrap_value unchanged" do
+      payload = %{"foo" => "bar"}
+      assert {:ok, setting} = Settings.put_setting("misc.map_setting", payload, "json")
+      assert setting.value == payload
+    end
+
+    test "delete_setting removes an existing setting" do
+      {:ok, _} = Settings.put_setting("to.delete", "value")
+      assert :ok = Settings.delete_setting("to.delete")
+      assert Settings.get_setting_value("to.delete") == nil
+    end
+
+    test "delete_setting returns an error for missing key" do
+      assert {:error, %Ash.Error.Invalid{}} = Settings.delete_setting("never.existed")
+    end
   end
 
   describe "quality profiles defaults" do

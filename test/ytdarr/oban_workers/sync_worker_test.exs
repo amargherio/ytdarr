@@ -5,6 +5,13 @@ defmodule Ytdarr.ObanWorkers.SyncWorkerTest do
   import Ytdarr.ContentFixtures
 
   alias Ytdarr.ObanWorkers.SyncWorker
+  alias Ytdarr.Services.YouTube.QuotaTracker
+
+  setup do
+    QuotaTracker.reset()
+    on_exit(fn -> QuotaTracker.reset() end)
+    :ok
+  end
 
   describe "job creation" do
     test "creates and enqueues channel sync jobs" do
@@ -50,6 +57,34 @@ defmodule Ytdarr.ObanWorkers.SyncWorkerTest do
       assert_raise FunctionClauseError, fn ->
         perform_job(SyncWorker, %{"source_type" => "channel"})
       end
+    end
+
+    test "snoozes when quota is insufficient for a channel sync" do
+      channel = channel_fixture()
+      QuotaTracker.record_usage(:read, 10_000)
+
+      assert {:snooze, seconds} =
+               perform_job(SyncWorker, %{
+                 "source_type" => "channel",
+                 "source_id" => channel.id
+               })
+
+      assert is_integer(seconds)
+      assert seconds >= 60
+    end
+
+    test "snoozes when quota is insufficient for a playlist sync" do
+      playlist = playlist_fixture()
+      QuotaTracker.record_usage(:read, 10_000)
+
+      assert {:snooze, seconds} =
+               perform_job(SyncWorker, %{
+                 "source_type" => "playlist",
+                 "source_id" => playlist.id
+               })
+
+      assert is_integer(seconds)
+      assert seconds >= 60
     end
   end
 end

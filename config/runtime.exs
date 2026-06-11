@@ -87,6 +87,23 @@ if config_env() == :prod do
       System.get_env("TOKEN_SIGNING_SECRET") ||
         raise("Missing environment variable `TOKEN_SIGNING_SECRET`!")
 
+  # Oban
+  config :ytdarr, Oban,
+    engine: Oban.Engines.Lite,
+    queues: [
+      video_downloader: 5,
+      sync_worker: 5,
+      batch_sync: 1
+    ],
+    repo: Ytdarr.Repo
+
+  # Nebulex
+  config :ytdarr, Ytdarr.Cache.ImageCache,
+    gc_interval: :timer.hours(12),
+    max_size: 1_000,
+    allocated_memory: 512_000_000,
+    gc_memory_check_interval: :timer.minutes(1)
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

@@ -139,11 +139,9 @@ defmodule YtdarrWeb.DashboardLive.Index do
   end
 
   defp search_monitored_channels_with_videos(query) do
-    like = "%#{query}%"
-
     Content.Channel
     |> Ash.Query.filter(is_monitored == true)
-    |> Ash.Query.filter(contains(name, ^like) or contains(external_id, ^like))
+    |> Ash.Query.filter(contains(name, ^query) or contains(external_id, ^query))
     |> Ash.Query.sort(name: :asc)
     |> Ash.Query.load([:videos])
     |> Ash.read!()

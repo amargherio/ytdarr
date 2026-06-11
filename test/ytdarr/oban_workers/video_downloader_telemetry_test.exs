@@ -68,5 +68,53 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetryTest do
 
       assert VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{}) == :ok
     end
+
+    test "accepts worker passed as a String" do
+      {:ok, channel} =
+        Content.create_channel(%{
+          external_id: "telemetry_string_channel",
+          name: "Telemetry String Channel",
+          url: "https://youtube.com/telemetry_string_channel"
+        })
+
+      {:ok, video} =
+        Content.create_video(channel.id, %{
+          external_id: "telemetry_string_video",
+          title: "Telemetry String Video",
+          url: "https://youtube.com/watch?v=telemetry_string_video",
+          download_state: :downloading
+        })
+
+      meta = %{
+        worker: "Ytdarr.ObanWorkers.VideoDownloader",
+        args: %{"video_id" => video.id},
+        state: :cancelled
+      }
+
+      VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{})
+
+      {:ok, updated_video} = Content.get_video(video.id)
+      assert updated_video.download_state == :available
+    end
+
+    test "ignores non-terminal stop states (e.g. completed)" do
+      meta = %{
+        worker: Ytdarr.ObanWorkers.VideoDownloader,
+        args: %{"video_id" => 1},
+        state: :completed
+      }
+
+      assert VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{}) == :ok
+    end
+
+    test "no-ops when the referenced video does not exist" do
+      meta = %{
+        worker: Ytdarr.ObanWorkers.VideoDownloader,
+        args: %{"video_id" => 999_999_999},
+        state: :cancelled
+      }
+
+      assert VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{}) == :ok
+    end
   end
 end

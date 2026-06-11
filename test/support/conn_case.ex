@@ -27,6 +27,7 @@ defmodule YtdarrWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
+      import Ytdarr.AccountsFixtures
       import YtdarrWeb.ConnCase
     end
   end
@@ -34,5 +35,25 @@ defmodule YtdarrWeb.ConnCase do
   setup tags do
     Ytdarr.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
+  end
+
+  @doc """
+  Initialize the session and store the given user so subsequent requests are
+  authenticated as that user.
+  """
+  def sign_in(conn, user) do
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> AshAuthentication.Plug.Helpers.store_in_session(user)
+  end
+
+  @doc """
+  Setup helper that registers a fresh user and signs them in.
+
+      setup :register_and_sign_in_user
+  """
+  def register_and_sign_in_user(%{conn: conn}) do
+    user = Ytdarr.AccountsFixtures.user_fixture()
+    %{conn: sign_in(conn, user), user: user}
   end
 end

@@ -94,6 +94,75 @@ defmodule YtdarrWeb.QueueLiveTest do
                "Queue"
              )
     end
+
+    test "pubsub download_progress updates the in-memory progress map", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/queue")
+
+      Phoenix.PubSub.broadcast(
+        Ytdarr.PubSub,
+        "downloads",
+        {:download_progress, 1, 42, %{pct: 12.5, speed: "5MiB/s", eta: "00:30"}}
+      )
+
+      # The progress map only updates internal state; render to flush the message
+      assert is_binary(render(view))
+    end
+
+    test "pubsub download_started reloads the queue", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/queue")
+      %{job: job, video: video} = enqueue_download_fixture()
+
+      refute has_element?(view, "#pending-download-#{job.id}")
+
+      Phoenix.PubSub.broadcast(
+        Ytdarr.PubSub,
+        "downloads",
+        {:download_started, job.id, video.id, %{title: video.title, channel_name: "x"}}
+      )
+
+      assert has_element?(view, "#pending-download-#{job.id}")
+    end
+
+    test "pubsub download_failed reloads the queue", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/queue")
+      %{job: job, video: video} = enqueue_download_fixture()
+
+      Phoenix.PubSub.broadcast(
+        Ytdarr.PubSub,
+        "downloads",
+        {:download_failed, job.id, video.id, :reason}
+      )
+
+      assert has_element?(view, "#pending-download-#{job.id}")
+    end
+
+    test "pubsub download_completed reloads the queue", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/queue")
+      %{job: job} = enqueue_download_fixture()
+
+      Phoenix.PubSub.broadcast(
+        Ytdarr.PubSub,
+        "downloads",
+        {:download_completed, job.id, 999}
+      )
+
+      assert has_element?(view, "#pending-download-#{job.id}")
+    end
+
+    test "unknown pubsub messages are ignored gracefully", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/queue")
+      Phoenix.PubSub.broadcast(Ytdarr.PubSub, "downloads", :some_unknown_message)
+      assert is_binary(render(view))
+    end
+
+    test ":poll message reloads the queue", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/queue")
+      %{job: job} = enqueue_download_fixture()
+
+      refute has_element?(view, "#pending-download-#{job.id}")
+      send(view.pid, :poll)
+      assert has_element?(view, "#pending-download-#{job.id}")
+    end
   end
 
   defp enqueue_download_fixture do

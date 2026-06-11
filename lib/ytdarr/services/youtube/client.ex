@@ -43,11 +43,11 @@ defmodule Ytdarr.Services.YouTube.Client do
   Returns `{:ok, channels}`, `{:error, :no_results}`,
   `{:error, :quota_insufficient}`, or `{:error, reason}`.
   """
-  def search_channels(query) do
+  def search_channels(query, opts \\ []) do
     if QuotaTracker.can_afford?(:search) do
       Logger.info("[Client] Executing search (100 quota units): #{inspect(query)}")
 
-      case API.search_channels(query) do
+      case API.search_channels(query, opts) do
         {:ok, api_response} ->
           channels =
             api_response.items
@@ -146,15 +146,15 @@ defmodule Ytdarr.Services.YouTube.Client do
   pagination early once it encounters videos older than the threshold.
   This significantly reduces API calls for channels with many videos.
   """
-  def check_uploads_for_new_videos(channel_id, since_datetime \\ nil) do
+  def check_uploads_for_new_videos(channel_id, since_datetime \\ nil, opts \\ []) do
     uploads_playlist_id = get_uploads_playlist_id(channel_id)
 
     if since_datetime do
       # Use optimized incremental fetch that stops early
-      check_uploads_incremental(uploads_playlist_id, since_datetime)
+      check_uploads_incremental(uploads_playlist_id, since_datetime, opts)
     else
       # Full fetch when no since_datetime provided
-      case get_playlist_items_detailed(uploads_playlist_id) do
+      case get_playlist_items_detailed(uploads_playlist_id, opts) do
         {status, %{videos: playlist_items}} when status in [:ok, :partial] ->
           videos =
             playlist_items
@@ -183,7 +183,7 @@ defmodule Ytdarr.Services.YouTube.Client do
   def check_playlist_for_new_videos(playlist_id, since_datetime, opts \\ []) do
     video_cache = Keyword.get(opts, :video_cache, %{})
 
-    case fetch_playlist_items_until(playlist_id, since_datetime, nil, []) do
+    case fetch_playlist_items_until(playlist_id, since_datetime, nil, [], opts) do
       {:ok, []} ->
         {:ok, []}
 
@@ -200,7 +200,7 @@ defmodule Ytdarr.Services.YouTube.Client do
           if uncached_ids == [] do
             {[], []}
           else
-            fetch_videos_in_batches(uncached_ids)
+            fetch_videos_in_batches(uncached_ids, 50, opts)
           end
 
         cached_videos = Enum.map(cached_ids, &Map.get(video_cache, &1))
@@ -221,8 +221,8 @@ defmodule Ytdarr.Services.YouTube.Client do
   # Optimized incremental check that stops pagination when encountering old items.
   # YouTube returns playlist items in reverse chronological order, so once we
   # see an item older than our threshold, we can stop fetching.
-  defp check_uploads_incremental(playlist_id, since_datetime) do
-    case fetch_playlist_items_until(playlist_id, since_datetime, nil, []) do
+  defp check_uploads_incremental(playlist_id, since_datetime, opts) do
+    case fetch_playlist_items_until(playlist_id, since_datetime, nil, [], opts) do
       {:ok, new_items} ->
         # Fetch full video details for the new items only
         video_ids =
@@ -233,7 +233,7 @@ defmodule Ytdarr.Services.YouTube.Client do
         if video_ids == [] do
           {:ok, []}
         else
-          {videos_data, errors} = fetch_videos_in_batches(video_ids)
+          {videos_data, errors} = fetch_videos_in_batches(video_ids, 50, opts)
           merged = merge_playlist_and_video_data(new_items, videos_data)
 
           videos =
@@ -255,10 +255,11 @@ defmodule Ytdarr.Services.YouTube.Client do
 
   # Fetches playlist items, stopping when we encounter items older than since_datetime.
   # Returns {:ok, items} or {:error, reason}
-  defp fetch_playlist_items_until(playlist_id, since_datetime, page_token, acc_items) do
-    opts = if page_token, do: [page_token: page_token], else: []
+  defp fetch_playlist_items_until(playlist_id, since_datetime, page_token, acc_items, opts) do
+    request_opts =
+      if page_token, do: Keyword.put(opts, :page_token, page_token), else: opts
 
-    case API.get_playlist_items(playlist_id, opts) do
+    case API.get_playlist_items(playlist_id, request_opts) do
       {:ok, response} ->
         items = response.items || []
 
@@ -277,7 +278,8 @@ defmodule Ytdarr.Services.YouTube.Client do
               playlist_id,
               since_datetime,
               response.next_page_token,
-              accumulated
+              accumulated,
+              opts
             )
 
           # No more pages
@@ -348,7 +350,7 @@ defmodule Ytdarr.Services.YouTube.Client do
 
     # Phase 1: Fetch all playlist items with pagination (accumulates errors)
     {playlist_items, playlist_errors} =
-      fetch_all_playlist_items(playlist_id, nil, [], [], max_results)
+      fetch_all_playlist_items(playlist_id, nil, [], [], max_results, opts)
 
     # Phase 2: Extract video IDs, separating cached from uncached
     all_video_ids =
@@ -372,7 +374,7 @@ defmodule Ytdarr.Services.YouTube.Client do
       # Phase 3: Fetch video details only for uncached IDs
       {freshly_fetched, video_errors} =
         if uncached_ids != [] do
-          fetch_videos_in_batches(uncached_ids)
+          fetch_videos_in_batches(uncached_ids, 50, opts)
         else
           {[], []}
         end
@@ -422,10 +424,11 @@ defmodule Ytdarr.Services.YouTube.Client do
   # Recursively fetches all playlist items, following pagination tokens.
   # Accumulates errors instead of failing fast.
   # Returns {items, errors} tuple.
-  defp fetch_all_playlist_items(playlist_id, page_token, acc_items, acc_errors, max_results) do
-    opts = if page_token, do: [page_token: page_token], else: []
+  defp fetch_all_playlist_items(playlist_id, page_token, acc_items, acc_errors, max_results, opts) do
+    request_opts =
+      if page_token, do: Keyword.put(opts, :page_token, page_token), else: opts
 
-    case API.get_playlist_items(playlist_id, opts) do
+    case API.get_playlist_items(playlist_id, request_opts) do
       {:ok, response} ->
         items = response.items || []
         accumulated_items = acc_items ++ items
@@ -442,7 +445,8 @@ defmodule Ytdarr.Services.YouTube.Client do
               response.next_page_token,
               accumulated_items,
               acc_errors,
-              max_results
+              max_results,
+              opts
             )
 
           true ->
@@ -461,12 +465,12 @@ defmodule Ytdarr.Services.YouTube.Client do
   # Fetches video details in batches of 50 (YouTube API limit).
   # Accumulates errors instead of failing fast.
   # Returns {videos, errors} tuple.
-  defp fetch_videos_in_batches(video_ids, batch_size \\ 50) do
+  defp fetch_videos_in_batches(video_ids, batch_size \\ 50, opts \\ []) do
     video_ids
     |> Enum.chunk_every(batch_size)
     |> Enum.with_index()
     |> Enum.reduce({[], []}, fn {batch, batch_index}, {acc_videos, acc_errors} ->
-      case API.get_videos_by_ids(batch) do
+      case API.get_videos_by_ids(batch, opts) do
         {:ok, response} ->
           videos = response.items || []
           {acc_videos ++ videos, acc_errors}
@@ -540,7 +544,7 @@ defmodule Ytdarr.Services.YouTube.Client do
     - `{:partial, [%Channel{}, ...], errors}` on partial failure
     - `{:error, reason}` on complete failure
   """
-  def get_channels_batch(channel_ids) when is_list(channel_ids) do
+  def get_channels_batch(channel_ids, opts \\ []) when is_list(channel_ids) do
     if channel_ids == [] do
       {:ok, []}
     else
@@ -549,7 +553,7 @@ defmodule Ytdarr.Services.YouTube.Client do
         |> Enum.chunk_every(50)
         |> Enum.with_index()
         |> Enum.reduce({[], []}, fn {batch, batch_index}, {acc_channels, acc_errors} ->
-          case API.get_channels_by_ids(batch) do
+          case API.get_channels_by_ids(batch, opts) do
             {:ok, response} ->
               parsed = Enum.map(response.items, &Models.Channel.from_api/1)
               {acc_channels ++ parsed, acc_errors}
@@ -583,7 +587,7 @@ defmodule Ytdarr.Services.YouTube.Client do
     - `{:partial, [%Playlist{}, ...], errors}` on partial failure
     - `{:error, reason}` on complete failure
   """
-  def get_playlists_batch(playlist_ids) when is_list(playlist_ids) do
+  def get_playlists_batch(playlist_ids, opts \\ []) when is_list(playlist_ids) do
     if playlist_ids == [] do
       {:ok, []}
     else
@@ -592,7 +596,7 @@ defmodule Ytdarr.Services.YouTube.Client do
         |> Enum.chunk_every(50)
         |> Enum.with_index()
         |> Enum.reduce({[], []}, fn {batch, batch_index}, {acc_playlists, acc_errors} ->
-          case API.get_playlists_by_ids(batch) do
+          case API.get_playlists_by_ids(batch, opts) do
             {:ok, response} ->
               parsed = Enum.map(response.items, &Models.Playlist.from_api/1)
               {acc_playlists ++ parsed, acc_errors}
@@ -626,15 +630,15 @@ defmodule Ytdarr.Services.YouTube.Client do
     - `{:ok, %{channel_id => [%Video{}, ...]}}` map of channel_id to new videos
     - `{:partial, results, errors}` on partial failure
   """
-  def check_multiple_channels_for_updates(channel_ids, since_datetime \\ nil) do
+  def check_multiple_channels_for_updates(channel_ids, since_datetime \\ nil, opts \\ []) do
     if channel_ids == [] do
       {:ok, %{}}
     else
-      results =
+      {results_map, errors} =
         channel_ids
         |> Task.async_stream(
           fn channel_id ->
-            case check_uploads_for_new_videos(channel_id, since_datetime) do
+            case check_uploads_for_new_videos(channel_id, since_datetime, opts) do
               {:ok, videos} -> {:ok, channel_id, videos}
               {:partial, videos} -> {:partial, channel_id, videos}
               {:error, reason} -> {:error, channel_id, reason}
@@ -643,25 +647,23 @@ defmodule Ytdarr.Services.YouTube.Client do
           max_concurrency: 5,
           timeout: :timer.seconds(30)
         )
-        |> Enum.reduce({%{}, []}, fn result, {acc_map, acc_errors} ->
-          case result do
-            {:ok, {:ok, channel_id, videos}} ->
-              {Map.put(acc_map, channel_id, videos), acc_errors}
+        |> Enum.reduce({%{}, []}, fn
+          {:ok, {:channel_ok, channel_id, videos}}, {acc_map, acc_errors} ->
+            {Map.put(acc_map, channel_id, videos), acc_errors}
 
-            {:ok, {:partial, channel_id, videos}} ->
-              {Map.put(acc_map, channel_id, videos), acc_errors}
+          {:ok, {:channel_partial, channel_id, videos}}, {acc_map, acc_errors} ->
+            {Map.put(acc_map, channel_id, videos), acc_errors}
 
-            {:ok, {:error, channel_id, reason}} ->
-              {acc_map, acc_errors ++ [{:channel_check, channel_id, reason}]}
+          {:ok, {:channel_error, channel_id, reason}}, {acc_map, acc_errors} ->
+            {acc_map, acc_errors ++ [{:channel_check, channel_id, reason}]}
 
-            {:exit, reason} ->
-              {acc_map, acc_errors ++ [{:task_exit, reason}]}
-          end
+          {:exit, reason}, {acc_map, acc_errors} ->
+            {acc_map, acc_errors ++ [{:task_exit, reason}]}
         end)
 
-      case results do
-        {results_map, []} -> {:ok, results_map}
-        {results_map, errors} -> {:partial, results_map, errors}
+      case errors do
+        [] -> {:ok, results_map}
+        _ -> {:partial, results_map, errors}
       end
     end
   end

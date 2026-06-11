@@ -62,6 +62,15 @@ defmodule Ytdarr.Content.ChannelTest do
       refute updated_channel.is_monitored
       assert is_nil(updated_channel.is_monitored_since)
     end
+
+    test "leaves is_monitored_since untouched when neither monitored nor unmonitored transitions" do
+      channel = channel_fixture(%{is_monitored: true})
+      original_since = channel.is_monitored_since
+
+      assert {:ok, updated} = Content.update_channel(channel, %{description: "unchanged monitor"})
+      assert updated.is_monitored
+      assert updated.is_monitored_since == original_since
+    end
   end
 
   describe "toggle_channel_monitor/1" do
@@ -116,6 +125,12 @@ defmodule Ytdarr.Content.ChannelTest do
       result = Content.create_channel(channel_attrs(%{url: "http:/missing-host"}))
 
       assert_invalid_attribute_error(result, :url, "must have a host")
+    end
+
+    test "rejects urls with a non-http(s) scheme" do
+      result = Content.create_channel(channel_attrs(%{url: "ftp://example.com/feed"}))
+
+      assert_invalid_attribute_error(result, :url, "must be a valid http or https URL")
     end
   end
 
