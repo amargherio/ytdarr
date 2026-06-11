@@ -52,13 +52,11 @@ defmodule Ytdarr.Content.SyncChannelContentTest do
         test_client(fn conn ->
           cond do
             String.ends_with?(conn.request_path, "/channels") ->
-              {200,
-               YouTubeMocks.channel_response(channel.external_id, title: "UpdatedName")}
+              {200, YouTubeMocks.channel_response(channel.external_id, title: "UpdatedName")}
 
             String.ends_with?(conn.request_path, "/playlistItems") and
                 conn.query_string =~ "playlistId=#{channel.uploads_playlist_id}" ->
-              {200,
-               YouTubeMocks.playlist_items_response(channel.uploads_playlist_id, [video_id])}
+              {200, YouTubeMocks.playlist_items_response(channel.uploads_playlist_id, [video_id])}
 
             String.ends_with?(conn.request_path, "/playlistItems") and
                 conn.query_string =~ "playlistId=#{playlist_id}" ->
@@ -107,7 +105,9 @@ defmodule Ytdarr.Content.SyncChannelContentTest do
 
     test "returns an error tuple when the channel is not in the database" do
       assert {:error, %Ash.Error.Invalid{}} =
-               Content.sync_channel_content("UC_NEVER_EXISTED_#{System.unique_integer([:positive])}")
+               Content.sync_channel_content(
+                 "UC_NEVER_EXISTED_#{System.unique_integer([:positive])}"
+               )
     end
   end
 

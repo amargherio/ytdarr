@@ -22,6 +22,7 @@ defmodule YtdarrWeb.LiveUserAuthTest do
 
     test "leaves the existing current_user assign in place" do
       user = user_fixture()
+
       assert {:cont, %Socket{} = result} =
                LiveUserAuth.on_mount(:live_user_optional, %{}, %{}, socket(%{current_user: user}))
 
@@ -32,6 +33,7 @@ defmodule YtdarrWeb.LiveUserAuthTest do
   describe ":live_user_required" do
     test "continues when a current_user is present" do
       user = user_fixture()
+
       assert {:cont, %Socket{} = result} =
                LiveUserAuth.on_mount(:live_user_required, %{}, %{}, socket(%{current_user: user}))
 
@@ -56,6 +58,7 @@ defmodule YtdarrWeb.LiveUserAuthTest do
 
     test "halts and redirects to / when a user is present" do
       user = user_fixture()
+
       assert {:halt, %Socket{redirected: redirected}} =
                LiveUserAuth.on_mount(:live_no_user, %{}, %{}, socket(%{current_user: user}))
 

@@ -48,6 +48,7 @@ defmodule Ytdarr.Settings.StartupLoaderTest do
     test "warns and returns :ok when neither database nor env are set" do
       delete_existing_setting()
       assert :ok = StartupLoader.load_youtube_api_key()
+
       assert {:error, %Ash.Error.Invalid{}} =
                Settings.get_app_setting_by_key("youtube.primary_api_key")
     end
@@ -56,6 +57,7 @@ defmodule Ytdarr.Settings.StartupLoaderTest do
       delete_existing_setting()
       System.put_env("YTDARR_YOUTUBE_API_KEY", "")
       assert :ok = StartupLoader.load_youtube_api_key()
+
       assert {:error, %Ash.Error.Invalid{}} =
                Settings.get_app_setting_by_key("youtube.primary_api_key")
     end
