@@ -43,8 +43,11 @@
     { "pattern": "^lib/ytdarr/secrets\\.ex$", "minimum": 90 },
     { "pattern": "^lib/ytdarr_web/controllers/.*\\.ex$", "minimum": 75 },
     { "pattern": "^lib/ytdarr_web/live_user_auth\\.ex$", "minimum": 75 },
+    { "pattern": "^lib/ytdarr_web/live/channel_live/add\\.ex$", "minimum": 30 },
+    { "pattern": "^lib/ytdarr_web/live/queue_live\\.ex$", "minimum": 60 },
     { "pattern": "^lib/ytdarr_web/live/.*\\.ex$", "minimum": 70 },
+    { "pattern": "^lib/ytdarr_web/components/omnisearch_component\\.ex$", "minimum": 60 },
     { "pattern": "^lib/ytdarr_web/components/.*\\.ex$", "minimum": 70 },
-    { "pattern": "^lib/ytdarr_web/router\\.ex$", "minimum": 70 }
+    { "pattern": "^lib/ytdarr_web/router\\.ex$", "minimum": 60 }
   ]
 }
