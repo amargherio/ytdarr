@@ -644,18 +644,18 @@ defmodule Ytdarr.Services.YouTube.Client do
           timeout: :timer.seconds(30)
         )
         |> Enum.reduce({%{}, []}, fn
-            {:ok, {:channel_ok, channel_id, videos}}, {acc_map, acc_errors} ->
-              {Map.put(acc_map, channel_id, videos), acc_errors}
+          {:ok, {:channel_ok, channel_id, videos}}, {acc_map, acc_errors} ->
+            {Map.put(acc_map, channel_id, videos), acc_errors}
 
-            {:ok, {:channel_partial, channel_id, videos}}, {acc_map, acc_errors} ->
-              {Map.put(acc_map, channel_id, videos), acc_errors}
+          {:ok, {:channel_partial, channel_id, videos}}, {acc_map, acc_errors} ->
+            {Map.put(acc_map, channel_id, videos), acc_errors}
 
-            {:ok, {:channel_error, channel_id, reason}}, {acc_map, acc_errors} ->
-              {acc_map, acc_errors ++ [{:channel_check, channel_id, reason}]}
+          {:ok, {:channel_error, channel_id, reason}}, {acc_map, acc_errors} ->
+            {acc_map, acc_errors ++ [{:channel_check, channel_id, reason}]}
 
-            {:exit, reason}, {acc_map, acc_errors} ->
-              {acc_map, acc_errors ++ [{:task_exit, reason}]}
-          end)
+          {:exit, reason}, {acc_map, acc_errors} ->
+            {acc_map, acc_errors ++ [{:task_exit, reason}]}
+        end)
 
       case errors do
         [] -> {:ok, results_map}

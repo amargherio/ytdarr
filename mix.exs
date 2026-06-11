@@ -21,6 +21,30 @@ defmodule Ytdarr.MixProject do
         overwrite: true,
         applications: [ytdarr: :permanent],
         steps: [:assemble, :tar]
+      ],
+      test_coverage: [
+        summary: [
+          threshold: 80
+        ],
+        ignore_modules: [
+          Ytdarr.Application,
+          Ytdarr.Mailer,
+          Ytdarr.DataCase,
+          Ytdarr.ContentFixtures,
+          Ytdarr.YouTubeMocks,
+          YtdarrWeb.Telemetry,
+          YtdarrWeb.Endpoint,
+          YtdarrWeb.Gettext,
+          YtdarrWeb.ErrorHTML,
+          YtdarrWeb.ErrorJSON,
+          YtdarrWeb.PageHTML,
+          YtdarrWeb.Layouts,
+          YtdarrWeb.AuthOverrides,
+          YtdarrWeb.ConnCase,
+          ~r/^Inspect\./,
+          ~r/Ytdarr\.Accounts\.User\.Senders\./,
+          ~r/\.MixProject$/
+        ]
       ]
     ]
   end

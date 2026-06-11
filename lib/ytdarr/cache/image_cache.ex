@@ -1,4 +1,11 @@
 defmodule Ytdarr.Cache.ImageCache do
+  @moduledoc """
+  Two-tier image cache for channel avatars and banners.
+
+  Read-through flow: Cachex (in-memory) → filesystem → remote URL.
+  Images are stored on disk alongside channel content in base_path,
+  with a metadata sidecar file tracking content type and ETag.
+  """
   use Nebulex.Cache,
     otp_app: :ytdarr,
     adapter: Nebulex.Adapters.Local
