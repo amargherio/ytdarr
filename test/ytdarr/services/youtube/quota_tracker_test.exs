@@ -56,11 +56,12 @@ defmodule Ytdarr.Services.YouTube.QuotaTrackerTest do
     utc_now = DateTime.utc_now()
     pt_offset_hours = -8
 
-    utc_now
-    |> DateTime.add(pt_offset_hours * 3600, :second)
-    |> DateTime.to_date()
+    pt_today =
+      utc_now
+      |> DateTime.add(pt_offset_hours * 3600, :second)
+      |> DateTime.to_date()
 
-    stale_date = Date.add(utc_now, -1)
+    stale_date = Date.add(pt_today, -1)
 
     :sys.replace_state(QuotaTracker, fn state ->
       %{state | used: 250, reset_date: stale_date}
