@@ -133,6 +133,46 @@ defmodule YtdarrWeb.ChannelLive.Show do
         </.data_pill>
       </div>
 
+      <%!-- All Videos section --%>
+      <% all_downloaded = Enum.count(@videos, &(&1.download_state == :downloaded)) %>
+      <div class="border border-base-300 bg-base-100 rounded-xl overflow-hidden">
+        <div class="flex items-center gap-3 px-4 py-3">
+          <.icon name="hero-film" class="size-5 text-base-content/50 flex-shrink-0" />
+          <button
+            phx-click="toggle-videos-expand"
+            class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
+          >
+            <span class="font-medium">All Videos</span>
+            <span class="badge badge-sm badge-ghost">{length(@videos)} videos</span>
+          </button>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span class="text-xs text-base-content/50">{all_downloaded}/{length(@videos)}</span>
+            <button
+              title="Delete all video files"
+              phx-click="delete-video-files"
+              class="btn btn-ghost btn-xs btn-square text-error/60 hover:text-error"
+            >
+              <.icon name="hero-trash" class="size-3.5" />
+            </button>
+            <button
+              phx-click="toggle-videos-expand"
+              class="btn btn-ghost btn-xs btn-square"
+            >
+              <.icon
+                name={if(@videos_expanded?, do: "hero-chevron-up", else: "hero-chevron-down")}
+                class="size-4 transition-transform duration-200"
+              />
+            </button>
+          </div>
+        </div>
+        <.progress_bar completed={all_downloaded} total={length(@videos)} class="mx-4" />
+        <%= if @videos_expanded? do %>
+          <div class="px-4 py-3 border-t border-base-200">
+            <.video_table id="all-videos" videos={@videos} channel_id={@channel.id} />
+          </div>
+        <% end %>
+      </div>
+
       <%!-- Playlists (Sonarr season pattern) --%>
       <%= for playlist <- @playlists do %>
         <% downloaded_count = Enum.count(playlist.videos, &(&1.download_state == :downloaded)) %>
@@ -198,46 +238,6 @@ defmodule YtdarrWeb.ChannelLive.Show do
           <% end %>
         </div>
       <% end %>
-
-      <%!-- All Videos section --%>
-      <% all_downloaded = Enum.count(@videos, &(&1.download_state == :downloaded)) %>
-      <div class="border border-base-300 bg-base-100 rounded-xl overflow-hidden">
-        <div class="flex items-center gap-3 px-4 py-3">
-          <.icon name="hero-film" class="size-5 text-base-content/50 flex-shrink-0" />
-          <button
-            phx-click="toggle-videos-expand"
-            class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
-          >
-            <span class="font-medium">All Videos</span>
-            <span class="badge badge-sm badge-ghost">{length(@videos)} videos</span>
-          </button>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <span class="text-xs text-base-content/50">{all_downloaded}/{length(@videos)}</span>
-            <button
-              title="Delete all video files"
-              phx-click="delete-video-files"
-              class="btn btn-ghost btn-xs btn-square text-error/60 hover:text-error"
-            >
-              <.icon name="hero-trash" class="size-3.5" />
-            </button>
-            <button
-              phx-click="toggle-videos-expand"
-              class="btn btn-ghost btn-xs btn-square"
-            >
-              <.icon
-                name={if(@videos_expanded?, do: "hero-chevron-up", else: "hero-chevron-down")}
-                class="size-4 transition-transform duration-200"
-              />
-            </button>
-          </div>
-        </div>
-        <.progress_bar completed={all_downloaded} total={length(@videos)} class="mx-4" />
-        <%= if @videos_expanded? do %>
-          <div class="px-4 py-3 border-t border-base-200">
-            <.video_table id="all-videos" videos={@videos} channel_id={@channel.id} />
-          </div>
-        <% end %>
-      </div>
     </Layouts.app>
     """
   end
@@ -260,7 +260,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
      |> assign(:page_title, channel.name)
      |> assign(:channel, channel)
      |> assign(:playlists, playlists)
-     |> assign(:videos, channel.videos)
+     |> assign(:videos, sort_videos(channel.videos))
      |> assign(:expanded_playlists, MapSet.new())
      |> assign(:all_expanded?, false)
      |> assign(:videos_expanded?, false)
@@ -382,7 +382,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
      socket
      |> assign(:channel, channel)
      |> assign(:playlists, playlists)
-     |> assign(:videos, channel.videos)
+     |> assign(:videos, sort_videos(channel.videos))
      |> put_flash(:info, "Video queued for download.")}
   end
 
@@ -404,7 +404,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
      socket
      |> assign(:channel, channel)
      |> assign(:playlists, playlists)
-     |> assign(:videos, channel.videos)
+     |> assign(:videos, sort_videos(channel.videos))
      |> put_flash(:info, "Video file deleted.")}
   end
 
@@ -442,8 +442,11 @@ defmodule YtdarrWeb.ChannelLive.Show do
   end
 
   defp sort_playlist_videos(playlist) do
-    sorted = Enum.sort_by(playlist.videos, &(&1.upload_date || ~D[1970-01-01]), {:desc, Date})
-    %{playlist | videos: sorted}
+    %{playlist | videos: sort_videos(playlist.videos)}
+  end
+
+  defp sort_videos(videos) do
+    Enum.sort_by(videos, &(&1.upload_date || ~D[1970-01-01]), {:desc, Date})
   end
 
   defp format_datetime(nil), do: "—"

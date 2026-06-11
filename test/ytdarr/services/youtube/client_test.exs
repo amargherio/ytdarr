@@ -188,7 +188,7 @@ defmodule Ytdarr.Services.YouTube.ClientTest do
   end
 
   describe "get_channels_batch/2" do
-    test "returns parsed Models.Channel structs for a list" do
+    test "returns parsed Content.Channel structs for a list" do
       ids = ["UCBatch1", "UCBatch2"]
 
       client =

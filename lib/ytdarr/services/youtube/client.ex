@@ -540,8 +540,8 @@ defmodule Ytdarr.Services.YouTube.Client do
     - channel_ids: List of channel external IDs
 
   ## Returns
-    - `{:ok, [%Channel{}, ...]}` on success
-    - `{:partial, [%Channel{}, ...], errors}` on partial failure
+    - `{:ok, [%Content.Channel{}, ...]}` on success
+    - `{:partial, [%Content.Channel{}, ...], errors}` on partial failure
     - `{:error, reason}` on complete failure
   """
   def get_channels_batch(channel_ids, opts \\ []) when is_list(channel_ids) do
@@ -555,7 +555,11 @@ defmodule Ytdarr.Services.YouTube.Client do
         |> Enum.reduce({[], []}, fn {batch, batch_index}, {acc_channels, acc_errors} ->
           case API.get_channels_by_ids(batch, opts) do
             {:ok, response} ->
-              parsed = Enum.map(response.items, &Models.Channel.from_api/1)
+              parsed =
+                response.items
+                |> Enum.map(&Models.Channel.from_api/1)
+                |> Enum.map(&Parser.create_ytdarr_channel/1)
+
               {acc_channels ++ parsed, acc_errors}
 
             {:error, reason} ->

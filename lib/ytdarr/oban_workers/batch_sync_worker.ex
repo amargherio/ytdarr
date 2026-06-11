@@ -219,10 +219,10 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
 
     case Client.get_channels_batch(channel_ids) do
       {:ok, yt_channels} ->
-        Map.new(yt_channels, fn ch -> {ch.id, ch} end)
+        Map.new(yt_channels, fn ch -> {ch.external_id, ch} end)
 
       {:partial, yt_channels, _errors} ->
-        Map.new(yt_channels, fn ch -> {ch.id, ch} end)
+        Map.new(yt_channels, fn ch -> {ch.external_id, ch} end)
 
       {:error, reason} ->
         Logger.warning(
