@@ -5,7 +5,11 @@ defmodule Mix.Tasks.Coveralls.PathCheck do
   Reads `cover/excoveralls.json` (produced by `mix coveralls.json`) and the
   `path_thresholds` list from `coveralls.json` at the project root. Each entry
   has a `pattern` (regex matched against the source file path) and a `minimum`
-  percentage. Files matching multiple patterns use the highest threshold.
+  percentage.
+
+  The first matching pattern wins — order entries from most specific to most
+  general. Files that match no pattern are ignored (the global
+  `coverage_options.minimum_coverage` from excoveralls handles those).
 
   Files skipped via `skip_files` are not present in the report and are ignored.
   A file with zero relevant lines is treated as covered.
@@ -87,13 +91,9 @@ defmodule Mix.Tasks.Coveralls.PathCheck do
   end
 
   defp applicable_minimum(name, compiled) do
-    compiled
-    |> Enum.filter(fn {regex, _} -> Regex.match?(regex, name) end)
-    |> Enum.map(fn {_, minimum} -> minimum end)
-    |> case do
-      [] -> nil
-      minima -> Enum.max(minima)
-    end
+    Enum.find_value(compiled, fn {regex, minimum} ->
+      if Regex.match?(regex, name), do: minimum
+    end)
   end
 
   defp percent_covered(coverage) when is_list(coverage) do
