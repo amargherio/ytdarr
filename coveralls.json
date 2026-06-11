@@ -9,6 +9,7 @@
     "lib/ytdarr_web/controllers/error_html.ex",
     "lib/ytdarr_web/controllers/error_json.ex",
     "lib/ytdarr_web/controllers/page_html.ex",
+    "lib/ytdarr_web/controllers/page_controller.ex",
     "lib/ytdarr_web/components/layouts.ex",
     "lib/ytdarr_web/auth_overrides.ex",
     "lib/mix/tasks/",
