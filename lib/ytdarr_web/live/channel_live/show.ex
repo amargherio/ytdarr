@@ -367,23 +367,57 @@ defmodule YtdarrWeb.ChannelLive.Show do
   @impl true
   def handle_event("queue-download", %{"id" => video_id, "channel-id" => channel_id}, socket) do
     Logger.info("Queue download for video #{video_id}")
-    Content.queue_video_download(video_id, channel_id)
 
-    # Refresh channel data to update UI state
-    channel = Content.get_channel!(socket.assigns.channel.id, load: [:playlists, :videos])
+    case Content.queue_video_download(video_id, channel_id) do
+      {:ok, _job} ->
+        {:noreply,
+         socket
+         |> refresh_video_assigns()
+         |> put_flash(:info, "Video queued for download.")}
 
-    playlists =
-      Enum.map(channel.playlists, fn playlist ->
-        Content.get_playlist!(playlist.id, load: [:videos])
-        |> sort_playlist_videos()
-      end)
+      {:error, :video_blocklisted} ->
+        {:noreply,
+         socket
+         |> refresh_video_assigns()
+         |> put_flash(
+           :error,
+           "This video is blocklisted. Remove it from the blocklist before downloading."
+         )}
 
-    {:noreply,
-     socket
-     |> assign(:channel, channel)
-     |> assign(:playlists, playlists)
-     |> assign(:videos, sort_videos(channel.videos))
-     |> put_flash(:info, "Video queued for download.")}
+      {:error, error} ->
+        Logger.error("Failed to queue video #{video_id}: #{inspect(error)}")
+        {:noreply, put_flash(socket, :error, "Failed to queue video for download.")}
+    end
+  end
+
+  @impl true
+  def handle_event("blocklist-video", %{"id" => video_id}, socket) do
+    with {:ok, video} <- Content.get_video(video_id),
+         {:ok, _video} <- Content.blocklist_video(video) do
+      {:noreply,
+       socket
+       |> refresh_video_assigns()
+       |> put_flash(:info, "Video added to blocklist.")}
+    else
+      {:error, error} ->
+        Logger.error("Failed to blocklist video #{video_id}: #{inspect(error)}")
+        {:noreply, put_flash(socket, :error, "Failed to add video to blocklist.")}
+    end
+  end
+
+  @impl true
+  def handle_event("unblocklist-video", %{"id" => video_id}, socket) do
+    with {:ok, video} <- Content.get_video(video_id),
+         {:ok, _video} <- Content.unblocklist_video(video) do
+      {:noreply,
+       socket
+       |> refresh_video_assigns()
+       |> put_flash(:info, "Video removed from blocklist.")}
+    else
+      {:error, error} ->
+        Logger.error("Failed to unblock video #{video_id}: #{inspect(error)}")
+        {:noreply, put_flash(socket, :error, "Failed to remove video from blocklist.")}
+    end
   end
 
   @impl true
@@ -391,20 +425,9 @@ defmodule YtdarrWeb.ChannelLive.Show do
     Logger.info("Delete video #{video_id}")
     Content.delete_video_file(video_id)
 
-    # Refresh channel data to update UI state
-    channel = Content.get_channel!(socket.assigns.channel.id, load: [:playlists, :videos])
-
-    playlists =
-      Enum.map(channel.playlists, fn playlist ->
-        Content.get_playlist!(playlist.id, load: [:videos])
-        |> sort_playlist_videos()
-      end)
-
     {:noreply,
      socket
-     |> assign(:channel, channel)
-     |> assign(:playlists, playlists)
-     |> assign(:videos, sort_videos(channel.videos))
+     |> refresh_video_assigns()
      |> put_flash(:info, "Video file deleted.")}
   end
 
@@ -447,6 +470,21 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
   defp sort_videos(videos) do
     Enum.sort_by(videos, &(&1.upload_date || ~D[1970-01-01]), {:desc, Date})
+  end
+
+  defp refresh_video_assigns(socket) do
+    channel = Content.get_channel!(socket.assigns.channel.id, load: [:playlists, :videos])
+
+    playlists =
+      Enum.map(channel.playlists, fn playlist ->
+        Content.get_playlist!(playlist.id, load: [:videos])
+        |> sort_playlist_videos()
+      end)
+
+    socket
+    |> assign(:channel, channel)
+    |> assign(:playlists, playlists)
+    |> assign(:videos, sort_videos(channel.videos))
   end
 
   defp format_datetime(nil), do: "—"

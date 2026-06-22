@@ -33,7 +33,8 @@ defmodule Ytdarr.Content.Video do
         :file_size,
         :download_quality,
         :discovered_from,
-        :position_in_uploads
+        :position_in_uploads,
+        :is_blocklisted
       ]
 
       argument :channel_id, :integer do
@@ -54,7 +55,8 @@ defmodule Ytdarr.Content.Video do
         :upload_date,
         :thumbnail_url,
         :discovered_from,
-        :position_in_uploads
+        :position_in_uploads,
+        :is_blocklisted
       ]
 
       argument :channel_id, :integer do
@@ -83,7 +85,8 @@ defmodule Ytdarr.Content.Video do
         :file_size,
         :download_quality,
         :discovered_from,
-        :position_in_uploads
+        :position_in_uploads,
+        :is_blocklisted
       ]
     end
 
@@ -93,6 +96,14 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:is_downloaded, true)
       change set_attribute(:download_state, :downloaded)
       change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
+    end
+
+    update :blocklist do
+      change set_attribute(:is_blocklisted, true)
+    end
+
+    update :unblocklist do
+      change set_attribute(:is_blocklisted, false)
     end
   end
 
@@ -178,6 +189,12 @@ defmodule Ytdarr.Content.Video do
     attribute :position_in_uploads, :integer do
       public? true
       description "Position when first discovered in the uploads playlist"
+    end
+
+    attribute :is_blocklisted, :boolean do
+      default false
+      allow_nil? false
+      public? true
     end
 
     create_timestamp :inserted_at

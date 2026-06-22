@@ -142,6 +142,43 @@ defmodule YtdarrWeb.ChannelLiveTest do
       assert result =~ "Video queued for download."
     end
 
+    test "blocklist and unblocklist events persist state and flash",
+         %{conn: conn, channel: channel} do
+      video = video_fixture(%{channel_id: channel.id, title: "Blocklist Show Video"})
+      {:ok, view, _html} = live(conn, ~p"/channels/#{channel}")
+
+      result = render_hook(view, "blocklist-video", %{"id" => to_string(video.id)})
+      assert result =~ "Video added to blocklist."
+      assert Ytdarr.Content.get_video!(video.id).is_blocklisted
+
+      result = render_hook(view, "unblocklist-video", %{"id" => to_string(video.id)})
+      assert result =~ "Video removed from blocklist."
+      refute Ytdarr.Content.get_video!(video.id).is_blocklisted
+    end
+
+    test "queue-download explains why a blocklisted video was rejected",
+         %{conn: conn, channel: channel} do
+      video =
+        video_fixture(%{
+          channel_id: channel.id,
+          title: "Blocked Queue Show Video",
+          is_blocklisted: true
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/channels/#{channel}")
+
+      result =
+        render_hook(view, "queue-download", %{
+          "id" => to_string(video.id),
+          "channel-id" => to_string(channel.id)
+        })
+
+      assert result =~
+               "This video is blocklisted. Remove it from the blocklist before downloading."
+
+      refute result =~ "Video queued for download."
+    end
+
     test "delete-video resets the video file state and flashes",
          %{conn: conn, channel: channel} do
       video =

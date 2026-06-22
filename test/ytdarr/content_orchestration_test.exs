@@ -21,6 +21,23 @@ defmodule Ytdarr.ContentOrchestrationTest do
     )
   end
 
+  test "queue_video_download/2 rejects blocklisted videos without enqueueing a job" do
+    channel = channel_fixture()
+    video = video_fixture(%{channel_id: channel.id, is_blocklisted: true})
+
+    assert {:error, :video_blocklisted} =
+             Content.queue_video_download(video.id, channel.id)
+
+    assert {:ok, unchanged_video} = Content.get_video(video.id)
+    assert unchanged_video.download_state == :available
+
+    assert [] ==
+             all_enqueued(
+               worker: Ytdarr.ObanWorkers.VideoDownloader,
+               args: %{"video_id" => video.id, "channel_id" => channel.id}
+             )
+  end
+
   test "delete_video_file/1 deletes files and resets download fields" do
     channel = channel_fixture()
     scratch_dir = scratch_dir("delete-video")

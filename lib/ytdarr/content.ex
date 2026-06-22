@@ -39,6 +39,8 @@ defmodule Ytdarr.Content do
       define :upsert_video, action: :upsert, args: [:channel_id]
       define :update_video, action: :update
       define :mark_video_downloaded, action: :mark_downloaded
+      define :blocklist_video, action: :blocklist
+      define :unblocklist_video, action: :unblocklist
       define :destroy_video, action: :destroy
     end
 
@@ -642,12 +644,19 @@ defmodule Ytdarr.Content do
   """
   def queue_video_download(video_id, channel_id) do
     case get_video(video_id) do
-      {:ok, video} ->
-        update_video(video, %{download_state: :queued})
+      {:ok, %Video{is_blocklisted: true}} ->
+        Logger.warning(
+          "Cannot queue download for blocklisted video #{video_id} (channel #{channel_id})"
+        )
 
-        %{"video_id" => video_id, "channel_id" => channel_id}
-        |> Ytdarr.ObanWorkers.VideoDownloader.new()
-        |> Oban.insert()
+        {:error, :video_blocklisted}
+
+      {:ok, video} ->
+        with {:ok, _video} <- update_video(video, %{download_state: :queued}) do
+          %{"video_id" => video_id, "channel_id" => channel_id}
+          |> Ytdarr.ObanWorkers.VideoDownloader.new()
+          |> Oban.insert()
+        end
 
       {:error, error} ->
         Logger.error("Failed to find video #{video_id} to queue download: #{inspect(error)}")

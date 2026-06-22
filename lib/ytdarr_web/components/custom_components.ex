@@ -373,7 +373,15 @@ defmodule YtdarrWeb.CustomComponents do
                 <span class="text-xs text-base-content/60">{video.upload_date}</span>
               </td>
               <td>
-                <.download_status_badge state={video.download_state} />
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <.download_status_badge state={video.download_state} />
+                  <span
+                    :if={video.is_blocklisted}
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error"
+                  >
+                    <.icon name="hero-no-symbol" class="size-3.5" /> Blocked
+                  </span>
+                </div>
               </td>
               <td>
                 <%= if video.download_state == :downloaded do %>
@@ -387,7 +395,7 @@ defmodule YtdarrWeb.CustomComponents do
                     <.icon name="hero-trash" class="size-3.5" />
                   </button>
                 <% else %>
-                  <%= if video.download_state in [:available, :missing] do %>
+                  <%= if not video.is_blocklisted and video.download_state in [:available, :missing] do %>
                     <button
                       title="Queue Download"
                       phx-click="queue-download"
@@ -398,6 +406,25 @@ defmodule YtdarrWeb.CustomComponents do
                       <.icon name="hero-arrow-down-tray" class="size-3.5" />
                     </button>
                   <% end %>
+                <% end %>
+                <%= if video.is_blocklisted do %>
+                  <button
+                    title="Remove video from blocklist"
+                    phx-click="unblocklist-video"
+                    phx-value-id={video.id}
+                    class="btn btn-ghost btn-xs text-success hover:bg-success/10"
+                  >
+                    <.icon name="hero-check-circle" class="size-3.5" />
+                  </button>
+                <% else %>
+                  <button
+                    title="Add video to blocklist"
+                    phx-click="blocklist-video"
+                    phx-value-id={video.id}
+                    class="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                  >
+                    <.icon name="hero-no-symbol" class="size-3.5" />
+                  </button>
                 <% end %>
               </td>
             </tr>

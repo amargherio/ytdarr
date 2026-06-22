@@ -214,14 +214,16 @@ defmodule YtdarrWeb.CustomComponentsTest do
           title: "Video A",
           thumbnail_url: "https://example.com/a.jpg",
           upload_date: ~D[2025-01-01],
-          download_state: :downloaded
+          download_state: :downloaded,
+          is_blocklisted: false
         },
         %{
           id: 2,
           title: "Video B",
           thumbnail_url: nil,
           upload_date: ~D[2025-01-02],
-          download_state: :available
+          download_state: :available,
+          is_blocklisted: false
         }
       ]
 
@@ -247,7 +249,8 @@ defmodule YtdarrWeb.CustomComponentsTest do
           title: "Queued Video",
           thumbnail_url: nil,
           upload_date: ~D[2025-01-03],
-          download_state: :queued
+          download_state: :queued,
+          is_blocklisted: false
         }
       ]
 
@@ -261,6 +264,56 @@ defmodule YtdarrWeb.CustomComponentsTest do
       assert html =~ "Queued Video"
       refute html =~ "phx-click=\"queue-download\""
       refute html =~ "phx-click=\"delete-video\""
+    end
+
+    test "renders blocked status and unblock action without a download action" do
+      videos = [
+        %{
+          id: 4,
+          title: "Blocked Video",
+          thumbnail_url: nil,
+          upload_date: ~D[2025-01-04],
+          download_state: :available,
+          is_blocklisted: true
+        }
+      ]
+
+      html =
+        render_component(&CustomComponents.video_table/1, %{
+          id: "vt-blocked",
+          videos: videos,
+          channel_id: 1
+        })
+
+      assert html =~ "Blocked"
+      assert html =~ "hero-no-symbol"
+      assert html =~ "phx-click=\"unblocklist-video\""
+      refute html =~ "phx-click=\"queue-download\""
+      refute html =~ "phx-click=\"blocklist-video\""
+    end
+
+    test "renders block and download actions for an available unblocked video" do
+      videos = [
+        %{
+          id: 5,
+          title: "Available Video",
+          thumbnail_url: nil,
+          upload_date: ~D[2025-01-05],
+          download_state: :available,
+          is_blocklisted: false
+        }
+      ]
+
+      html =
+        render_component(&CustomComponents.video_table/1, %{
+          id: "vt-available",
+          videos: videos,
+          channel_id: 1
+        })
+
+      assert html =~ "phx-click=\"queue-download\""
+      assert html =~ "phx-click=\"blocklist-video\""
+      refute html =~ "phx-click=\"unblocklist-video\""
     end
   end
 end

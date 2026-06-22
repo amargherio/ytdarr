@@ -26,16 +26,16 @@ defmodule YtdarrWeb.DashboardLiveTest do
     refute render(view) =~ hidden_channel.name
   end
 
-  test "search event hits the handler and clears results when no rows match",
-       %{conn: conn} do
-    # NOTE: dashboard's `search_monitored_channels_with_videos/1` wraps the
-    # query in "%...%" but Ash's `contains/2` is a substring check, not a SQL
-    # LIKE pattern — so non-empty searches currently return zero results.
-    # This test asserts the handler runs and clears the list. (Bug filed
-    # separately; do not relax the dashboard search at the same time.)
+  test "search returns matching monitored channels", %{conn: conn} do
     keeper =
       channel_fixture(%{
         name: "DashSearch Keep #{System.unique_integer([:positive])}",
+        is_monitored: true
+      })
+
+    excluded =
+      channel_fixture(%{
+        name: "DashSearch Excluded #{System.unique_integer([:positive])}",
         is_monitored: true
       })
 
@@ -43,12 +43,14 @@ defmodule YtdarrWeb.DashboardLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/dashboard")
     assert render(view) =~ keeper.name
+    assert render(view) =~ excluded.name
 
     view
     |> element("#infinite-scroll-container input[name='q']")
     |> render_change(%{"q" => "Keep"})
 
-    refute render(view) =~ keeper.name
+    assert render(view) =~ keeper.name
+    refute render(view) =~ excluded.name
   end
 
   test "search event with an empty query restores the full list", %{conn: conn} do

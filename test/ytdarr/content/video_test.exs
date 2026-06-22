@@ -16,6 +16,7 @@ defmodule Ytdarr.Content.VideoTest do
       assert video.title == attrs.title
       assert video.external_id == attrs.external_id
       assert video.url == attrs.url
+      refute video.is_blocklisted
     end
 
     test "fails when required attributes or channel_id are nil" do
@@ -29,6 +30,40 @@ defmodule Ytdarr.Content.VideoTest do
 
       result = Content.create_video(nil, attrs)
       assert_required_error(result, :channel_id, :argument)
+    end
+  end
+
+  describe "video blocklist" do
+    test "blocklists and unblocks a video idempotently" do
+      video = video_fixture()
+
+      assert {:ok, blocked_video} = Content.blocklist_video(video)
+      assert blocked_video.is_blocklisted
+
+      assert {:ok, blocked_video} = Content.blocklist_video(blocked_video)
+      assert blocked_video.is_blocklisted
+
+      assert {:ok, unblocked_video} = Content.unblocklist_video(blocked_video)
+      refute unblocked_video.is_blocklisted
+
+      assert {:ok, unblocked_video} = Content.unblocklist_video(unblocked_video)
+      refute unblocked_video.is_blocklisted
+    end
+
+    test "upserting metadata preserves an existing blocklist flag" do
+      video = video_fixture()
+      assert {:ok, blocked_video} = Content.blocklist_video(video)
+
+      assert {:ok, updated_video} =
+               Content.upsert_video(blocked_video.channel_id, %{
+                 external_id: blocked_video.external_id,
+                 title: "Updated title",
+                 url: blocked_video.url,
+                 is_blocklisted: false
+               })
+
+      assert updated_video.title == "Updated title"
+      assert updated_video.is_blocklisted
     end
   end
 
