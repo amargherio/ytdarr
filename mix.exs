@@ -22,7 +22,8 @@ defmodule Ytdarr.MixProject do
         applications: [ytdarr: :permanent],
         steps: [:assemble, :tar]
       ],
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      usage_rules: usage_rules()
     ]
   end
 
@@ -62,10 +63,10 @@ defmodule Ytdarr.MixProject do
       {:bcrypt_elixir, "~> 3.0"},
       {:picosat_elixir, "~> 0.2"},
       {:sourceror, "~> 1.8", only: [:dev, :test]},
-      {:usage_rules, "~> 0.1", only: [:dev]},
+      {:usage_rules, "~> 1.0", only: [:dev]},
       {:live_debugger, "~> 1.0", only: [:dev]},
       {:ash_state_machine, "~> 0.2"},
-      {:ash_admin, "~> 0.13"},
+      {:ash_admin, "~> 1.1"},
       {:ash_authentication_phoenix, "~> 2.0"},
       {:ash_authentication, "~> 4.0"},
       {:ash_sqlite, "~> 0.2"},
@@ -77,7 +78,7 @@ defmodule Ytdarr.MixProject do
       {:ecto_sqlite3, ">= 0.0.0"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 1.1.0"},
+      {:phoenix_live_view, "~> 1.2.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
@@ -131,6 +132,32 @@ defmodule Ytdarr.MixProject do
       ],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
       "ash.setup": ["ash.setup", "run priv/repo/seeds.exs"]
+    ]
+  end
+
+  defp usage_rules do
+    # Example for those using claude.
+    [
+      file: "AGENTS.md",
+      # rules to include directly in CLAUDE.md
+      usage_rules: ["usage_rules:all"],
+      skills: [
+        location: ".claude/skills",
+        # build skills that combine multiple usage rules
+        build: [
+          "ash-framework": [
+            # The description tells people how to use this skill.
+            description: "Use this skill working with Ash Framework or any of its extensions. Always consult this when making any domain changes, features or fixes.",
+            # Include all Ash dependencies
+            usage_rules: [:ash, ~r/^ash_/]
+          ],
+          "phoenix-framework": [
+            description: "Use this skill working with Phoenix Framework. Consult this when working with the web layer, controllers, views, liveviews etc.",
+            # Include all Phoenix dependencies
+            usage_rules: [:phoenix, ~r/^phoenix_/]
+          ]
+        ]
+      ]
     ]
   end
 end
