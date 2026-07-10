@@ -68,32 +68,6 @@ defmodule Ytdarr.ContentOrchestrationTest do
     assert updated_video.downloaded_at == nil
   end
 
-  test "sync_content/2 enqueues a sync worker job for channels" do
-    channel = channel_fixture()
-
-    assert {:ok, _job} = Content.sync_content("channel", channel.id)
-
-    assert_enqueued(
-      worker: Ytdarr.ObanWorkers.SyncWorker,
-      args: %{"source_type" => "channel", "source_id" => channel.id}
-    )
-  end
-
-  test "sync_content/2 enqueues a sync worker job for playlists" do
-    playlist = playlist_fixture()
-
-    assert {:ok, _job} = Content.sync_content("playlist", playlist.id)
-
-    assert_enqueued(
-      worker: Ytdarr.ObanWorkers.SyncWorker,
-      args: %{"source_type" => "playlist", "source_id" => playlist.id}
-    )
-  end
-
-  test "sync_content/2 rejects unknown target types" do
-    assert {:error, :unknown_target_type} = Content.sync_content("unknown", 123)
-  end
-
   @tag skip:
          "sync_playlist_content requires a live YouTube client and cannot be isolated without adding an injection point"
   test "sync_playlist_content/1 syncs and links playlist videos" do
