@@ -1,0 +1,222 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  quality:
+    name: Release Quality Gate
+    runs-on: ubuntu-24.04
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Erlang & Elixir
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - name: Restore test cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-${{ runner.arch }}-mix-test-${{ hashFiles('.tool-versions', 'mix.exs', 'mix.lock') }}
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Run precommit checks
+        run: mix precommit
+
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      major_minor: ${{ steps.version.outputs.major_minor }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::VERSION must contain numeric SemVer x.y.z"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "v${version}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} must equal v${version}"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "major_minor=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tagged commit belongs to main
+        if: github.ref_type == 'tag'
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+  publish-edge:
+    name: Publish Edge Image
+    if: github.ref_type == 'branch'
+    needs: [quality, validate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish edge
+        id: image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64
+          push: true
+          sbom: true
+          provenance: true
+          tags: ghcr.io/amargherio/ytdarr:edge
+          build-args: |
+            VERSION=${{ needs.validate.outputs.version }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=ytdarr-linux-amd64
+          cache-to: type=gha,mode=max,scope=ytdarr-linux-amd64
+
+      - name: Attest edge image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ghcr.io/amargherio/ytdarr
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+
+  build-release:
+    name: Build Stable Artifacts
+    if: github.ref_type == 'tag'
+    needs: [quality, validate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      MIX_ENV: prod
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Erlang & Elixir
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - name: Build OTP release
+        run: |
+          mix deps.get --only prod
+          mix assets.deploy
+          mix release --overwrite
+          cd _build/prod
+          sha256sum "ytdarr-${{ needs.validate.outputs.version }}.tar.gz" \
+            > "ytdarr-${{ needs.validate.outputs.version }}.tar.gz.sha256"
+
+      - name: Upload OTP release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: otp-release
+          path: |
+            _build/prod/ytdarr-${{ needs.validate.outputs.version }}.tar.gz
+            _build/prod/ytdarr-${{ needs.validate.outputs.version }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish stable image
+        id: image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64
+          push: true
+          sbom: true
+          provenance: true
+          tags: |
+            ghcr.io/amargherio/ytdarr:${{ needs.validate.outputs.version }}
+            ghcr.io/amargherio/ytdarr:${{ needs.validate.outputs.major_minor }}
+            ghcr.io/amargherio/ytdarr:latest
+          build-args: |
+            VERSION=${{ needs.validate.outputs.version }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=ytdarr-linux-amd64
+          cache-to: type=gha,mode=max,scope=ytdarr-linux-amd64
+
+      - name: Attest stable image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ghcr.io/amargherio/ytdarr
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+
+  github-release:
+    name: Create GitHub Release
+    if: github.ref_type == 'tag'
+    needs: [validate, build-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: otp-release
+          path: dist
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --generate-notes \
+            --title "Ytdarr ${{ needs.validate.outputs.version }}" \
+            dist/*

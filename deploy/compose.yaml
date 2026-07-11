@@ -1,0 +1,25 @@
+services:
+  ytdarr:
+    image: ghcr.io/amargherio/ytdarr:latest
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        VERSION: ${YTDARR_VERSION:-dev}
+    env_file:
+      - .env
+    ports:
+      - "${YTDARR_PORT:-4000}:4000"
+    volumes:
+      - ytdarr-data:/data
+      - ${YTDARR_DOWNLOADS_PATH:-./downloads}:/downloads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:4000/health/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  ytdarr-data:

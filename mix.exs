@@ -1,10 +1,12 @@
 defmodule Ytdarr.MixProject do
   use Mix.Project
 
+  @version File.read!(Path.expand("VERSION", __DIR__)) |> String.trim()
+
   def project do
     [
       app: :ytdarr,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -17,10 +19,12 @@ defmodule Ytdarr.MixProject do
         plt_core_path: "priv/plts/core.plt",
         plt_local_path: "priv/plts/project.plt"
       ],
-      release: [
-        overwrite: true,
-        applications: [ytdarr: :permanent],
-        steps: [:assemble, :tar]
+      releases: [
+        ytdarr: [
+          overwrite: true,
+          applications: [ytdarr: :permanent],
+          steps: [:assemble, :tar]
+        ]
       ],
       test_coverage: [tool: ExCoveralls],
       usage_rules: usage_rules()

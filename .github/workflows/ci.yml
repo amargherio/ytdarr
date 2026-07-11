@@ -9,26 +9,30 @@ on:
 env:
   MIX_ENV: test
   ELIXIR_VERSION: "1.19.5"
-  OTP_VERSION: "29.0"
+  OTP_VERSION: "28.5.0.3"
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   compile:
     name: Compile & Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Erlang & Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           version-file: .tool-versions
           version-type: strict
 
       - name: Restore deps cache
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: deps-cache
         with:
           path: |
@@ -55,19 +59,19 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: compile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Erlang & Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           version-file: .tool-versions
           version-type: strict
 
       - name: Restore deps cache
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: |
             deps
@@ -87,7 +91,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report
           path: cover/
@@ -95,21 +99,21 @@ jobs:
 
   dialyzer:
     name: Dialyzer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: compile
     env:
       MIX_ENV: dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Erlang & Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           version-file: .tool-versions
           version-type: strict
 
       - name: Restore deps cache
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: |
             deps
@@ -125,7 +129,7 @@ jobs:
         run: mix compile
 
       - name: Restore PLT cache
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: plt-cache
         with:
           path: priv/plts
@@ -142,21 +146,21 @@ jobs:
 
   assets:
     name: Assets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: compile
     env:
       MIX_ENV: prod
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Erlang & Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           version-file: .tool-versions
           version-type: strict
 
       - name: Restore deps cache
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: |
             deps
@@ -173,3 +177,94 @@ jobs:
 
       - name: Build assets
         run: mix assets.deploy
+
+  release:
+    name: OTP Release
+    runs-on: ubuntu-24.04
+    needs: [compile, test, assets]
+    env:
+      MIX_ENV: prod
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Erlang & Elixir
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - name: Restore prod cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-${{ runner.arch }}-mix-prod-${{ hashFiles('.tool-versions', 'mix.exs', 'mix.lock') }}
+
+      - name: Build release
+        run: |
+          mix deps.get --only prod
+          mix assets.deploy
+          mix release --overwrite
+          version="$(cat VERSION)"
+          test -s "_build/prod/ytdarr-${version}.tar.gz"
+          tar -tzf "_build/prod/ytdarr-${version}.tar.gz" | grep -q '^bin/migrate$'
+          tar -tzf "_build/prod/ytdarr-${version}.tar.gz" | grep -q '^bin/server$'
+
+  container:
+    name: Container Smoke Test
+    runs-on: ubuntu-24.04
+    needs: [compile, test, assets]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Build image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: ytdarr:ci
+          build-args: |
+            VERSION=${{ github.sha }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=ytdarr-linux-amd64
+          cache-to: type=gha,mode=max,scope=ytdarr-linux-amd64
+
+      - name: Smoke test image
+        run: |
+          set -euo pipefail
+          docker run --detach --name ytdarr-smoke \
+            --env SECRET_KEY_BASE="$(openssl rand -hex 64)" \
+            --env TOKEN_SIGNING_SECRET="$(openssl rand -hex 64)" \
+            --env PHX_HOST=localhost \
+            --env ALLOWED_HOSTS=localhost \
+            --volume ytdarr-smoke-data:/data \
+            --publish 127.0.0.1:14000:4000 \
+            ytdarr:ci
+
+          for attempt in {1..30}; do
+            status="$(docker inspect --format '{{.State.Health.Status}}' ytdarr-smoke)"
+            if [[ "$status" == "healthy" ]]; then
+              break
+            fi
+            if [[ "$status" == "unhealthy" || "$attempt" == "30" ]]; then
+              docker logs ytdarr-smoke
+              exit 1
+            fi
+            sleep 2
+          done
+
+          curl --fail --silent http://127.0.0.1:14000/health/live
+          curl --fail --silent http://127.0.0.1:14000/health/ready
+          docker exec ytdarr-smoke sh -c \
+            'test "$(id -u)" = 10001 && test -s /data/ytdarr.db && yt-dlp --version && ffmpeg -version'
+
+      - name: Container logs
+        if: always()
+        run: docker logs ytdarr-smoke || true

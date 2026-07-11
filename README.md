@@ -17,10 +17,12 @@ Ytdarr is a self-hosted YouTube channel monitor and video downloader that organi
 
 ## Prerequisites
 
-- Elixir 1.15+
-- Erlang/OTP 26+
+- Elixir and Erlang versions from `.tool-versions` for source builds
 - `yt-dlp` installed and available on your `PATH`
+- `ffmpeg` installed and available on your `PATH`
 - A YouTube Data API v3 key from Google Cloud Console
+
+The published container image includes `yt-dlp` and `ffmpeg`.
 
 ## Quick Start
 
@@ -31,12 +33,20 @@ mix setup
 YTDARR_YOUTUBE_API_KEY=your_key_here mix phx.server
 ```
 
-Then visit http://localhost:4000
+Then visit [http://localhost:4000](http://localhost:4000).
+
+For a production container, generate configuration and start Compose:
+
+```bash
+just generate-env deploy/.env ytdarr.example.com container 4000
+docker compose -f deploy/compose.yaml up -d
+```
 
 ## Documentation
 
 - [Installation Guide](docs/installation.md) — Dev setup, production deployment, filesystem structure
 - [Configuration Reference](docs/configuration.md) — All settings, quality profiles, yt-dlp params
+- [Deployment Guide](deploy/README.md) — Docker, Podman Quadlet, native systemd updates, and rollback
 
 ## How It Works
 

@@ -155,14 +155,8 @@ defmodule Ytdarr.Downloads do
   """
   def queue_concurrency do
     case Oban.config() do
-      %{queues: queues} when is_map(queues) ->
-        queue_limit(Map.get(queues, :video_downloader))
-
-      %{queues: queues} when is_list(queues) ->
+      %{queues: queues} ->
         queue_limit(Keyword.get(queues, :video_downloader))
-
-      _ ->
-        nil
     end
   end
 

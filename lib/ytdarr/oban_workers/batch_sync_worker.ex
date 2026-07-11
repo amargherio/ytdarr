@@ -335,17 +335,17 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
         )
 
         case Client.check_playlist_for_new_videos(playlist.external_id, since_datetime) do
+          {:ok, []} ->
+            Logger.debug("[BatchSyncWorker] No new items in playlist #{playlist.name}")
+            Content.mark_playlist_checked(playlist)
+            :ok
+
           {status, entries} when status in [:ok, :partial] ->
             Logger.info(
               "[BatchSyncWorker] Found #{length(entries)} new items in playlist #{playlist.name}"
             )
 
             process_playlist_entries(playlist, entries)
-            Content.mark_playlist_checked(playlist)
-            :ok
-
-          {:ok, []} ->
-            Logger.debug("[BatchSyncWorker] No new items in playlist #{playlist.name}")
             Content.mark_playlist_checked(playlist)
             :ok
 

@@ -10,7 +10,7 @@ Before installing Ytdarr, make sure the following dependencies are available on 
 
 Install **Elixir 1.15+** and **Erlang/OTP 26+**:
 
-- https://elixir-lang.org/install.html
+- <https://elixir-lang.org/install.html>
 
 Verify your versions:
 
@@ -22,7 +22,7 @@ elixir --version
 
 Install **yt-dlp** and ensure it is available on your shell `PATH`:
 
-- https://github.com/yt-dlp/yt-dlp#installation
+- <https://github.com/yt-dlp/yt-dlp#installation>
 
 Verify it is installed:
 
@@ -34,7 +34,7 @@ yt-dlp --version
 
 Ytdarr uses the YouTube Data API to discover channels, playlists, and videos.
 
-1. Go to https://console.cloud.google.com/
+1. Go to <https://console.cloud.google.com/>
 2. Create a new project, or select an existing project
 3. Open **APIs & Services → Library**
 4. Enable **YouTube Data API v3**
@@ -63,7 +63,7 @@ Set the YouTube API key using either method below:
   export YTDARR_YOUTUBE_API_KEY=your_key_here
   ```
 
-- Or configure it later in the Settings UI at http://localhost:4000/settings
+- Or configure it later in the Settings UI at <http://localhost:4000/settings>
 
 Start the Phoenix server:
 
@@ -75,7 +75,7 @@ iex -S mix phx.server
 
 Open the application at:
 
-- http://localhost:4000
+- <http://localhost:4000>
 
 Development routes:
 
@@ -90,13 +90,14 @@ Development routes:
 
 ### Building a release
 
-Run the production build steps from the project root:
+Build the versioned OTP archive and checksum from the project root:
 
 ```bash
-MIX_ENV=prod mix deps.get --only prod
-MIX_ENV=prod mix assets.deploy
-MIX_ENV=prod mix release
+just release
 ```
+
+Artifacts are written to `_build/prod/ytdarr-<version>.tar.gz` and the adjacent
+`.sha256` file. The version comes from `VERSION`.
 
 ### Required environment variables
 
@@ -112,48 +113,48 @@ MIX_ENV=prod mix release
 | `YTDARR_YOUTUBE_API_KEY` | Recommended | YouTube API key; can also be configured in the UI | `AIza...` |
 | `DNS_CLUSTER_QUERY` | No | DNS cluster query for distributed deployments | — |
 
-Generate secrets with:
+`SECRET_KEY_BASE`, `TOKEN_SIGNING_SECRET`, and `YTDARR_YOUTUBE_API_KEY` also
+accept `SECRET_KEY_BASE_FILE`, `TOKEN_SIGNING_SECRET_FILE`, and
+`YTDARR_YOUTUBE_API_KEY_FILE`. Set either a direct value or its file variant,
+never both.
+
+Generate a mode `0600` environment file with:
 
 ```bash
-mix phx.gen.secret
+just generate-env deploy/.env ytdarr.example.com container 4000
 ```
 
 ### Running the release
 
-After building the release, start it with:
+After extracting the release, migrate and start it with:
 
 ```bash
-PHX_SERVER=true bin/ytdarr start
+bin/migrate
+bin/server
 ```
 
-### systemd service example
+### Native systemd deployment
 
-```ini
-[Unit]
-Description=Ytdarr - YouTube Channel Monitor
-After=network.target
+The target host needs systemd, `curl`, `sqlite3`, `yt-dlp`, and `ffmpeg`. The SSH
+account needs key-based access and passwordless sudo for the provisioning and
+activation scripts.
 
-[Service]
-Type=exec
-User=ytdarr
-Group=ytdarr
-WorkingDirectory=/opt/ytdarr
-ExecStart=/opt/ytdarr/bin/ytdarr start
-ExecStop=/opt/ytdarr/bin/ytdarr stop
-Restart=on-failure
-RestartSec=5
-
-Environment=DATABASE_PATH=/var/lib/ytdarr/ytdarr.db
-Environment=SECRET_KEY_BASE=your_secret_here
-Environment=TOKEN_SIGNING_SECRET=your_token_secret_here
-Environment=PHX_HOST=ytdarr.example.com
-Environment=PHX_SERVER=true
-Environment=PORT=4000
-Environment=YTDARR_YOUTUBE_API_KEY=your_api_key
-
-[Install]
-WantedBy=multi-user.target
+```bash
+just generate-env deploy/native.env ytdarr.example.com native 4000
+just install-host server.example.com deployer deploy/native.env
+just deploy server.example.com deployer
 ```
+
+Updates stop the service briefly, make a consistent SQLite backup, migrate the
+new version, atomically switch `/opt/ytdarr/current`, and wait for readiness. A
+failed migration or readiness check restores the previous database and release.
+
+```bash
+just rollback server.example.com 0.1.0 deployer
+```
+
+See the [Deployment Guide](../deploy/README.md) for paths, retention, sudo, and
+backup details.
 
 ### Reverse proxy (nginx)
 
@@ -244,20 +245,38 @@ Ytdarr's layout maps naturally to common media servers:
 - Each year becomes a season
 - Each downloaded video becomes an episode
 
-## 5. Docker (Future)
+## 5. Docker and Podman
 
-Docker support is planned for a future release.
+Ytdarr publishes `linux/amd64` images to `ghcr.io/amargherio/ytdarr`. Stable
+releases use immutable version tags and `latest`; builds from `main` use `edge`.
 
-For now, you can build a release and package it into a container yourself:
-
-```dockerfile
-# Placeholder — full Dockerfile coming soon
-FROM elixir:1.15-slim AS build
-# ... build steps ...
-
-FROM debian:bookworm-slim
-# ... runtime with yt-dlp installed ...
+```bash
+just generate-env deploy/.env ytdarr.example.com container 4000
+mkdir -p deploy/downloads
+docker compose -f deploy/compose.yaml up -d
 ```
+
+The container runs as UID/GID `10001`, automatically runs pending migrations,
+and stores persistent state under:
+
+- `/data` for SQLite and Oban jobs
+- `/downloads` for downloaded media and metadata
+
+A direct Docker invocation is also supported:
+
+```bash
+docker run -d --name ytdarr \
+    --env-file deploy/.env \
+    -p 4000:4000 \
+    -v ytdarr-data:/data \
+    -v /srv/ytdarr/downloads:/downloads \
+    --restart unless-stopped \
+    ghcr.io/amargherio/ytdarr:latest
+```
+
+Podman Quadlet units are provided in `deploy/ytdarr.container` and
+`deploy/ytdarr-data.volume`. Health endpoints are available at `/health/live`
+and `/health/ready`.
 
 ## 6. Troubleshooting
 

@@ -13,6 +13,7 @@ defmodule Ytdarr.Settings.StartupLoader do
 
   use Task, restart: :transient
 
+  alias Ytdarr.Env
   alias Ytdarr.Settings
 
   require Logger
@@ -44,7 +45,7 @@ defmodule Ytdarr.Settings.StartupLoader do
   """
   def load_youtube_api_key do
     db_value = get_raw_setting_value("youtube.primary_api_key")
-    env_value = System.get_env("YTDARR_YOUTUBE_API_KEY")
+    env_value = Env.get("YTDARR_YOUTUBE_API_KEY")
 
     cond do
       # Database has a value - use it, ignore env

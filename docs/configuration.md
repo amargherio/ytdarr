@@ -7,7 +7,7 @@ Ytdarr stores application configuration in its SQLite database and exposes it th
 - Configuration is stored in a SQLite database and managed through the Settings UI.
 - On first startup, supported environment variables are loaded into the database as a one-time bootstrap.
 - After a setting exists in the database, the database value takes precedence over environment variables.
-- `YTDARR_YOUTUBE_API_KEY` is the one exception: when it is set and non-empty, it always overrides the database value at runtime.
+- `YTDARR_YOUTUBE_API_KEY` is loaded only when the database does not already contain an API key.
 
 ## 2. YouTube Settings
 
@@ -15,7 +15,7 @@ Ytdarr stores application configuration in its SQLite database and exposes it th
 
 | Setting | Key | Default | Description |
 | --- | --- | --- | --- |
-| API Key | `youtube.primary_api_key` | — | Required. YouTube Data API v3 key. Can be set via `YTDARR_YOUTUBE_API_KEY` environment variable. |
+| API Key | `youtube.primary_api_key` | — | Required. YouTube Data API v3 key. Can be bootstrapped with `YTDARR_YOUTUBE_API_KEY` or `YTDARR_YOUTUBE_API_KEY_FILE`. |
 | Region | `youtube.region` | `US` | ISO 3166-1 alpha-2 country code for API requests. Affects search results and content availability. |
 
 ### API Quota
@@ -181,5 +181,6 @@ Environment variables are primarily intended for production deployment bootstrap
 
 Key behavior:
 
-- `YTDARR_YOUTUBE_API_KEY` is the only environment variable that actively overrides a database value at runtime.
-- All other environment variables are one-time bootstrap values: they are loaded into the database on first startup, after which the database value is authoritative.
+- `YTDARR_YOUTUBE_API_KEY` and `YTDARR_YOUTUBE_API_KEY_FILE` bootstrap the API key only when no database value exists.
+- `SECRET_KEY_BASE`, `TOKEN_SIGNING_SECRET`, and the YouTube API key accept a corresponding `*_FILE` variable for Docker/Podman secrets or systemd credentials.
+- Set either the direct variable or its `*_FILE` form, never both.

@@ -29,7 +29,6 @@ defmodule Ytdarr.Services.YouTube.API do
   """
 
   alias Ytdarr.Services.YouTube.{ClientSupervisor, Models, QuotaTracker}
-  require Logger
 
   def search_channels(query, opts \\ []) do
     params = [

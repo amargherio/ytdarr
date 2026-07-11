@@ -6,13 +6,20 @@ Wants=network-online.target
 
 [Container]
 Image=ghcr.io/amargherio/ytdarr:latest
-Network=host
-Volume=/var/lib/homeassistant:/config:Z
-Environment=TZ=America/Chicago
+ContainerName=ytdarr
+AutoUpdate=registry
+EnvironmentFile=/etc/ytdarr/ytdarr.env
+PublishPort=4000:4000
+Volume=ytdarr-data.volume:/data
+Volume=/srv/ytdarr/downloads:/downloads:Z
+HealthCmd=curl --fail --silent http://127.0.0.1:4000/health/ready
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
 
 [Service]
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=multi-user.target default.target
+WantedBy=multi-user.target

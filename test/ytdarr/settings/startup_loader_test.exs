@@ -5,8 +5,13 @@ defmodule Ytdarr.Settings.StartupLoaderTest do
   alias Ytdarr.Settings.StartupLoader
 
   setup do
-    on_exit(fn -> System.delete_env("YTDARR_YOUTUBE_API_KEY") end)
+    on_exit(fn ->
+      System.delete_env("YTDARR_YOUTUBE_API_KEY")
+      System.delete_env("YTDARR_YOUTUBE_API_KEY_FILE")
+    end)
+
     System.delete_env("YTDARR_YOUTUBE_API_KEY")
+    System.delete_env("YTDARR_YOUTUBE_API_KEY_FILE")
     :ok
   end
 
@@ -43,6 +48,19 @@ defmodule Ytdarr.Settings.StartupLoaderTest do
 
       {:ok, setting} = Settings.get_app_setting_by_key("youtube.primary_api_key")
       assert setting.value == %{"v" => "env_only_key"}
+    end
+
+    test "stores a value from an env secret file when database is empty" do
+      delete_existing_setting()
+      path = Path.join(System.tmp_dir!(), "youtube-api-key-#{System.unique_integer([:positive])}")
+      File.write!(path, "file_key\n")
+      on_exit(fn -> File.rm(path) end)
+      System.put_env("YTDARR_YOUTUBE_API_KEY_FILE", path)
+
+      assert :ok = StartupLoader.load_youtube_api_key()
+
+      {:ok, setting} = Settings.get_app_setting_by_key("youtube.primary_api_key")
+      assert setting.value == %{"v" => "file_key"}
     end
 
     test "warns and returns :ok when neither database nor env are set" do

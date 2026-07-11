@@ -3,8 +3,6 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
   alias Ytdarr.Content
 
-  require Ash.Query
-
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -662,6 +660,5 @@ defmodule YtdarrWeb.ChannelLive.Add do
     |> Enum.join(", ")
   end
 
-  defp friendly_errors(error) when is_binary(error), do: error
   defp friendly_errors(_error), do: "An error occurred"
 end

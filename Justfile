@@ -1,7 +1,8 @@
 default:
     @just --list
 
-app_version := "0.1.0"
+app_version := trim(read("VERSION"))
+release_archive := "_build/prod/ytdarr-" + app_version + ".tar.gz"
 
 # Install deps and setup the DB
 setup:
@@ -35,34 +36,54 @@ test-failed:
 # build prod release tarball
 release:
     MIX_ENV=prod mix deps.get --only prod
-    MIX_ENV=prod mix compile
+    MIX_ENV=prod mix compile --warnings-as-errors
     MIX_ENV=prod mix assets.deploy
     MIX_ENV=prod mix release --overwrite
-    @echo "Release built at _build/prod/rel/ytdarr/releases/ytdarr-{{app_version}}/ytdarr.tar.gz"
+    cd _build/prod && sha256sum ytdarr-{{app_version}}.tar.gz > ytdarr-{{app_version}}.tar.gz.sha256
+    @echo "Release built at {{release_archive}}"
 
-clean-release: && release
-    rm -rf _build/prod/rel/ytdarr
-    @echo "Cleaned release directory"
+clean-release:
+    rm -rf _build/prod/rel/ytdarr _build/prod/ytdarr-{{app_version}}.tar.gz _build/prod/ytdarr-{{app_version}}.tar.gz.sha256
+    just release
 
 gen-secret:
     mix phx.gen.secret
 
 ### Deploys
-# deploy the tarball archive to a remote server
-deploy host user="ytdarr" path="/opt/ytdarr":
-    rsync -avP _build/prod/rel/ytdarr/releases/ytdarr-{{app_version}}/ytdarr.tar.gz {{user}}@{{host}}:{{path}}
+# Generate an ignored runtime environment file.
+generate-env output="deploy/.env" host="localhost" runtime="container" port="4000":
+    deploy/scripts/generate-env.sh --output {{output}} --host {{host}} --runtime {{runtime}} --port {{port}}
 
-build-and-deploy: release
-    rsync -avP _build/prod/rel/ytdarr/releases/ytdarr-{{app_version}}/ytdarr.tar.gz user@remote-server:/opt/ytdarr
+# Provision a native systemd host. The SSH account needs passwordless sudo for these commands.
+install-host host user env_file="deploy/.env":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    staging="/tmp/ytdarr-provision-{{app_version}}"
+    ssh "{{user}}@{{host}}" "mkdir -p '$staging'"
+    rsync -av deploy/ytdarr.service deploy/scripts/provision-host.sh "{{env_file}}" "{{user}}@{{host}}:$staging/"
+    ssh "{{user}}@{{host}}" "sudo --non-interactive bash '$staging/provision-host.sh' '$staging/ytdarr.service' '$staging/$(basename "{{env_file}}")'"
+    ssh "{{user}}@{{host}}" "rm -rf '$staging'"
 
-remote-restart host user="ytdarr" path="/opt/ytdarr":
-    read -p "Password: " -s password
-    ssh -tt {{user}}@{{host}} 'bash -l -s' << 'ENDSSH'
-    sudo -S -i -u ytdarr << ENDSUDO
-    $password
-    cd {{path}}
-    tar -xzf ytdarr.tar.gz
-    systemctl restart ytdarr
-    ENDSUDO
-    ENDSSH
+# Build and atomically deploy a native release with backup, migration, and health verification.
+deploy host user: release
+    #!/usr/bin/env bash
+    set -euo pipefail
+    staging="/tmp/ytdarr-deploy-{{app_version}}"
+    ssh "{{user}}@{{host}}" "mkdir -p '$staging'"
+    rsync -avP "{{release_archive}}" "{{release_archive}}.sha256" deploy/scripts/activate-release.sh "{{user}}@{{host}}:$staging/"
+    ssh "{{user}}@{{host}}" "sudo --non-interactive bash '$staging/activate-release.sh' '$staging/ytdarr-{{app_version}}.tar.gz' '$staging/ytdarr-{{app_version}}.tar.gz.sha256' '{{app_version}}'"
+    ssh "{{user}}@{{host}}" "rm -rf '$staging'"
+
+# Restore a retained native release and its pre-upgrade database backup.
+rollback host version user:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    staging="/tmp/ytdarr-rollback-{{version}}"
+    ssh "{{user}}@{{host}}" "mkdir -p '$staging'"
+    rsync -av deploy/scripts/rollback-release.sh "{{user}}@{{host}}:$staging/"
+    ssh "{{user}}@{{host}}" "sudo --non-interactive bash '$staging/rollback-release.sh' '{{version}}'"
+    ssh "{{user}}@{{host}}" "rm -rf '$staging'"
+
+container-build:
+    podman build --platform linux/amd64 -f deploy/Dockerfile --build-arg VERSION={{app_version}} -t localhost/ytdarr:{{app_version}} .
     
