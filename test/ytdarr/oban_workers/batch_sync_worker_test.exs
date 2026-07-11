@@ -21,6 +21,7 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorkerTest do
   setup do
     QuotaTracker.reset()
     on_exit(fn -> QuotaTracker.reset() end)
+    clear_batch_sync_jobs()
     unmonitor_all_seeded()
     :ok
   end
@@ -36,7 +37,10 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorkerTest do
 
   describe "perform/1" do
     test "returns :ok when no monitored content exists" do
+      before = batch_sync_job_count()
+
       assert :ok = perform_job(BatchSyncWorker, %{})
+      assert batch_sync_job_count() == before + 1
     end
 
     test "does not schedule next sync when one_off is true" do
@@ -47,7 +51,11 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorkerTest do
 
     test "returns :ok when quota is insufficient" do
       QuotaTracker.record_usage(:read, 10_000)
+
+      before = batch_sync_job_count()
+
       assert :ok = perform_job(BatchSyncWorker, %{})
+      assert batch_sync_job_count() == before + 1
     end
 
     test "does not schedule next sync when quota is insufficient and one_off is true" do
@@ -65,6 +73,10 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorkerTest do
       :count,
       :id
     )
+  end
+
+  defp clear_batch_sync_jobs do
+    Repo.delete_all(from(j in Oban.Job, where: j.worker == "Ytdarr.ObanWorkers.BatchSyncWorker"))
   end
 
   # The test DB carries seeded monitored channels/playlists from `mix ash.setup`.

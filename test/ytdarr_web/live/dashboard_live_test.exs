@@ -4,6 +4,8 @@ defmodule YtdarrWeb.DashboardLiveTest do
   import Phoenix.LiveViewTest
   import Ytdarr.ContentFixtures
 
+  alias Ytdarr.Content
+
   test "renders monitored dashboard content", %{conn: conn} do
     monitored_channel =
       channel_fixture(%{
@@ -27,9 +29,12 @@ defmodule YtdarrWeb.DashboardLiveTest do
   end
 
   test "search returns matching monitored channels", %{conn: conn} do
+    external_id = "UCDASHSEARCH#{System.unique_integer([:positive])}"
+
     keeper =
       channel_fixture(%{
         name: "DashSearch Keep #{System.unique_integer([:positive])}",
+        external_id: external_id,
         is_monitored: true
       })
 
@@ -48,6 +53,13 @@ defmodule YtdarrWeb.DashboardLiveTest do
     view
     |> element("#infinite-scroll-container input[name='q']")
     |> render_change(%{"q" => "Keep"})
+
+    assert render(view) =~ keeper.name
+    refute render(view) =~ excluded.name
+
+    view
+    |> element("#infinite-scroll-container input[name='q']")
+    |> render_change(%{"q" => external_id})
 
     assert render(view) =~ keeper.name
     refute render(view) =~ excluded.name
@@ -87,6 +99,7 @@ defmodule YtdarrWeb.DashboardLiveTest do
 
   test "load-more appends the next page of channels", %{conn: conn} do
     # Page size is 25 — create 26 monitored channels so a second page exists.
+    unmonitor_seeded_channels()
     unique = System.unique_integer([:positive])
 
     first_page =
@@ -114,5 +127,13 @@ defmodule YtdarrWeb.DashboardLiveTest do
     render_hook(view, "load-more", %{})
 
     assert render(view) =~ next.name
+    assert has_element?(view, "#infinite-scroll-marker", "No more channels")
+  end
+
+  defp unmonitor_seeded_channels do
+    Content.list_monitored_channels!()
+    |> Enum.each(fn channel ->
+      assert {:ok, _channel} = Content.unmonitor_channel(channel)
+    end)
   end
 end

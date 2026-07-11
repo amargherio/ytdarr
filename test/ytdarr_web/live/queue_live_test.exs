@@ -6,6 +6,7 @@ defmodule YtdarrWeb.QueueLiveTest do
   import Ytdarr.ContentFixtures
 
   alias Ytdarr.ObanWorkers.VideoDownloader
+  alias Ytdarr.Repo
 
   describe "queue page" do
     test "renders empty state when no downloads", %{conn: conn} do
@@ -95,17 +96,22 @@ defmodule YtdarrWeb.QueueLiveTest do
              )
     end
 
-    test "pubsub download_progress updates the in-memory progress map", %{conn: conn} do
+    test "pubsub download_progress renders progress for an active download", %{conn: conn} do
+      %{job: job, video: video} = enqueue_active_download_fixture()
+
       {:ok, view, _html} = live(conn, ~p"/queue")
+
+      assert has_element?(view, "#active-download-#{job.id}", video.title)
 
       Phoenix.PubSub.broadcast(
         Ytdarr.PubSub,
         "downloads",
-        {:download_progress, 1, 42, %{pct: 12.5, speed: "5MiB/s", eta: "00:30"}}
+        {:download_progress, job.id, video.id, %{pct: 12.5, speed: "5MiB/s", eta: "00:30"}}
       )
 
-      # The progress map only updates internal state; render to flush the message
-      assert is_binary(render(view))
+      assert has_element?(view, "#active-download-#{job.id}", "12.5%")
+      assert has_element?(view, "#active-download-#{job.id}", "5MiB/s")
+      assert has_element?(view, "#active-download-#{job.id}", "ETA 00:30")
     end
 
     test "pubsub download_started reloads the queue", %{conn: conn} do
@@ -183,6 +189,17 @@ defmodule YtdarrWeb.QueueLiveTest do
     {:ok, job} =
       VideoDownloader.new(%{"video_id" => video.id, "channel_id" => channel.id})
       |> Oban.insert()
+
+    %{channel: channel, video: video, job: job}
+  end
+
+  defp enqueue_active_download_fixture do
+    %{channel: channel, video: video, job: job} = enqueue_download_fixture()
+
+    job =
+      job
+      |> Ecto.Changeset.change(state: "executing", attempted_at: DateTime.utc_now())
+      |> Repo.update!()
 
     %{channel: channel, video: video, job: job}
   end

@@ -7,6 +7,8 @@ defmodule YtdarrWeb.ChannelLive.AddTest do
   import Phoenix.LiveViewTest
   import Ytdarr.ContentFixtures
 
+  alias Ytdarr.Content
+
   describe "Add page renders correctly" do
     test "shows both Search and Direct Add tabs", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/channels/add")
@@ -122,6 +124,39 @@ defmodule YtdarrWeb.ChannelLive.AddTest do
   end
 
   describe "direct-add event branches" do
+    test "persists a resolved channel when adding without monitoring or syncing", %{conn: conn} do
+      external_id = "UCDIRECTADD#{System.unique_integer([:positive])}"
+
+      resolved_channel =
+        struct(Content.Channel,
+          external_id: external_id,
+          name: "Resolved Channel",
+          url: "https://www.youtube.com/channel/#{external_id}",
+          description: "Resolved through direct add",
+          avatar_url: "https://example.com/resolved-avatar.jpg",
+          platform_username: "@resolved",
+          uploads_playlist_id: "UU#{String.slice(external_id, 2..-1//1)}"
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/channels/add")
+      view |> element("button", "Direct Add") |> render_click()
+
+      # No lookup is pending initially, so the matching nil reference lets this
+      # exercise the same successful async-result path without an HTTP request.
+      send(view.pid, {:async_resolve_result, nil, {:ok, resolved_channel}})
+
+      assert has_element?(view, "#channel-preview", "Resolved Channel")
+
+      view
+      |> element("#direct-add-only")
+      |> render_click()
+
+      assert {:ok, added_channel} = Content.get_channel_by_external_id(external_id)
+      assert added_channel.name == "Resolved Channel"
+      refute added_channel.is_monitored
+      assert_redirect(view, ~p"/channels/#{added_channel}")
+    end
+
     test "flashes 'already monitored' when the channel is already monitored",
          %{conn: conn} do
       channel =
