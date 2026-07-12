@@ -52,7 +52,9 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
   Schedules a batch sync job to run at the configured interval.
   """
   def schedule_next_sync do
-    interval_minutes = Ytdarr.Settings.get_setting_value(:sync_interval_minutes, 60)
+    default_interval = Ytdarr.Settings.Catalog.default_value("sync_interval_minutes")
+    raw = Ytdarr.Settings.get_setting_value("sync_interval_minutes", default_interval)
+    interval_minutes = to_positive_integer(raw, default_interval)
 
     %{}
     |> __MODULE__.new(schedule_in: {interval_minutes, :minutes})
@@ -98,6 +100,17 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
 
     result
   end
+
+  defp to_positive_integer(v, _default) when is_integer(v) and v > 0, do: v
+
+  defp to_positive_integer(v, default) when is_binary(v) do
+    case Integer.parse(v) do
+      {n, ""} when n > 0 -> n
+      _ -> default
+    end
+  end
+
+  defp to_positive_integer(_, default), do: default
 
   defp sync_monitored_channels(force_full_sync) do
     channels = Content.list_monitored_channels!()

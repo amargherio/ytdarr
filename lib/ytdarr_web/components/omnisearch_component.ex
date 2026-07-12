@@ -33,12 +33,19 @@ defmodule YtdarrWeb.OmnisearchComponent do
   def render(assigns) do
     ~H"""
     <div id={@id} phx-hook="OmniSearch" class="relative flex-1 max-w-xl">
-      <form phx-change="search" phx-submit="go" phx-target={@myself} class="relative">
+      <form
+        id={"#{@id}-form"}
+        phx-change="search"
+        phx-submit="go"
+        phx-target={@myself}
+        class="relative"
+      >
         <.icon
           name="hero-magnifying-glass"
           class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-base-content/50"
         />
         <input
+          id={"#{@id}-input"}
           type="text"
           name="q"
           value={@query}
@@ -50,6 +57,7 @@ defmodule YtdarrWeb.OmnisearchComponent do
           phx-target={@myself}
           phx-click-away="close"
           role="combobox"
+          aria-label="Search channels, playlists, and videos"
           aria-expanded={to_string(@open?)}
           aria-controls="omnisearch-results"
           aria-activedescendant={

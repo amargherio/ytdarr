@@ -295,7 +295,8 @@ defmodule Ytdarr.Content do
   5. For each playlist: fetch items, upsert videos, create PlaylistVideo links
   """
   def sync_channel_content(channel_id, opts \\ []) do
-    with {:ok, db_channel} <- get_channel_by_external_id(channel_id) do
+    with {:ok, db_channel} <- get_channel_by_external_id(channel_id),
+         true <- not is_nil(db_channel) do
       # Step 1: Refresh channel metadata from API
       {uploads_playlist_id, db_channel} = sync_channel_metadata(db_channel, channel_id, opts)
 
@@ -501,7 +502,7 @@ defmodule Ytdarr.Content do
   # Fetch a playlist's items from the API, upsert any new videos, and create PlaylistVideo links.
   # Accepts an optional video_cache to avoid re-fetching video details already known.
   # Returns the updated video_cache.
-  defp fetch_and_link_playlist_videos(db_channel, db_playlist, video_cache, opts) do
+  defp fetch_and_link_playlist_videos(db_channel, db_playlist, video_cache \\ %{}, opts \\ []) do
     {status, %{videos: entries, video_cache: updated_cache}} =
       Client.get_playlist_items_detailed(
         db_playlist.external_id,
@@ -749,6 +750,7 @@ defmodule Ytdarr.Content do
   defp parse_iso8601_duration(_), do: nil
 
   defp parse_int_or_zero(""), do: 0
+  defp parse_int_or_zero(nil), do: 0
 
   defp parse_int_or_zero(str) do
     case Integer.parse(str) do

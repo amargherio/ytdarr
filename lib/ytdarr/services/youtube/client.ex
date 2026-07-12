@@ -465,7 +465,7 @@ defmodule Ytdarr.Services.YouTube.Client do
   # Fetches video details in batches of 50 (YouTube API limit).
   # Accumulates errors instead of failing fast.
   # Returns {videos, errors} tuple.
-  defp fetch_videos_in_batches(video_ids, batch_size, opts) do
+  defp fetch_videos_in_batches(video_ids, batch_size \\ 50, opts \\ []) do
     video_ids
     |> Enum.chunk_every(batch_size)
     |> Enum.with_index()

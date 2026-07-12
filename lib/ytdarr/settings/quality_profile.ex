@@ -1,12 +1,20 @@
 defmodule Ytdarr.Settings.QualityProfile do
   @moduledoc """
   Resource for video quality profile configuration.
+
+  ## Constraints
+
+    * `name` must be non-blank.
+    * `max_height` and `max_bitrate_kbps` must be positive integers when provided.
+    * The default profile cannot be deleted until another profile is set as default.
   """
   use Ash.Resource,
     otp_app: :ytdarr,
     domain: Ytdarr.Settings,
     data_layer: AshSqlite.DataLayer,
     extensions: [AshAdmin.Resource]
+
+  alias Ytdarr.Settings.QualityProfile.Validations.PreventDefaultDelete
 
   sqlite do
     table "quality_profiles"
@@ -18,7 +26,7 @@ defmodule Ytdarr.Settings.QualityProfile do
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults [:read]
 
     create :create do
       primary? true
@@ -32,6 +40,32 @@ defmodule Ytdarr.Settings.QualityProfile do
         :format_selector,
         :is_default
       ]
+
+      validate fn changeset, _context ->
+        name = Ash.Changeset.get_attribute(changeset, :name)
+
+        if is_nil(name) or String.trim(name) == "" do
+          {:error, field: :name, message: "cannot be blank"}
+        else
+          :ok
+        end
+      end
+
+      validate fn changeset, _context ->
+        case Ash.Changeset.get_attribute(changeset, :max_height) do
+          nil -> :ok
+          v when is_integer(v) and v > 0 -> :ok
+          _ -> {:error, field: :max_height, message: "must be a positive integer"}
+        end
+      end
+
+      validate fn changeset, _context ->
+        case Ash.Changeset.get_attribute(changeset, :max_bitrate_kbps) do
+          nil -> :ok
+          v when is_integer(v) and v > 0 -> :ok
+          _ -> {:error, field: :max_bitrate_kbps, message: "must be a positive integer"}
+        end
+      end
 
       change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
     end
@@ -50,6 +84,32 @@ defmodule Ytdarr.Settings.QualityProfile do
         :is_default
       ]
 
+      validate fn changeset, _context ->
+        name = Ash.Changeset.get_attribute(changeset, :name)
+
+        if not is_nil(name) and String.trim(name) == "" do
+          {:error, field: :name, message: "cannot be blank"}
+        else
+          :ok
+        end
+      end
+
+      validate fn changeset, _context ->
+        case Ash.Changeset.get_attribute(changeset, :max_height) do
+          nil -> :ok
+          v when is_integer(v) and v > 0 -> :ok
+          _ -> {:error, field: :max_height, message: "must be a positive integer"}
+        end
+      end
+
+      validate fn changeset, _context ->
+        case Ash.Changeset.get_attribute(changeset, :max_bitrate_kbps) do
+          nil -> :ok
+          v when is_integer(v) and v > 0 -> :ok
+          _ -> {:error, field: :max_bitrate_kbps, message: "must be a positive integer"}
+        end
+      end
+
       change {Ytdarr.Settings.QualityProfile.ClearOtherDefaults, []}
     end
 
@@ -62,6 +122,12 @@ defmodule Ytdarr.Settings.QualityProfile do
     read :default_profile do
       get? true
       filter expr(is_default == true)
+    end
+
+    destroy :destroy do
+      primary? true
+      require_atomic? false
+      validate PreventDefaultDelete
     end
   end
 

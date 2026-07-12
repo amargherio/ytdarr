@@ -118,6 +118,10 @@ accept `SECRET_KEY_BASE_FILE`, `TOKEN_SIGNING_SECRET_FILE`, and
 `YTDARR_YOUTUBE_API_KEY_FILE`. Set either a direct value or its file variant,
 never both.
 
+When `YTDARR_YOUTUBE_API_KEY` is set, it overrides the browser-managed API key
+until the environment value is removed and Ytdarr is restarted. The file
+variant bootstraps the database only when no API key is already stored.
+
 Generate a mode `0600` environment file with:
 
 ```bash

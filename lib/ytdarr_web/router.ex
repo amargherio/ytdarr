@@ -66,8 +66,11 @@ defmodule YtdarrWeb.Router do
     # Download queue
     live "/queue", QueueLive, :index
 
-    # Settings
-    live "/settings", SettingsLive, :index
+    # Settings remain open for local-network deployments. Add authorization
+    # to this isolated live_session when administrator roles are introduced.
+    live_session :settings_access do
+      live "/settings", SettingsLive, :index
+    end
 
     # Oban Web dashboard (consider adding auth in production)
     oban_dashboard("/oban")

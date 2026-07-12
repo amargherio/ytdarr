@@ -21,6 +21,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
     script_path = Path.join(bin_dir, "yt-dlp")
 
     File.mkdir_p!(bin_dir)
+    File.mkdir_p!(downloads_root)
 
     File.write!(script_path, yt_dlp_stub_script())
     File.chmod!(script_path, 0o755)

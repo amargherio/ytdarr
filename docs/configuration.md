@@ -1,22 +1,25 @@
 # Configuration Reference
 
-Ytdarr stores application configuration in its SQLite database and exposes it through the **Settings UI** at `/settings` unless noted otherwise. The Settings UI is organized into the **Media**, **Profiles**, **YouTube**, and **Downloader** tabs.
+Ytdarr stores application configuration in its SQLite database and exposes it through the **Settings UI** at `/settings` unless noted otherwise. The Settings UI is organized into **Media Management**, **Profiles**, **YouTube**, **Download**, **General**, and **System** categories.
 
 ## 1. Overview
 
 - Configuration is stored in a SQLite database and managed through the Settings UI.
-- On first startup, supported environment variables are loaded into the database as a one-time bootstrap.
-- After a setting exists in the database, the database value takes precedence over environment variables.
-- `YTDARR_YOUTUBE_API_KEY` is loaded only when the database does not already contain an API key.
+- On first startup, supported environment variables can bootstrap database values.
+- A non-empty `YTDARR_YOUTUBE_API_KEY` always takes precedence over the browser-managed API key.
+- The Settings UI identifies whether a value is database-managed, environment-managed, stored only, immediately effective, scheduled, or restart-required.
+- Deployment settings and secrets remain read-only in the browser.
 
 ## 2. YouTube Settings
 
-**Location:** Settings UI → **YouTube** tab
+**Location:** Settings UI → **YouTube**
 
-| Setting | Key | Default | Description |
-| --- | --- | --- | --- |
-| API Key | `youtube.primary_api_key` | — | Required. YouTube Data API v3 key. Can be bootstrapped with `YTDARR_YOUTUBE_API_KEY` or `YTDARR_YOUTUBE_API_KEY_FILE`. |
-| Region | `youtube.region` | `US` | ISO 3166-1 alpha-2 country code for API requests. Affects search results and content availability. |
+| Setting | Key | Default | Effect | Description |
+| --- | --- | --- | --- | --- |
+| API Key | `youtube.primary_api_key` | — | Immediate or environment-managed | Required YouTube Data API v3 key. `YTDARR_YOUTUBE_API_KEY` overrides the database value; `YTDARR_YOUTUBE_API_KEY_FILE` can bootstrap an empty database value at startup. |
+| Region | `youtube.region` | `US` | Stored only | ISO 3166-1 alpha-2 country code reserved for future region-aware API requests. |
+
+The browser can test the effective credentials with a minimal YouTube API request. The stored secret is never displayed.
 
 ### API Quota
 
@@ -31,13 +34,13 @@ Ytdarr tracks quota usage internally and uses batched API calls to minimize cons
 
 ## 3. Media Settings
 
-**Location:** Settings UI → **Media** tab
+**Location:** Settings UI → **Media Management**
 
-| Setting | Key | Default | Description |
-| --- | --- | --- | --- |
-| File Naming Template | `media.file_naming_template` | `%(channel)s/%(title)s.%(ext)s` | Template for downloaded file naming. |
-| Move Strategy | `media.move_strategy` | `hardlink` | How files are placed: `hardlink`, `copy`, or `move`. |
-| Clean Orphans | `media.clean_orphans` | `true` | Automatically clean up orphaned files. |
+| Setting | Key | Default | Effect | Description |
+| --- | --- | --- | --- | --- |
+| File Naming Template | `media.file_naming_template` | `%(channel)s/%(title)s.%(ext)s` | Stored only | Intended template for a future configurable naming pipeline. Current downloads use Ytdarr's built-in series and episode naming. |
+| Move Strategy | `media.move_strategy` | `hardlink` | Stored only | Intended file placement behavior: `hardlink`, `copy`, or `move`. Current downloads write directly to the destination path. |
+| Clean Orphans | `media.clean_orphans` | `true` | Stored only | Intended automatic orphan cleanup policy. Automated cleanup is not active yet. |
 
 ### Media Root Folders
 
@@ -49,15 +52,17 @@ Managed through the Settings UI. Each folder has the following fields:
 | `purpose` | string | `videos` | Content type: `videos`, `music`, `podcasts`. |
 | `active` | boolean | `true` | Whether this folder is currently in use. |
 
-- At least one active folder is needed for downloads to work.
+- At least one active folder is needed for newly derived channel paths.
 - If no folder is configured, Ytdarr defaults to `/downloads`.
 - Multiple folders can be configured; the first active one is used for new channels.
+- Paths must be absolute, exist on the Ytdarr host, be directories, and be writable.
+- Changing a root folder does not migrate existing channel paths or files.
 
 ## 4. Quality Profiles
 
-**Location:** Settings UI → **Profiles** tab
+**Location:** Settings UI → **Profiles**
 
-Quality profiles control video download quality. You can create multiple profiles and mark one as the default.
+Quality profiles record intended video quality preferences. You can create multiple profiles and mark one as the default. The current downloader does not consume profiles yet, so the UI labels them **Stored only**.
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -73,18 +78,18 @@ Setting a profile as default automatically clears the default flag from all othe
 
 ## 5. yt-dlp Parameter Sets
 
-**Location:** Settings UI → **Downloader** tab
+**Location:** Settings UI → **Download**
 
-Parameter sets control how yt-dlp is invoked. You can create multiple sets for different use cases.
+Parameter sets control part of how yt-dlp is invoked. You can create multiple sets for different use cases.
 
-| Field | Type | Default | Description |
-| --- | --- | --- | --- |
-| `name` | string | — | Unique set name (for example, `Default` or `Slow and Steady`). |
-| `format` | string | — | yt-dlp `-f` format string (for example, `bestvideo+bestaudio`). |
-| `extra_args` | string | — | Additional yt-dlp arguments, space-separated (for example, `--no-playlist --quiet`). |
-| `rate_limit_kbps` | integer | — | Download speed limit in kbps (unset = unlimited). |
-| `concurrency` | integer | — | Maximum concurrent downloads for this set. |
-| `is_default` | boolean | `false` | Marks the set as the default. Only one set can be default at a time. |
+| Field | Type | Default | Effect | Description |
+| --- | --- | --- | --- | --- |
+| `name` | string | — | Immediate | Unique set name (for example, `Default` or `Slow and Steady`). |
+| `format` | string | — | New download jobs | yt-dlp `-f` format string (for example, `bestvideo+bestaudio`). |
+| `extra_args` | string | — | New download jobs | Additional yt-dlp arguments, space-separated (for example, `--no-playlist --quiet`). |
+| `rate_limit_kbps` | integer | — | Stored only | Intended download speed limit in kbps. |
+| `concurrency` | integer | — | Stored only | Intended maximum concurrent downloads for this set. |
+| `is_default` | boolean | `false` | Immediate | Marks the set as the default. Only one set can be default at a time. |
 
 ### Base parameters
 
@@ -106,9 +111,11 @@ When a default parameter set exists:
 
 ## 6. Sync Settings
 
-| Setting | Key | Default | Description |
-| --- | --- | --- | --- |
-| Sync Interval | `sync_interval_minutes` | `60` | Minutes between automatic batch syncs of all monitored content. |
+**Location:** Settings UI → **General**
+
+| Setting | Key | Default | Effect | Description |
+| --- | --- | --- | --- | --- |
+| Sync Interval | `sync_interval_minutes` | `60` | Next scheduling cycle | Minutes between automatic batch syncs of all monitored content. |
 
 ### How Sync Works
 
@@ -157,17 +164,16 @@ Ytdarr uses Oban for background job processing. The Oban Web dashboard is availa
 
 ## 8. Application Settings Reference
 
-This is the complete list of key/value settings stored in the `app_settings` table.
+This is the user-facing list of key/value settings stored in the `app_settings` table. Internal quota bookkeeping keys are not shown here.
 
-| Key | Type | Default | Description |
+| Key | Type | Default | Effect |
 | --- | --- | --- | --- |
-| `youtube.primary_api_key` | string | — | YouTube Data API v3 key |
-| `youtube.region` | string | `US` | API region code |
-| `media.file_naming_template` | string | `%(channel)s/%(title)s.%(ext)s` | File naming template |
-| `media.move_strategy` | string | `hardlink` | File placement strategy |
-| `media.clean_orphans` | boolean | `true` | Auto-clean orphaned files |
-| `sync_interval_minutes` | integer | `60` | Batch sync interval in minutes |
-| `yt_dlp.default_param_set_name` | string | (auto) | Name of the default yt-dlp parameter set |
+| `youtube.primary_api_key` | string | — | Immediate unless environment-managed |
+| `youtube.region` | string | `US` | Stored only |
+| `media.file_naming_template` | string | `%(channel)s/%(title)s.%(ext)s` | Stored only |
+| `media.move_strategy` | string | `hardlink` | Stored only |
+| `media.clean_orphans` | boolean | `true` | Stored only |
+| `sync_interval_minutes` | integer | `60` | Next scheduling cycle |
 
 Settings can be viewed and modified via:
 
@@ -181,6 +187,25 @@ Environment variables are primarily intended for production deployment bootstrap
 
 Key behavior:
 
-- `YTDARR_YOUTUBE_API_KEY` and `YTDARR_YOUTUBE_API_KEY_FILE` bootstrap the API key only when no database value exists.
+- A non-empty `YTDARR_YOUTUBE_API_KEY` overrides the browser-managed API key.
+- `YTDARR_YOUTUBE_API_KEY_FILE` bootstraps the database only when no API key is already stored.
 - `SECRET_KEY_BASE`, `TOKEN_SIGNING_SECRET`, and the YouTube API key accept a corresponding `*_FILE` variable for Docker/Podman secrets or systemd credentials.
 - Set either the direct variable or its `*_FILE` form, never both.
+
+## 10. System Settings
+
+**Location:** Settings UI → **System**
+
+System shows read-only deployment values and capability checks, including:
+
+- Ytdarr version and runtime environment
+- public host and HTTP port
+- database path and pool size
+- Oban queue concurrency
+- yt-dlp availability
+- database connectivity
+- active root-folder health
+
+Secret values are never displayed. Restart-required values must be changed in the deployment environment.
+
+The current settings route is intended for trusted local networks. Do not expose it directly to untrusted clients until application authorization is enabled.
