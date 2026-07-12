@@ -2,7 +2,6 @@ name: Release
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
 
 permissions:
@@ -74,52 +73,6 @@ jobs:
         run: |
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-
-  publish-edge:
-    name: Publish Edge Image
-    if: github.ref_type == 'branch'
-    needs: [quality, validate]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-      - name: Log in to GHCR
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and publish edge
-        id: image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: deploy/Dockerfile
-          platforms: linux/amd64
-          push: true
-          sbom: true
-          provenance: true
-          tags: ghcr.io/amargherio/ytdarr:edge
-          build-args: |
-            VERSION=${{ needs.validate.outputs.version }}
-            VCS_REF=${{ github.sha }}
-          cache-from: type=gha,scope=ytdarr-linux-amd64
-          cache-to: type=gha,mode=max,scope=ytdarr-linux-amd64
-
-      - name: Attest edge image
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
-        with:
-          subject-name: ghcr.io/amargherio/ytdarr
-          subject-digest: ${{ steps.image.outputs.digest }}
-          push-to-registry: true
 
   build-release:
     name: Build Stable Artifacts
