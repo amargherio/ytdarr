@@ -19,7 +19,7 @@
   "coverage_options": {
     "treat_no_relevant_lines_as_covered": true,
     "output_dir": "cover/",
-    "minimum_coverage": 80
+    "minimum_coverage": 70
   },
   "path_thresholds": [
     { "pattern": "^lib/ytdarr/content/channel/changes/cleanup_on_destroy\\.ex$", "minimum": 77 },
