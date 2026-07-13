@@ -1,5 +1,5 @@
 defmodule Ytdarr.SettingsTest do
-  use Ytdarr.DataCase, async: true
+  use Ytdarr.DataCase
 
   alias Ytdarr.Settings
   alias Ytdarr.Settings.Catalog

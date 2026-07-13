@@ -502,7 +502,7 @@ defmodule Ytdarr.Content do
   # Fetch a playlist's items from the API, upsert any new videos, and create PlaylistVideo links.
   # Accepts an optional video_cache to avoid re-fetching video details already known.
   # Returns the updated video_cache.
-  defp fetch_and_link_playlist_videos(db_channel, db_playlist, video_cache \\ %{}, opts \\ []) do
+  defp fetch_and_link_playlist_videos(db_channel, db_playlist, video_cache, opts) do
     {status, %{videos: entries, video_cache: updated_cache}} =
       Client.get_playlist_items_detailed(
         db_playlist.external_id,

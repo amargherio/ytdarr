@@ -101,7 +101,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
       </div>
 
       <div class={["grid gap-5", @editor_kind == :root_folder && "lg:grid-cols-[minmax(0,1fr)_24rem]"]}>
-        <div class="min-w-0">
+        <div class={["min-w-0", @editor_kind == :root_folder && "max-lg:hidden"]}>
           <.empty_state
             :if={@root_folders == []}
             id="root-folders-empty"
@@ -111,6 +111,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
           >
             <:action>
               <button
+                id="add-root-folder-empty"
                 type="button"
                 class="btn btn-primary btn-sm"
                 phx-click="open-editor"
@@ -148,6 +149,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
                     {if(folder.active, do: "Active", else: "Inactive")}
                   </span>
                   <.effect_badge status={:new_items} />
+                  <.root_folder_health_badge result={@root_folder_checks[folder.id]} />
                 </div>
                 <p class="mt-1 text-xs text-base-content/50">Purpose: {folder.purpose}</p>
               </div>
@@ -168,6 +170,11 @@ defmodule YtdarrWeb.SettingsLive.Sections do
                   class="btn btn-ghost btn-sm"
                   phx-click="toggle-root-folder"
                   phx-value-id={folder.id}
+                  disabled={folder.id == @last_active_root_id}
+                  title={
+                    folder.id == @last_active_root_id &&
+                      "Activate another root folder before deactivating this one."
+                  }
                 >
                   {if(folder.active, do: "Deactivate", else: "Activate")}
                 </button>
@@ -178,6 +185,11 @@ defmodule YtdarrWeb.SettingsLive.Sections do
                   phx-click="delete-resource"
                   phx-value-kind="root_folder"
                   phx-value-id={folder.id}
+                  disabled={folder.id == @last_active_root_id}
+                  title={
+                    folder.id == @last_active_root_id &&
+                      "Activate another root folder before deleting this one."
+                  }
                   data-confirm={"Delete root folder #{folder.path}? Existing files will not be removed."}
                 >
                   <.icon name="hero-trash" class="size-4" />
@@ -195,6 +207,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
           form={@editor_form}
           path_check={@path_check}
           editor_return_focus={@editor_return_focus}
+          protected={not is_nil(@editor_record_id) and @editor_record_id == @last_active_root_id}
         />
       </div>
     </div>
@@ -222,7 +235,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
     </.section_header>
 
     <div class={["mt-6 grid gap-5", @editor_kind == :profile && "lg:grid-cols-[minmax(0,1fr)_24rem]"]}>
-      <div class="min-w-0">
+      <div class={["min-w-0", @editor_kind == :profile && "max-lg:hidden"]}>
         <.empty_state
           :if={@profiles == []}
           id="profiles-empty"
@@ -232,6 +245,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
         >
           <:action>
             <button
+              id="add-quality-profile-empty"
               type="button"
               class="btn btn-primary btn-sm"
               phx-click="open-editor"
@@ -310,6 +324,11 @@ defmodule YtdarrWeb.SettingsLive.Sections do
                 phx-click="delete-resource"
                 phx-value-kind="profile"
                 phx-value-id={profile.id}
+                disabled={profile.is_default}
+                title={
+                  profile.is_default &&
+                    "Set another quality profile as default before deleting this one."
+                }
                 data-confirm={"Delete quality profile #{profile.name}? This cannot be undone."}
               >
                 <.icon name="hero-trash" class="size-4" />
@@ -327,6 +346,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
         form={@editor_form}
         path_check={@path_check}
         editor_return_focus={@editor_return_focus}
+        protected={false}
       />
     </div>
     """
@@ -469,7 +489,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
       "mt-6 grid gap-5",
       @editor_kind == :param_set && "lg:grid-cols-[minmax(0,1fr)_24rem]"
     ]}>
-      <div class="min-w-0">
+      <div class={["min-w-0", @editor_kind == :param_set && "max-lg:hidden"]}>
         <.empty_state
           :if={@param_sets == []}
           id="param-sets-empty"
@@ -479,6 +499,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
         >
           <:action>
             <button
+              id="add-param-set-empty"
               type="button"
               class="btn btn-primary btn-sm"
               phx-click="open-editor"
@@ -510,7 +531,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
                 </span>
               </div>
               <div class="mt-2 flex flex-wrap gap-2">
-                <.effect_badge status={:immediate} />
+                <.effect_badge status={:new_items} />
                 <.effect_badge status={:stored_only} />
               </div>
             </div>
@@ -565,6 +586,11 @@ defmodule YtdarrWeb.SettingsLive.Sections do
                 phx-click="delete-resource"
                 phx-value-kind="param_set"
                 phx-value-id={param_set.id}
+                disabled={param_set.is_default}
+                title={
+                  param_set.is_default &&
+                    "Set another parameter set as default before deleting this one."
+                }
                 data-confirm={"Delete parameter set #{param_set.name}? This cannot be undone."}
               >
                 <.icon name="hero-trash" class="size-4" />
@@ -582,6 +608,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
         form={@editor_form}
         path_check={@path_check}
         editor_return_focus={@editor_return_focus}
+        protected={false}
       />
     </div>
     """
@@ -639,6 +666,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
     <div id="system-information" class="mt-5 border-y border-base-300">
       <.system_row
         :for={row <- @system_rows}
+        id={row.id}
         label={row.label}
         value={row.value}
         description={row.description}
@@ -671,6 +699,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
   attr :form, :any, required: true
   attr :path_check, :any, default: nil
   attr :editor_return_focus, :string, required: true
+  attr :protected, :boolean, default: false
 
   def resource_editor(assigns) do
     title =
@@ -708,6 +737,7 @@ defmodule YtdarrWeb.SettingsLive.Sections do
       title={@title}
       description={@description}
       close={@close}
+      return_focus={@editor_return_focus}
     >
       <.form
         for={@form}
@@ -725,7 +755,16 @@ defmodule YtdarrWeb.SettingsLive.Sections do
               label="Purpose"
               options={[{"Videos", "videos"}, {"Music", "music"}, {"Podcasts", "podcasts"}]}
             />
-            <.input field={@form[:active]} type="checkbox" label="Active" />
+            <.input
+              field={@form[:active]}
+              type="checkbox"
+              label="Active"
+              disabled={@protected}
+            />
+            <p :if={@protected} class="mb-3 flex items-center gap-2 text-sm text-warning">
+              <.icon name="hero-shield-check" class="size-4" />
+              Activate another root folder before deactivating this one.
+            </p>
             <button
               id="validate-root-path"
               type="button"
@@ -837,8 +876,20 @@ defmodule YtdarrWeb.SettingsLive.Sections do
         <% end %>
 
         <div class="mt-5 flex items-center justify-end gap-2 border-t border-base-300 pt-4">
-          <button type="button" class="btn btn-ghost btn-sm" phx-click={@close}>Cancel</button>
-          <button type="submit" class="btn btn-primary btn-sm" phx-disable-with="Saving...">
+          <button
+            id="settings-editor-cancel"
+            type="button"
+            class="btn btn-ghost btn-sm"
+            phx-click={@close}
+          >
+            Cancel
+          </button>
+          <button
+            id="settings-editor-submit"
+            type="submit"
+            class="btn btn-primary btn-sm"
+            phx-disable-with="Saving..."
+          >
             {if(@mode == :create, do: "Create", else: "Save changes")}
           </button>
         </div>
@@ -871,6 +922,40 @@ defmodule YtdarrWeb.SettingsLive.Sections do
       />
       <span>{elem(@result, 1)}</span>
     </div>
+    """
+  end
+
+  attr :result, :any, required: true
+
+  defp root_folder_health_badge(assigns) do
+    {label, icon, classes} =
+      case assigns.result do
+        :ok ->
+          {"Writable", "hero-check-circle", "bg-success/15 text-success"}
+
+        {:error, :not_found} ->
+          {"Missing", "hero-exclamation-circle", "bg-error/15 text-error"}
+
+        {:error, :not_directory} ->
+          {"Not a directory", "hero-exclamation-circle", "bg-error/15 text-error"}
+
+        {:error, :not_writable} ->
+          {"Not writable", "hero-exclamation-circle", "bg-error/15 text-error"}
+
+        _ ->
+          {"Invalid path", "hero-exclamation-circle", "bg-error/15 text-error"}
+      end
+
+    assigns = assign(assigns, label: label, icon: icon, classes: classes)
+
+    ~H"""
+    <span class={[
+      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+      @classes
+    ]}>
+      <.icon name={@icon} class="size-3.5" />
+      {@label}
+    </span>
     """
   end
 

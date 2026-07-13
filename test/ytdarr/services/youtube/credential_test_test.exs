@@ -25,7 +25,7 @@ defmodule Ytdarr.Services.YouTube.CredentialTest do
   end
 
   defp stub_client(response_fn) do
-    Req.new(plug: {StubPlug, response: response_fn})
+    Req.new(plug: {StubPlug, response: response_fn}, retry: false)
   end
 
   describe "test_credential/2" do
@@ -35,6 +35,7 @@ defmodule Ytdarr.Services.YouTube.CredentialTest do
 
     test "returns {:error, :empty_key} for empty string key" do
       assert {:error, :empty_key} = Client.test_credential("")
+      assert {:error, :empty_key} = Client.test_credential("   ")
     end
 
     test "returns {:ok, :valid} when API responds with 200" do
@@ -120,6 +121,13 @@ defmodule Ytdarr.Services.YouTube.CredentialTest do
         end)
 
       assert {:error, {:http_error, 403, _reason}} =
+               Client.test_credential("some_key", client: client)
+    end
+
+    test "handles an unexpected non-map response body safely" do
+      client = stub_client(fn -> {502, "Bad gateway"} end)
+
+      assert {:error, {:http_error, 502, "YouTube API request failed"}} =
                Client.test_credential("some_key", client: client)
     end
 

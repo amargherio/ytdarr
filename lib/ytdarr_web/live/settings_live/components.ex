@@ -67,7 +67,7 @@ defmodule YtdarrWeb.SettingsLive.Components do
           <.icon name={@icon} class="size-5" />
         </div>
         <div class="min-w-0">
-          <h1 class="text-xl font-semibold tracking-tight text-base-content">{@title}</h1>
+          <h2 class="text-xl font-semibold tracking-tight text-base-content">{@title}</h2>
           <p class="mt-1 max-w-2xl text-sm leading-6 text-base-content/65">{@description}</p>
         </div>
       </div>
@@ -146,6 +146,7 @@ defmodule YtdarrWeb.SettingsLive.Components do
   attr :title, :string, required: true
   attr :description, :string, default: nil
   attr :close, Phoenix.LiveView.JS, required: true
+  attr :return_focus, :string, required: true
   slot :inner_block, required: true
 
   def editor_panel(assigns) do
@@ -155,6 +156,7 @@ defmodule YtdarrWeb.SettingsLive.Components do
       aria-label={@title}
       class="min-w-0 border-t border-base-300 bg-base-200/65 p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:rounded-xl lg:border"
       phx-mounted={Phoenix.LiveView.JS.focus_first(to: "##{@id}")}
+      phx-remove={Phoenix.LiveView.JS.focus(to: @return_focus)}
     >
       <div class="mb-5 flex items-start justify-between gap-4">
         <div>
@@ -219,10 +221,16 @@ defmodule YtdarrWeb.SettingsLive.Components do
         <span><strong>{@section}</strong> has unsaved changes.</span>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" class="btn btn-ghost btn-sm" phx-click="discard-section-changes">
+        <button
+          id="settings-discard-changes"
+          type="button"
+          class="btn btn-ghost btn-sm"
+          phx-click="discard-section-changes"
+        >
           Discard
         </button>
         <button
+          id="settings-save-changes"
           type="submit"
           form={@form_id}
           class="btn btn-primary btn-sm"
@@ -235,6 +243,7 @@ defmodule YtdarrWeb.SettingsLive.Components do
     """
   end
 
+  attr :id, :string, required: true
   attr :label, :string, required: true
   attr :value, :string, required: true
   attr :description, :string, default: nil
@@ -243,7 +252,10 @@ defmodule YtdarrWeb.SettingsLive.Components do
 
   def system_row(assigns) do
     ~H"""
-    <div class="grid gap-2 border-b border-base-300 py-4 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+    <div
+      id={@id}
+      class="grid gap-2 border-b border-base-300 py-4 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5"
+    >
       <div>
         <p class="text-sm font-medium text-base-content">{@label}</p>
         <p :if={@description} class="mt-1 text-xs leading-5 text-base-content/50">{@description}</p>

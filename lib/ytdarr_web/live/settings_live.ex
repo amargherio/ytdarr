@@ -184,7 +184,7 @@ defmodule YtdarrWeb.SettingsLive do
           else: Settings.get_setting_value("youtube.primary_api_key")
 
       result =
-        case Settings.test_youtube_credential(api_key) do
+        case Settings.test_youtube_credential(api_key, youtube_credential_test_options()) do
           {:ok, _details} -> {:ok, "Credentials are valid and the YouTube API responded."}
           {:error, reason} -> {:error, youtube_test_error(reason)}
         end
@@ -379,6 +379,10 @@ defmodule YtdarrWeb.SettingsLive do
 
   defp load_data(socket) do
     cfg = Settings.effective_config()
+    root_folders = Enum.sort_by(cfg.media.root_folders, &{!&1.active, &1.path})
+
+    root_folder_checks =
+      Map.new(root_folders, &{&1.id, Settings.validate_media_root_path(&1.path)})
 
     setting_states =
       Map.new(
@@ -431,7 +435,9 @@ defmodule YtdarrWeb.SettingsLive do
       :param_sets,
       Enum.sort_by(cfg.downloader.param_sets, &{!&1.is_default, String.downcase(&1.name)})
     )
-    |> assign(:root_folders, Enum.sort_by(cfg.media.root_folders, &{!&1.active, &1.path}))
+    |> assign(:root_folders, root_folders)
+    |> assign(:root_folder_checks, root_folder_checks)
+    |> assign(:last_active_root_id, last_active_root_id(root_folders))
     |> assign(:setting_effects, setting_effects(setting_states))
     |> assign(
       :move_strategy_options,
@@ -443,7 +449,7 @@ defmodule YtdarrWeb.SettingsLive do
     |> assign(:youtube_key_source, youtube_key_state.source)
     |> assign(:youtube_key_configured?, youtube_key_state.configured?)
     |> assign(:quota_usage, quota_usage())
-    |> assign(:system_rows, system_rows(cfg.media.root_folders))
+    |> assign(:system_rows, system_rows(root_folders, root_folder_checks))
   end
 
   defp category_from(%{"category" => category}), do: parse_category(category)
@@ -617,7 +623,21 @@ defmodule YtdarrWeb.SettingsLive do
     if Process.whereis(QuotaTracker), do: QuotaTracker.get_usage(), else: nil
   end
 
-  defp system_rows(root_folders) do
+  defp youtube_credential_test_options do
+    case Application.get_env(:ytdarr, __MODULE__, [])[:credential_test_client] do
+      nil -> []
+      client -> [client: client]
+    end
+  end
+
+  defp last_active_root_id(root_folders) do
+    case Enum.filter(root_folders, & &1.active) do
+      [folder] -> folder.id
+      _ -> nil
+    end
+  end
+
+  defp system_rows(root_folders, root_folder_checks) do
     endpoint_config = Application.get_env(:ytdarr, YtdarrWeb.Endpoint, [])
     repo_config = Application.get_env(:ytdarr, Ytdarr.Repo, [])
     oban_config = Application.get_env(:ytdarr, Oban, [])
@@ -626,61 +646,72 @@ defmodule YtdarrWeb.SettingsLive do
 
     [
       %{
+        id: "system-version",
         label: "Ytdarr version",
         value: to_string(Application.spec(:ytdarr, :vsn) || "unknown"),
         description: "Running application release."
       },
       %{
+        id: "system-environment",
         label: "Runtime environment",
         value: System.get_env("MIX_ENV") || "runtime",
         description: "Build and runtime environment."
       },
       %{
+        id: "system-public-host",
         label: "Public host",
         value: to_string(Keyword.get(url_config, :host, "localhost")),
         description: "Configured by PHX_HOST.",
         status: :restart_required
       },
       %{
+        id: "system-http-port",
         label: "HTTP port",
         value: to_string(Keyword.get(http_config, :port, System.get_env("PORT") || "4000")),
         description: "Configured by PORT.",
         status: :restart_required
       },
       %{
+        id: "system-database-path",
         label: "Database path",
         value: to_string(Keyword.get(repo_config, :database, "environment default")),
         description: "Configured by DATABASE_PATH.",
         status: :restart_required
       },
       %{
+        id: "system-database-pool",
         label: "Database pool",
         value: to_string(Keyword.get(repo_config, :pool_size, 10)),
         description: "Configured by POOL_SIZE.",
         status: :restart_required
       },
       %{
+        id: "system-oban-queues",
         label: "Oban queues",
         value: format_queues(Keyword.get(oban_config, :queues, [])),
         description: "Worker concurrency is deployment-managed.",
         status: :restart_required
       },
       %{
+        id: "system-ytdlp-executable",
         label: "yt-dlp executable",
         value: System.find_executable("yt-dlp") || "Not found",
         description: "Required for downloads."
       },
       %{
+        id: "system-database-connectivity",
         label: "Database connectivity",
         value: database_status(),
         description: "Live repository health check."
       },
       %{
+        id: "system-root-folder-health",
         label: "Root folder health",
-        value: root_folder_health(root_folders),
+        value: root_folder_health(root_folders, root_folder_checks),
         description: "Checks configured active folders on this host."
       },
       %{
+        id: "system-secret-key-base",
         label: "Secret key base",
         value: "configured",
         description: "Configured by SECRET_KEY_BASE.",
@@ -688,6 +719,7 @@ defmodule YtdarrWeb.SettingsLive do
         status: :restart_required
       },
       %{
+        id: "system-token-signing-secret",
         label: "Token signing secret",
         value: "configured",
         description: "Configured by TOKEN_SIGNING_SECRET.",
@@ -715,9 +747,9 @@ defmodule YtdarrWeb.SettingsLive do
     end
   end
 
-  defp root_folder_health(root_folders) do
+  defp root_folder_health(root_folders, root_folder_checks) do
     active_folders = Enum.filter(root_folders, & &1.active)
-    healthy = Enum.count(active_folders, &(Settings.validate_media_root_path(&1.path) == :ok))
+    healthy = Enum.count(active_folders, &(root_folder_checks[&1.id] == :ok))
     "#{healthy}/#{length(active_folders)} active folders healthy"
   end
 
@@ -731,7 +763,8 @@ defmodule YtdarrWeb.SettingsLive do
   defp youtube_test_error(:invalid_key),
     do: "YouTube rejected this API key. Check the key and API restrictions."
 
-  defp youtube_test_error(:quota_exceeded), do: "The YouTube project has exhausted its API quota for the day."
+  defp youtube_test_error(:quota_exceeded),
+    do: "The YouTube project has exhausted its API quota for the day."
 
   defp youtube_test_error({:http_error, status, message}),
     do: youtube_http_error(status, message)
@@ -742,11 +775,6 @@ defmodule YtdarrWeb.SettingsLive do
     )
 
     "Could not reach YouTube. Check network access and try again."
-  end
-
-  defp youtube_test_error(reason) do
-    Logger.warning("[SettingsLive] YouTube credential test failed: #{error_kind(reason)}")
-    "Credential test failed. Check server logs for details."
   end
 
   defp setting_effects(setting_states) do

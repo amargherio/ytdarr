@@ -16,6 +16,7 @@ defmodule Ytdarr.MixProject do
       listeners: [Phoenix.CodeReloader],
       consolidate_protocols: Mix.env() != :dev,
       dialyzer: [
+        ignore_warnings: "dialyzer.ignore-warnings",
         plt_core_path: "priv/plts/core.plt",
         plt_local_path: "priv/plts/project.plt",
         plt_add_apps: [:mix, :ex_unit, :ash, :ash_authentication, :ash_authentication_phoenix]

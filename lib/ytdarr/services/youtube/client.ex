@@ -468,7 +468,7 @@ defmodule Ytdarr.Services.YouTube.Client do
   # Fetches video details in batches of 50 (YouTube API limit).
   # Accumulates errors instead of failing fast.
   # Returns {videos, errors} tuple.
-  defp fetch_videos_in_batches(video_ids, batch_size \\ 50, opts \\ []) do
+  defp fetch_videos_in_batches(video_ids, batch_size, opts) do
     video_ids
     |> Enum.chunk_every(batch_size)
     |> Enum.with_index()
@@ -693,24 +693,12 @@ defmodule Ytdarr.Services.YouTube.Client do
   def test_credential(api_key, _opts) when api_key in [nil, ""], do: {:error, :empty_key}
 
   def test_credential(api_key, opts) when is_binary(api_key) do
-    client =
-      case Keyword.fetch(opts, :client) do
-        {:ok, client} -> client
-        :error -> credential_client(api_key)
-      end
+    case String.trim(api_key) do
+      "" ->
+        {:error, :empty_key}
 
-    case Req.get(client,
-           url: "/channels",
-           params: [part: "id", id: @credential_probe_channel_id]
-         ) do
-      {:ok, %Req.Response{status: 200}} ->
-        {:ok, :valid}
-
-      {:ok, %{status: status, body: body}} ->
-        credential_response_error(status, body)
-
-      {:error, reason} ->
-        {:error, {:network, reason}}
+      trimmed_api_key ->
+        perform_credential_test(trimmed_api_key, opts)
     end
   end
 
@@ -726,24 +714,41 @@ defmodule Ytdarr.Services.YouTube.Client do
           | {:error, {:network, term()}}
   def test_credentials(api_key), do: test_credential(api_key)
 
-  defp credential_client(api_key) do
+  defp perform_credential_test(api_key, opts) do
+    client =
+      case Keyword.fetch(opts, :client) do
+        {:ok, client} -> client
+        :error -> credential_client()
+      end
+
+    case Req.get(client,
+           url: "/channels",
+           params: [key: api_key, part: "id", id: @credential_probe_channel_id]
+         ) do
+      {:ok, %Req.Response{status: 200}} ->
+        {:ok, :valid}
+
+      {:ok, %{status: status, body: body}} ->
+        credential_response_error(status, body)
+
+      {:error, reason} ->
+        {:error, {:network, reason}}
+    end
+  end
+
+  defp credential_client do
     Req.new(
       base_url: @youtube_api_base_url,
       headers: %{
         accept: "application/json",
         user_agent: "Ytdarr/1.0"
       },
-      params: [key: api_key],
       finch: Ytdarr.Finch
     )
   end
 
   defp credential_response_error(status, body) do
-    reasons =
-      body
-      |> get_in(["error", "errors"])
-      |> List.wrap()
-      |> Enum.map(&Map.get(&1, "reason"))
+    reasons = credential_error_reasons(body)
 
     cond do
       Enum.any?(reasons, &(&1 in ["keyInvalid", "badRequest"])) or
@@ -758,11 +763,15 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
+  defp credential_error_reasons(%{"error" => %{"errors" => errors}}) when is_list(errors) do
+    Enum.map(errors, &Map.get(&1, "reason"))
+  end
+
+  defp credential_error_reasons(_body), do: []
+
   defp invalid_key_message?(body) do
-    body
-    |> get_in(["error", "message"])
-    |> case do
-      message when is_binary(message) ->
+    case body do
+      %{"error" => %{"message" => message}} when is_binary(message) ->
         String.contains?(String.downcase(message), "api key not valid")
 
       _ ->
@@ -770,10 +779,9 @@ defmodule Ytdarr.Services.YouTube.Client do
     end
   end
 
-  defp safe_error_message(body) do
-    case get_in(body, ["error", "message"]) do
-      message when is_binary(message) and message != "" -> message
-      _ -> "YouTube API request failed"
-    end
-  end
+  defp safe_error_message(%{"error" => %{"message" => message}})
+       when is_binary(message) and message != "",
+       do: message
+
+  defp safe_error_message(_body), do: "YouTube API request failed"
 end
