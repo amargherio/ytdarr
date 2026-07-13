@@ -17,7 +17,8 @@ defmodule Ytdarr.MixProject do
       consolidate_protocols: Mix.env() != :dev,
       dialyzer: [
         plt_core_path: "priv/plts/core.plt",
-        plt_local_path: "priv/plts/project.plt"
+        plt_local_path: "priv/plts/project.plt",
+        plt_add_apps: [:mix, :ex_unit, :ash, :ash_authentication, :ash_authentication_phoenix]
       ],
       releases: [
         ytdarr: [

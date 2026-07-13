@@ -440,7 +440,7 @@ defmodule Ytdarr.Content do
   defp sync_playlists_and_link_videos(db_channel, channel_id, video_cache, opts) do
     case Client.get_channel_playlists(channel_id, opts) do
       {:ok, yt_playlists} ->
-        sync_interval = Ytdarr.Settings.get_setting_value(:sync_interval_minutes, 60)
+        sync_interval = Ytdarr.Settings.get_setting_value("sync_interval_minutes", 60)
 
         Enum.reduce(yt_playlists, video_cache, fn yt_playlist, acc_cache ->
           Logger.info("[Content] Processing playlist #{yt_playlist.id} - #{yt_playlist.title}")
@@ -750,12 +750,5 @@ defmodule Ytdarr.Content do
   defp parse_iso8601_duration(_), do: nil
 
   defp parse_int_or_zero(""), do: 0
-  defp parse_int_or_zero(nil), do: 0
-
-  defp parse_int_or_zero(str) do
-    case Integer.parse(str) do
-      {n, _} -> n
-      :error -> 0
-    end
-  end
+  defp parse_int_or_zero(value), do: String.to_integer(value)
 end

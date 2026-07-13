@@ -66,6 +66,21 @@ defmodule Ytdarr.Services.YouTube.CredentialTest do
       assert {:error, :invalid_key} = Client.test_credential("bad_key", client: client)
     end
 
+    test "returns {:error, :invalid_key} on 400 API key validation errors" do
+      client =
+        stub_client(fn ->
+          {400,
+           %{
+             "error" => %{
+               "code" => 400,
+               "message" => "API key not valid. Please pass a valid API key."
+             }
+           }}
+        end)
+
+      assert {:error, :invalid_key} = Client.test_credential("bad_key", client: client)
+    end
+
     test "returns {:error, :quota_exceeded} on 403 quotaExceeded" do
       client =
         stub_client(fn ->
@@ -119,6 +134,10 @@ defmodule Ytdarr.Services.YouTube.CredentialTest do
     test "Settings.test_youtube_credential returns :empty_key for blank key" do
       assert {:error, :empty_key} = Ytdarr.Settings.test_youtube_credential("")
       assert {:error, :empty_key} = Ytdarr.Settings.test_youtube_credential(nil)
+    end
+
+    test "supports the compatibility test_credentials/1 function" do
+      assert {:error, :empty_key} = Client.test_credentials(nil)
     end
   end
 end

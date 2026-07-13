@@ -33,6 +33,9 @@ defmodule Ytdarr.Services.YouTube.Client do
 
   require Logger
 
+  @youtube_api_base_url "https://www.googleapis.com/youtube/v3"
+  @credential_probe_channel_id "UCBR8-60-B28hp2BmDPdntcQ"
+
   @doc """
   Searches YouTube for channels matching `query`.
 
@@ -669,6 +672,108 @@ defmodule Ytdarr.Services.YouTube.Client do
         [] -> {:ok, results_map}
         _ -> {:partial, results_map, errors}
       end
+    end
+  end
+
+  @doc """
+  Tests whether a YouTube Data API key can make a minimal read request.
+
+  The probe requests only the ID of YouTube's public channel and costs one
+  quota unit. An optional Req client can be injected with `:client` for tests.
+  """
+  @spec test_credential(String.t() | nil, keyword()) ::
+          {:ok, :valid}
+          | {:error, :empty_key}
+          | {:error, :invalid_key}
+          | {:error, :quota_exceeded}
+          | {:error, {:http_error, integer(), String.t()}}
+          | {:error, {:network, term()}}
+  def test_credential(api_key, opts \\ [])
+
+  def test_credential(api_key, _opts) when api_key in [nil, ""], do: {:error, :empty_key}
+
+  def test_credential(api_key, opts) when is_binary(api_key) do
+    client =
+      case Keyword.fetch(opts, :client) do
+        {:ok, client} -> client
+        :error -> credential_client(api_key)
+      end
+
+    case Req.get(client,
+           url: "/channels",
+           params: [part: "id", id: @credential_probe_channel_id]
+         ) do
+      {:ok, %Req.Response{status: 200}} ->
+        {:ok, :valid}
+
+      {:ok, %{status: status, body: body}} ->
+        credential_response_error(status, body)
+
+      {:error, reason} ->
+        {:error, {:network, reason}}
+    end
+  end
+
+  @doc """
+  Compatibility wrapper for callers using the former plural function name.
+  """
+  @spec test_credentials(String.t() | nil) ::
+          {:ok, :valid}
+          | {:error, :empty_key}
+          | {:error, :invalid_key}
+          | {:error, :quota_exceeded}
+          | {:error, {:http_error, integer(), String.t()}}
+          | {:error, {:network, term()}}
+  def test_credentials(api_key), do: test_credential(api_key)
+
+  defp credential_client(api_key) do
+    Req.new(
+      base_url: @youtube_api_base_url,
+      headers: %{
+        accept: "application/json",
+        user_agent: "Ytdarr/1.0"
+      },
+      params: [key: api_key],
+      finch: Ytdarr.Finch
+    )
+  end
+
+  defp credential_response_error(status, body) do
+    reasons =
+      body
+      |> get_in(["error", "errors"])
+      |> List.wrap()
+      |> Enum.map(&Map.get(&1, "reason"))
+
+    cond do
+      Enum.any?(reasons, &(&1 in ["keyInvalid", "badRequest"])) or
+          invalid_key_message?(body) ->
+        {:error, :invalid_key}
+
+      Enum.any?(reasons, &(&1 in ["quotaExceeded", "dailyLimitExceeded"])) ->
+        {:error, :quota_exceeded}
+
+      true ->
+        {:error, {:http_error, status, safe_error_message(body)}}
+    end
+  end
+
+  defp invalid_key_message?(body) do
+    body
+    |> get_in(["error", "message"])
+    |> case do
+      message when is_binary(message) ->
+        String.contains?(String.downcase(message), "api key not valid")
+
+      _ ->
+        false
+    end
+  end
+
+  defp safe_error_message(body) do
+    case get_in(body, ["error", "message"]) do
+      message when is_binary(message) and message != "" -> message
+      _ -> "YouTube API request failed"
     end
   end
 end

@@ -185,7 +185,6 @@ defmodule YtdarrWeb.SettingsLive do
 
       result =
         case Settings.test_youtube_credential(api_key) do
-          :ok -> {:ok, "Credentials are valid and the YouTube API responded."}
           {:ok, _details} -> {:ok, "Credentials are valid and the YouTube API responded."}
           {:error, reason} -> {:error, youtube_test_error(reason)}
         end
@@ -732,7 +731,7 @@ defmodule YtdarrWeb.SettingsLive do
   defp youtube_test_error(:invalid_key),
     do: "YouTube rejected this API key. Check the key and API restrictions."
 
-  defp youtube_test_error(:quota_exceeded), do: "The YouTube project has exhausted its API quota."
+  defp youtube_test_error(:quota_exceeded), do: "The YouTube project has exhausted its API quota for the day."
 
   defp youtube_test_error({:http_error, status, message}),
     do: youtube_http_error(status, message)
