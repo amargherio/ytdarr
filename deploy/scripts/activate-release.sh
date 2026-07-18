@@ -12,8 +12,18 @@ readonly RETENTION="${YTDARR_RELEASE_RETENTION:-3}"
 readonly VERSIONS_DIR="$INSTALL_ROOT/versions"
 readonly CURRENT_LINK="$INSTALL_ROOT/current"
 
+usage() {
+  echo "Usage: $0 [--dry-run] RELEASE_TARBALL CHECKSUM_FILE VERSION" >&2
+}
+
+dry_run="false"
+if [[ "${1:-}" == "--dry-run" ]]; then
+  dry_run="true"
+  shift
+fi
+
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 RELEASE_TARBALL CHECKSUM_FILE VERSION" >&2
+  usage
   exit 1
 fi
 
@@ -23,7 +33,7 @@ readonly VERSION="$3"
 readonly RELEASE_DIR="$VERSIONS_DIR/$VERSION"
 readonly ARCHIVE CHECKSUM
 
-if [[ "$EUID" -ne 0 ]]; then
+if [[ "$EUID" -ne 0 && "$dry_run" != "true" ]]; then
   echo "activate-release.sh must run as root" >&2
   exit 1
 fi
@@ -75,6 +85,26 @@ fi
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 readonly BACKUP_DIR="$STATE_ROOT/backups/from-${previous_version}-to-${VERSION}-${TIMESTAMP}"
 readonly TIMESTAMP
+
+if [[ "$dry_run" == "true" ]]; then
+  echo "Dry run: no changes will be made"
+  echo "Would extract $ARCHIVE into $RELEASE_DIR with owner root:$APP_GROUP and no other permissions"
+  echo "Would stop ${SERVICE_NAME}.service"
+
+  if [[ -f "$DATABASE_PATH" ]]; then
+    echo "Would back up $DATABASE_PATH and any WAL/SHM files to $BACKUP_DIR"
+  else
+    echo "Would create $BACKUP_DIR; no existing database would be backed up"
+  fi
+
+  echo "Would ensure the database directory exists: $(dirname "$DATABASE_PATH")"
+  echo "Would run database migrations: $RELEASE_DIR/bin/migrate (as $APP_USER)"
+  echo "Would atomically point $CURRENT_LINK to $RELEASE_DIR"
+  echo "Would start ${SERVICE_NAME}.service and check http://127.0.0.1:${PORT}/health/ready"
+  echo "Would retain the newest $RETENTION release directories and database backups"
+  exit 0
+fi
+
 database_existed="false"
 switched="false"
 

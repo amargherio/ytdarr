@@ -9,15 +9,25 @@ readonly STATE_ROOT="${YTDARR_STATE_ROOT:-/var/lib/ytdarr}"
 readonly ENV_TARGET="${YTDARR_ENV_FILE:-/etc/ytdarr/ytdarr.env}"
 readonly SERVICE_NAME="${YTDARR_SERVICE_NAME:-ytdarr}"
 
+usage() {
+  echo "Usage: $0 [--dry-run] SERVICE_FILE ENV_FILE" >&2
+}
+
+dry_run="false"
+if [[ "${1:-}" == "--dry-run" ]]; then
+  dry_run="true"
+  shift
+fi
+
 if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 SERVICE_FILE ENV_FILE" >&2
+  usage
   exit 1
 fi
 
 readonly SERVICE_SOURCE="$1"
 readonly ENV_SOURCE="$2"
 
-if [[ "$EUID" -ne 0 ]]; then
+if [[ "$EUID" -ne 0 && "$dry_run" != "true" ]]; then
   echo "provision-host.sh must run as root" >&2
   exit 1
 fi
@@ -28,6 +38,34 @@ for command_name in curl ffmpeg sqlite3 systemctl yt-dlp; do
     exit 1
   }
 done
+
+if [[ "$dry_run" == "true" ]]; then
+  echo "Dry run: no changes will be made"
+
+  if getent group "$APP_GROUP" >/dev/null; then
+    echo "Would keep existing group: $APP_GROUP"
+  else
+    echo "Would create system group: $APP_GROUP"
+  fi
+
+  if id "$APP_USER" >/dev/null 2>&1; then
+    echo "Would keep existing user: $APP_USER"
+  else
+    echo "Would create system user: $APP_USER (group: $APP_GROUP, home: $STATE_ROOT)"
+  fi
+
+  echo "Would ensure directories: $INSTALL_ROOT, $INSTALL_ROOT/versions, $STATE_ROOT, $STATE_ROOT/backups, $(dirname "$ENV_TARGET")"
+  echo "Would install systemd service: $SERVICE_SOURCE -> /etc/systemd/system/${SERVICE_NAME}.service"
+
+  if [[ -e "$ENV_TARGET" ]]; then
+    echo "Would keep existing environment file: $ENV_TARGET"
+  else
+    echo "Would install environment file: $ENV_SOURCE -> $ENV_TARGET"
+  fi
+
+  echo "Would reload systemd and enable ${SERVICE_NAME}.service"
+  exit 0
+fi
 
 if ! getent group "$APP_GROUP" >/dev/null; then
   groupadd --system "$APP_GROUP"

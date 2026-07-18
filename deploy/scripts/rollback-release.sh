@@ -9,8 +9,18 @@ readonly STATE_ROOT="${YTDARR_STATE_ROOT:-/var/lib/ytdarr}"
 readonly ENV_FILE="${YTDARR_ENV_FILE:-/etc/ytdarr/ytdarr.env}"
 readonly SERVICE_NAME="${YTDARR_SERVICE_NAME:-ytdarr}"
 
+usage() {
+  echo "Usage: $0 [--dry-run] TARGET_VERSION" >&2
+}
+
+dry_run="false"
+if [[ "${1:-}" == "--dry-run" ]]; then
+  dry_run="true"
+  shift
+fi
+
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 TARGET_VERSION" >&2
+  usage
   exit 1
 fi
 
@@ -18,7 +28,7 @@ readonly TARGET_VERSION="$1"
 readonly TARGET_DIR="$INSTALL_ROOT/versions/$TARGET_VERSION"
 readonly CURRENT_LINK="$INSTALL_ROOT/current"
 
-if [[ "$EUID" -ne 0 ]]; then
+if [[ "$EUID" -ne 0 && "$dry_run" != "true" ]]; then
   echo "rollback-release.sh must run as root" >&2
   exit 1
 fi
@@ -45,6 +55,24 @@ source "$ENV_FILE"
 set +a
 : "${DATABASE_PATH:?DATABASE_PATH must be set in $ENV_FILE}"
 PORT="${PORT:-4000}"
+
+if [[ "$dry_run" == "true" ]]; then
+  echo "Dry run: no changes will be made"
+  echo "Would stop ${SERVICE_NAME}.service"
+  echo "Would replace $DATABASE_PATH with $backup_dir/ytdarr.db"
+
+  for suffix in wal shm; do
+    if [[ -f "$backup_dir/ytdarr.db-$suffix" ]]; then
+      echo "Would restore $backup_dir/ytdarr.db-$suffix to ${DATABASE_PATH}-$suffix"
+    else
+      echo "Would remove ${DATABASE_PATH}-$suffix"
+    fi
+  done
+
+  echo "Would atomically point $CURRENT_LINK to $TARGET_DIR"
+  echo "Would start ${SERVICE_NAME}.service and check http://127.0.0.1:${PORT}/health/ready"
+  exit 0
+fi
 
 systemctl stop "${SERVICE_NAME}.service"
 rm -f "$DATABASE_PATH" "${DATABASE_PATH}-wal" "${DATABASE_PATH}-shm"
