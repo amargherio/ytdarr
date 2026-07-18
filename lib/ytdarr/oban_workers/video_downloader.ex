@@ -39,7 +39,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     :ok = apply_permissions!(MediaPermissions.mkdir_p(season_folder, policy))
 
     ytdlp_out =
-      "#{season_folder}/#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
+      "#{season_folder}/#{channel.name} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
 
     progress_flags = [
       "--newline",

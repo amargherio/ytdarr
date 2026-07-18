@@ -31,7 +31,7 @@ defmodule Ytdarr.Content.ChannelTest do
   end
 
   describe "SetFilesystemPaths" do
-    test "sets base_path and generic_video_path from the sanitized name" do
+    test "sets base_path and generic_video_path from the channel name as-is" do
       media_root = Settings.get_app_media_root_folder!()
 
       assert {:ok, channel} =
@@ -41,7 +41,7 @@ defmodule Ytdarr.Content.ChannelTest do
                  })
                )
 
-      assert channel.base_path == Path.join(media_root, "my_fancy_channel")
+      assert channel.base_path == Path.join(media_root, "My Fancy Channel!")
       assert channel.generic_video_path == Path.join(channel.base_path, "videos")
     end
   end
