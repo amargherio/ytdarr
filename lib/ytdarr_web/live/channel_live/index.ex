@@ -48,13 +48,41 @@ defmodule YtdarrWeb.ChannelLive.Index do
           </div>
           <.link navigate={~p"/channels/#{channel}/edit"}>Edit</.link>
         </:action>
-        <:action :let={{id, channel}}>
-          <.link
-            phx-click={JS.push("delete", value: %{id: channel.id}) |> hide("##{id}")}
-            data-confirm="Are you sure?"
-          >
-            Delete
-          </.link>
+        <:action :let={{_id, channel}}>
+          <details class="relative">
+            <summary
+              id={"remove-channel-#{channel.id}"}
+              class="btn btn-ghost btn-sm list-none gap-1 text-error hover:bg-error/10 [&::-webkit-details-marker]:hidden"
+            >
+              <.icon name="hero-trash" class="size-4" /> Remove
+              <.icon name="hero-chevron-down" class="size-3" />
+            </summary>
+            <div class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-base-300 bg-base-100 p-2 shadow-lg">
+              <p class="px-2 py-1 text-xs font-medium text-base-content/60">Downloaded files</p>
+              <button
+                id={"remove-channel-keep-files-#{channel.id}"}
+                type="button"
+                class="btn btn-ghost btn-sm w-full justify-start gap-2 font-normal"
+                phx-click="delete"
+                phx-value-id={channel.id}
+                phx-value-files="keep"
+                data-confirm={"Remove #{channel.name} from Ytdarr? Downloaded files will be kept."}
+              >
+                <.icon name="hero-archive-box" class="size-4" /> Keep downloaded files
+              </button>
+              <button
+                id={"remove-channel-delete-files-#{channel.id}"}
+                type="button"
+                class="btn btn-ghost btn-sm w-full justify-start gap-2 font-normal text-error hover:bg-error/10"
+                phx-click="delete"
+                phx-value-id={channel.id}
+                phx-value-files="delete"
+                data-confirm={"Remove #{channel.name} and permanently delete its downloaded files? This cannot be undone."}
+              >
+                <.icon name="hero-trash" class="size-4" /> Delete downloaded files
+              </button>
+            </div>
+          </details>
         </:action>
 
         <%!-- <:col :let={{_id, channel}} label="Name">{channel.name}</:col>
@@ -82,10 +110,31 @@ defmodule YtdarrWeb.ChannelLive.Index do
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
-    channel = Content.get_channel!(id)
-    :ok = Content.destroy_channel(channel)
+  def handle_event("delete", %{"id" => id, "files" => "keep"}, socket) do
+    remove_channel(socket, id, false)
+  end
 
-    {:noreply, stream_delete(socket, :channels, channel)}
+  def handle_event("delete", %{"id" => id, "files" => "delete"}, socket) do
+    remove_channel(socket, id, true)
+  end
+
+  defp remove_channel(socket, id, delete_files?) do
+    channel = Content.get_channel!(id)
+
+    case Content.destroy_channel(channel, %{delete_files: delete_files?}) do
+      :ok ->
+        message =
+          if delete_files?,
+            do: "Channel and downloaded files removed.",
+            else: "Channel removed. Downloaded files were kept."
+
+        {:noreply,
+         socket
+         |> stream_delete(:channels, channel)
+         |> put_flash(:info, message)}
+
+      {:error, _error} ->
+        {:noreply, put_flash(socket, :error, "Could not remove channel.")}
+    end
   end
 end

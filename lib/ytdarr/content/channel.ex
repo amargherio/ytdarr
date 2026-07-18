@@ -19,6 +19,12 @@ defmodule Ytdarr.Content.Channel do
 
     destroy :destroy do
       require_atomic? false
+
+      argument :delete_files, :boolean do
+        allow_nil? false
+        default true
+      end
+
       change Ytdarr.Content.Channel.Changes.CleanupOnDestroy
     end
 

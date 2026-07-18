@@ -9,7 +9,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
   use Oban.Worker, queue: :video_downloader
 
-  alias Ytdarr.Content
+  alias Ytdarr.{Content, MediaPermissions}
   alias Ytdarr.Content.{Channel, Video}
   alias Ytdarr.Downloads
   alias Ytdarr.Downloads.{Tracker, YtdlpProgressParser}
@@ -35,9 +35,8 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     # Check if our season folder exists, create if not
     season_folder = "#{channel.base_path}/Season #{video.upload_date.year}"
 
-    unless File.exists?(season_folder) do
-      File.mkdir_p!(season_folder)
-    end
+    policy = load_media_policy!()
+    :ok = apply_permissions!(MediaPermissions.mkdir_p(season_folder, policy))
 
     ytdlp_out =
       "#{season_folder}/#{sanitize_filename(channel.name)} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
@@ -73,7 +72,11 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
         case status do
           0 ->
-            generate_nfo_file(channel, video, episode_number, ytdlp_out)
+            final_policy = load_media_policy!()
+            :ok = generate_nfo_file(channel, video, episode_number, ytdlp_out, final_policy)
+
+            {:ok, _artifact_count} =
+              MediaPermissions.apply_download_artifacts(ytdlp_out, final_policy)
 
             # Update video status in DB
             Content.update_video(video, %{
@@ -181,7 +184,13 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     |> String.trim()
   end
 
-  defp generate_nfo_file(%Channel{} = _channel, %Video{} = video, episode_number, file_path) do
+  defp generate_nfo_file(
+         %Channel{} = _channel,
+         %Video{} = video,
+         episode_number,
+         file_path,
+         policy
+       ) do
     nfo_content = """
     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <episodedetails>
@@ -196,6 +205,19 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     """
 
     nfo_file_path = String.replace_suffix(file_path, ".mp4", ".nfo")
-    File.write!(nfo_file_path, nfo_content)
+    MediaPermissions.write_file(nfo_file_path, nfo_content, policy)
+  end
+
+  defp load_media_policy! do
+    case MediaPermissions.load_policy() do
+      {:ok, policy} -> policy
+      {:error, reason} -> raise MediaPermissions.error_message(reason)
+    end
+  end
+
+  defp apply_permissions!(:ok), do: :ok
+
+  defp apply_permissions!({:error, reason}) do
+    raise MediaPermissions.error_message(reason)
   end
 end

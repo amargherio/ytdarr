@@ -12,6 +12,8 @@ defmodule Ytdarr.Cache.ImageCache do
 
   require Logger
 
+  alias Ytdarr.MediaPermissions
+
   @type_config %{
     "avatar" => :avatar_url,
     "banner" => :banner_url
@@ -188,8 +190,9 @@ defmodule Ytdarr.Cache.ImageCache do
 
   defp write_to_disk(channel, type, data, ext) do
     path = image_path(channel, type, ext)
-    File.mkdir_p!(Path.dirname(path))
-    File.write!(path, data)
+    policy = load_media_policy!()
+    :ok = apply_permissions!(MediaPermissions.mkdir_p(Path.dirname(path), policy))
+    :ok = apply_permissions!(MediaPermissions.write_file(path, data, policy))
   end
 
   defp image_path(channel, type, ext) do
@@ -219,8 +222,22 @@ defmodule Ytdarr.Cache.ImageCache do
 
   defp write_meta(channel, type, meta) do
     path = meta_path(channel, type)
-    File.mkdir_p!(Path.dirname(path))
-    File.write!(path, Jason.encode!(meta))
+    policy = load_media_policy!()
+    :ok = apply_permissions!(MediaPermissions.mkdir_p(Path.dirname(path), policy))
+    :ok = apply_permissions!(MediaPermissions.write_file(path, Jason.encode!(meta), policy))
+  end
+
+  defp load_media_policy! do
+    case MediaPermissions.load_policy() do
+      {:ok, policy} -> policy
+      {:error, reason} -> raise MediaPermissions.error_message(reason)
+    end
+  end
+
+  defp apply_permissions!(:ok), do: :ok
+
+  defp apply_permissions!({:error, reason}) do
+    raise MediaPermissions.error_message(reason)
   end
 
   # Header helpers (Req v0.5 uses %{String.t() => [String.t()]} format)

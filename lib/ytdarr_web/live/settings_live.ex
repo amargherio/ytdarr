@@ -6,8 +6,8 @@ defmodule YtdarrWeb.SettingsLive do
   import YtdarrWeb.SettingsLive.Components
   import YtdarrWeb.SettingsLive.Sections
 
+  alias Ytdarr.{MediaPermissions, Settings}
   alias Ytdarr.Services.YouTube.QuotaTracker
-  alias Ytdarr.Settings
   alias Ytdarr.Settings.{MediaRootFolder, QualityProfile, YtDlpParamSet}
 
   @categories [
@@ -21,6 +21,8 @@ defmodule YtdarrWeb.SettingsLive do
 
   @impl true
   def mount(params, _session, socket) do
+    if connected?(socket), do: MediaPermissions.subscribe()
+
     {:ok,
      socket
      |> assign(:page_title, "Settings")
@@ -80,20 +82,40 @@ defmodule YtdarrWeb.SettingsLive do
   end
 
   def handle_event("save-media", %{"media" => params}, socket) do
-    case Settings.save_settings([
-           {"media.file_naming_template", params["file_naming_template"]},
-           {"media.move_strategy", params["move_strategy"]},
-           {"media.clean_orphans", truthy?(params["clean_orphans"])}
-         ]) do
-      {:ok, _settings} ->
+    with {:ok, policy} <- MediaPermissions.build_policy(params),
+         {:ok, _settings} <-
+           Settings.save_settings([
+             {"media.file_naming_template", params["file_naming_template"]},
+             {"media.move_strategy", params["move_strategy"]},
+             {"media.clean_orphans", truthy?(params["clean_orphans"])},
+             {"media.owner_group", policy.owner_group},
+             {"media.file_mode", policy.file_mode},
+             {"media.directory_mode", policy.directory_mode}
+           ]) do
+      {:noreply,
+       socket
+       |> put_flash(:info, "Media settings saved. New filesystem writes use these permissions.")
+       |> assign(:dirty_section, nil)
+       |> load_data()}
+    else
+      {:error, reason} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Media settings saved. These values are stored for future support.")
-         |> assign(:dirty_section, nil)
-         |> load_data()}
+         |> put_flash(:error, media_settings_error(reason))}
+    end
+  end
+
+  def handle_event("apply-media-permissions", _params, socket) do
+    case MediaPermissions.enqueue_existing_media() do
+      {:ok, job} ->
+        {:noreply,
+         socket
+         |> assign(:media_permissions_job, job)
+         |> assign(:media_permissions_active?, true)
+         |> put_flash(:info, "Media permission update queued.")}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, operation_error("save media settings", reason))}
+        {:noreply, put_flash(socket, :error, MediaPermissions.error_message(reason))}
     end
   end
 
@@ -347,6 +369,15 @@ defmodule YtdarrWeb.SettingsLive do
   end
 
   @impl true
+  def handle_info({event, _job_id, _metadata}, socket)
+      when event in [:media_permissions_completed, :media_permissions_failed] do
+    {:noreply,
+     socket
+     |> assign(:media_permissions_job, MediaPermissions.latest_job())
+     |> assign(:media_permissions_active?, false)}
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} nav={:settings} current_scope={@current_scope}>
@@ -380,6 +411,7 @@ defmodule YtdarrWeb.SettingsLive do
   defp load_data(socket) do
     cfg = Settings.effective_config()
     root_folders = Enum.sort_by(cfg.media.root_folders, &{!&1.active, &1.path})
+    media_permissions_job = MediaPermissions.latest_job()
 
     root_folder_checks =
       Map.new(root_folders, &{&1.id, Settings.validate_media_root_path(&1.path)})
@@ -390,6 +422,9 @@ defmodule YtdarrWeb.SettingsLive do
           media.file_naming_template
           media.move_strategy
           media.clean_orphans
+          media.owner_group
+          media.file_mode
+          media.directory_mode
           youtube.primary_api_key
           youtube.region
           sync_interval_minutes
@@ -402,7 +437,10 @@ defmodule YtdarrWeb.SettingsLive do
         %{
           "file_naming_template" => setting_states["media.file_naming_template"].value,
           "move_strategy" => setting_states["media.move_strategy"].value,
-          "clean_orphans" => setting_states["media.clean_orphans"].value
+          "clean_orphans" => setting_states["media.clean_orphans"].value,
+          "owner_group" => setting_states["media.owner_group"].value,
+          "file_mode" => setting_states["media.file_mode"].value,
+          "directory_mode" => setting_states["media.directory_mode"].value
         },
         as: :media
       )
@@ -438,6 +476,8 @@ defmodule YtdarrWeb.SettingsLive do
     |> assign(:root_folders, root_folders)
     |> assign(:root_folder_checks, root_folder_checks)
     |> assign(:last_active_root_id, last_active_root_id(root_folders))
+    |> assign(:media_permissions_job, media_permissions_job)
+    |> assign(:media_permissions_active?, media_permissions_active?(media_permissions_job))
     |> assign(:setting_effects, setting_effects(setting_states))
     |> assign(
       :move_strategy_options,
@@ -757,6 +797,27 @@ defmodule YtdarrWeb.SettingsLive do
   defp path_error(:not_found), do: "The path does not exist on the Ytdarr host."
   defp path_error(:not_directory), do: "The path exists but is not a directory."
   defp path_error(:not_writable), do: "Ytdarr cannot write to this directory."
+
+  defp media_settings_error({tag, _details} = reason)
+       when tag in [
+              :invalid_group,
+              :group_not_found,
+              :group_not_available,
+              :group_lookup_unavailable,
+              :invalid_mode
+            ],
+       do: MediaPermissions.error_message(reason)
+
+  defp media_settings_error({:invalid_mode, _field, _value} = reason),
+    do: MediaPermissions.error_message(reason)
+
+  defp media_settings_error(reason), do: operation_error("save media settings", reason)
+
+  defp media_permissions_active?(%{state: state})
+       when state in ["available", "scheduled", "executing", "retryable", "suspended"],
+       do: true
+
+  defp media_permissions_active?(_job), do: false
 
   defp youtube_test_error(:empty_key), do: "Configure an API key before testing."
 

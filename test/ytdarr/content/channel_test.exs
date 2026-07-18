@@ -173,6 +173,21 @@ defmodule Ytdarr.Content.ChannelTest do
       assert :ok = Content.destroy_channel(channel)
       refute File.exists?(channel.base_path)
     end
+
+    test "retains the channel directory when file deletion is disabled" do
+      root_path = configure_local_media_root()
+      on_exit(fn -> File.rm_rf(root_path) end)
+
+      channel = channel_fixture(%{name: "Retained Channel #{System.unique_integer([:positive])}"})
+      downloaded_file = Path.join([channel.base_path, "videos", "sample.mp4"])
+
+      File.mkdir_p!(Path.dirname(downloaded_file))
+      File.write!(downloaded_file, "retain me")
+
+      assert :ok = Content.destroy_channel(channel, %{delete_files: false})
+      assert File.exists?(downloaded_file)
+      assert {:error, _error} = Content.get_channel(channel.id)
+    end
   end
 
   defp channel_attrs(overrides \\ %{}) do

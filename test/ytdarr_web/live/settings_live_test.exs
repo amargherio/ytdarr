@@ -1,6 +1,7 @@
 defmodule YtdarrWeb.SettingsLiveTest do
   use YtdarrWeb.ConnCase
 
+  import Ecto.Query, only: [from: 2]
   import Phoenix.LiveViewTest
 
   alias Ytdarr.Settings
@@ -53,7 +54,10 @@ defmodule YtdarrWeb.SettingsLiveTest do
       media: %{
         file_naming_template: "%(channel)s/%(upload_date)s-%(title)s.%(ext)s",
         move_strategy: "copy",
-        clean_orphans: "true"
+        clean_orphans: "true",
+        owner_group: current_group_name(),
+        file_mode: "664",
+        directory_mode: "0775"
       }
     )
     |> render_change()
@@ -65,7 +69,10 @@ defmodule YtdarrWeb.SettingsLiveTest do
       media: %{
         file_naming_template: "%(channel)s/%(upload_date)s-%(title)s.%(ext)s",
         move_strategy: "copy",
-        clean_orphans: "true"
+        clean_orphans: "true",
+        owner_group: current_group_name(),
+        file_mode: "664",
+        directory_mode: "0775"
       }
     )
     |> render_submit()
@@ -77,6 +84,46 @@ defmodule YtdarrWeb.SettingsLiveTest do
 
     assert Settings.get_setting_value("media.move_strategy") == "copy"
     assert Settings.get_setting_value("media.clean_orphans") == true
+    assert Settings.get_setting_value("media.owner_group") == current_group_name()
+    assert Settings.get_setting_value("media.file_mode") == "0664"
+    assert Settings.get_setting_value("media.directory_mode") == "0775"
+  end
+
+  test "queues permission normalization explicitly", %{conn: conn} do
+    assert {:ok, _} = Settings.put_setting("media.owner_group", current_group_name())
+    {:ok, view, _html} = live(conn, ~p"/settings?category=media")
+
+    view
+    |> element("#apply-media-permissions")
+    |> render_click()
+
+    assert has_element?(view, "#apply-media-permissions[disabled]")
+
+    assert Ytdarr.Repo.exists?(
+             from(job in Oban.Job,
+               where: job.worker == "Ytdarr.ObanWorkers.MediaPermissionsWorker"
+             )
+           )
+  end
+
+  test "rejects invalid media permission modes", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/settings?category=media")
+
+    view
+    |> form("#media-form",
+      media: %{
+        file_naming_template: "%(channel)s/%(title)s.%(ext)s",
+        move_strategy: "copy",
+        clean_orphans: "true",
+        owner_group: current_group_name(),
+        file_mode: "0888",
+        directory_mode: "0755"
+      }
+    )
+    |> render_submit()
+
+    assert render(view) =~ "File mode must contain three octal digits"
+    refute Settings.get_setting_value("media.file_mode") == "0888"
   end
 
   test "creates and edits a validated media root folder", %{conn: conn} do
@@ -112,6 +159,11 @@ defmodule YtdarrWeb.SettingsLiveTest do
 
     assert Settings.get_media_root_folder!(root_folder.id).path == updated_path
     assert has_element?(view, "#root-folder-#{root_folder.id}", "Writable")
+  end
+
+  defp current_group_name do
+    {group, 0} = System.cmd("id", ["-gn"])
+    String.trim(group)
   end
 
   test "preserves the root editor and shows path errors", %{conn: conn} do

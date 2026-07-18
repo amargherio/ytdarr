@@ -318,6 +318,14 @@ defmodule Ytdarr.Settings do
         get_setting_value("media.move_strategy", Catalog.default_value("media.move_strategy")),
       clean_orphans:
         get_setting_value("media.clean_orphans", Catalog.default_value("media.clean_orphans")),
+      owner_group:
+        get_setting_value("media.owner_group", Catalog.default_value("media.owner_group")),
+      file_mode: get_setting_value("media.file_mode", Catalog.default_value("media.file_mode")),
+      directory_mode:
+        get_setting_value(
+          "media.directory_mode",
+          Catalog.default_value("media.directory_mode")
+        ),
       root_folders: list_media_root_folders!()
     }
 

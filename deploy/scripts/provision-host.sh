@@ -55,6 +55,7 @@ if [[ "$dry_run" == "true" ]]; then
   fi
 
   echo "Would ensure directories: $INSTALL_ROOT, $INSTALL_ROOT/versions, $STATE_ROOT, $STATE_ROOT/backups, $(dirname "$ENV_TARGET")"
+  echo "Would make $INSTALL_ROOT and $(dirname "$ENV_TARGET") world-readable"
   echo "Would install systemd service: $SERVICE_SOURCE -> /etc/systemd/system/${SERVICE_NAME}.service"
 
   if [[ -e "$ENV_TARGET" ]]; then
@@ -75,16 +76,18 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
   useradd --system --gid "$APP_GROUP" --home-dir "$STATE_ROOT" --shell /usr/sbin/nologin "$APP_USER"
 fi
 
-install -d -o root -g "$APP_GROUP" -m 0750 "$INSTALL_ROOT" "$INSTALL_ROOT/versions"
+install -d -o root -g "$APP_GROUP" -m 0755 "$INSTALL_ROOT" "$INSTALL_ROOT/versions"
 install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$STATE_ROOT" "$STATE_ROOT/backups"
-install -d -o root -g "$APP_GROUP" -m 0750 "$(dirname "$ENV_TARGET")"
+install -d -o root -g "$APP_GROUP" -m 0755 "$(dirname "$ENV_TARGET")"
 install -o root -g root -m 0644 "$SERVICE_SOURCE" "/etc/systemd/system/${SERVICE_NAME}.service"
 
 if [[ ! -e "$ENV_TARGET" ]]; then
-  install -o root -g "$APP_GROUP" -m 0640 "$ENV_SOURCE" "$ENV_TARGET"
+  install -o root -g "$APP_GROUP" -m 0644 "$ENV_SOURCE" "$ENV_TARGET"
 else
   echo "Keeping existing $ENV_TARGET"
 fi
+
+chmod -R a+rX "$INSTALL_ROOT" "$(dirname "$ENV_TARGET")"
 
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}.service"

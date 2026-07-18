@@ -408,9 +408,24 @@ defmodule Ytdarr.SettingsTest do
       {:ok, _} = Settings.put_setting("media.file_naming_template", "%(title)s.%(ext)s")
       cfg = Settings.effective_config()
       assert cfg.media.file_naming_template == "%(title)s.%(ext)s"
+      assert cfg.media.owner_group == "ytdarr"
+      assert cfg.media.file_mode == "0644"
+      assert cfg.media.directory_mode == "0755"
       assert is_list(cfg.media.root_folders)
       assert is_list(cfg.profiles)
       assert is_list(cfg.downloader.param_sets)
+    end
+
+    test "returns persisted media permission values" do
+      assert {:ok, _} = Settings.put_setting("media.owner_group", "media")
+      assert {:ok, _} = Settings.put_setting("media.file_mode", "0664")
+      assert {:ok, _} = Settings.put_setting("media.directory_mode", "0775")
+
+      cfg = Settings.effective_config()
+
+      assert cfg.media.owner_group == "media"
+      assert cfg.media.file_mode == "0664"
+      assert cfg.media.directory_mode == "0775"
     end
   end
 

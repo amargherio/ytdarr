@@ -32,6 +32,28 @@ Edit `YTDARR_DOWNLOADS_PATH` in the shell or Compose environment to bind a
 different media directory. The image runs as UID/GID `10001`; bind-mounted
 download directories must be writable by that identity.
 
+### Shared media permissions
+
+Media settings default to ownership by `ytdarr:ytdarr`, file mode `0644`, and
+directory mode `0755`. A different media group must exist in the container and
+the `ytdarr` process must be a supplementary member before it starts. The stock
+image only defines the `ytdarr` group.
+
+For a custom named group, derive an image that creates the same group name and
+GID used by the host media service:
+
+```dockerfile
+FROM ghcr.io/amargherio/ytdarr:latest
+USER root
+RUN groupadd --gid 1234 media && usermod --append --groups media ytdarr
+USER ytdarr
+```
+
+Build that image, set the bind-mounted download directory's group to GID `1234`,
+and make it group-writable before selecting `media` in Ytdarr. Adding only a
+numeric Compose `group_add` entry is insufficient because Ytdarr validates the
+configured group through the container's group database.
+
 To update a stable installation:
 
 ```bash
@@ -85,6 +107,24 @@ just deploy server.example.com deployer
 The SSH account must use key authentication and have passwordless sudo for the
 deployment scripts. Host prerequisites are `systemd`, `curl`, `sqlite3`,
 `yt-dlp`, and `ffmpeg`.
+
+To share media with Jellyfin or another service, create or select a common group,
+add both service users, prepare the media root, and restart the services so they
+receive their new supplementary groups:
+
+```bash
+sudo groupadd --system media
+sudo usermod --append --groups media ytdarr
+sudo usermod --append --groups media jellyfin
+sudo chgrp media /srv/media
+sudo chmod 0775 /srv/media
+sudo systemctl restart ytdarr jellyfin
+```
+
+Then set the Media Management group to `media`. New writes use the saved group
+and exact file/directory modes immediately. Use **Apply to existing media** to
+normalize configured roots. Ytdarr never creates groups or elevates privileges;
+it rejects a group unavailable to its running process.
 
 Native paths are:
 

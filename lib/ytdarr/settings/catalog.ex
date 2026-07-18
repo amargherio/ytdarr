@@ -84,6 +84,36 @@ defmodule Ytdarr.Settings.Catalog do
       env_var: nil,
       description: "Intended orphan cleanup policy for future runtime support."
     },
+    "media.owner_group" => %{
+      key: "media.owner_group",
+      type: :string,
+      category: :media,
+      default: "ytdarr",
+      sensitive?: false,
+      effect_status: :runtime,
+      env_var: nil,
+      description: "POSIX group assigned to media files and directories."
+    },
+    "media.file_mode" => %{
+      key: "media.file_mode",
+      type: :string,
+      category: :media,
+      default: "0644",
+      sensitive?: false,
+      effect_status: :runtime,
+      env_var: nil,
+      description: "Exact octal permissions applied to media files."
+    },
+    "media.directory_mode" => %{
+      key: "media.directory_mode",
+      type: :string,
+      category: :media,
+      default: "0755",
+      sensitive?: false,
+      effect_status: :runtime,
+      env_var: nil,
+      description: "Exact octal permissions applied to media directories."
+    },
     "sync_interval_minutes" => %{
       key: "sync_interval_minutes",
       type: :integer,

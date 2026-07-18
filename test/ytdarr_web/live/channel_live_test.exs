@@ -38,11 +38,30 @@ defmodule YtdarrWeb.ChannelLiveTest do
       assert render(form_live) =~ "Editing Channel:"
     end
 
-    test "deletes channel in listing", %{conn: conn, channel: channel} do
+    test "removes a channel and keeps downloaded files", %{conn: conn, channel: channel} do
+      downloaded_file = create_downloaded_file(channel, "keep.mp4")
       {:ok, index_live, _html} = live(conn, ~p"/channels")
 
-      assert index_live |> element("#channels-#{channel.id} a", "Delete") |> render_click()
+      assert index_live
+             |> element("#remove-channel-keep-files-#{channel.id}")
+             |> render_click() =~ "Downloaded files were kept."
+
       refute has_element?(index_live, "#channels-#{channel.id}")
+      assert File.exists?(downloaded_file)
+      assert {:error, _error} = Ytdarr.Content.get_channel(channel.id)
+    end
+
+    test "removes a channel and deletes downloaded files", %{conn: conn, channel: channel} do
+      downloaded_file = create_downloaded_file(channel, "delete.mp4")
+      {:ok, index_live, _html} = live(conn, ~p"/channels")
+
+      assert index_live
+             |> element("#remove-channel-delete-files-#{channel.id}")
+             |> render_click() =~ "Channel and downloaded files removed."
+
+      refute has_element?(index_live, "#channels-#{channel.id}")
+      refute File.exists?(downloaded_file)
+      assert {:error, _error} = Ytdarr.Content.get_channel(channel.id)
     end
   end
 
@@ -250,5 +269,13 @@ defmodule YtdarrWeb.ChannelLiveTest do
 
       assert html =~ "Channel updated successfully"
     end
+  end
+
+  defp create_downloaded_file(channel, filename) do
+    downloaded_file = Path.join([channel.base_path, "videos", filename])
+    File.mkdir_p!(Path.dirname(downloaded_file))
+    File.write!(downloaded_file, "downloaded content")
+    on_exit(fn -> File.rm_rf(channel.base_path) end)
+    downloaded_file
   end
 end

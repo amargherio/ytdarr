@@ -9,7 +9,6 @@ StartLimitBurst=5
 [Service]
 Type=exec
 User=ytdarr
-Group=ytdarr
 WorkingDirectory=/opt/ytdarr/current
 EnvironmentFile=/etc/ytdarr/ytdarr.env
 ExecStart=/opt/ytdarr/current/bin/server

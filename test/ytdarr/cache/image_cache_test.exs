@@ -3,7 +3,15 @@ defmodule Ytdarr.Cache.ImageCacheTest do
 
   import Ytdarr.ContentFixtures
 
-  alias Ytdarr.Cache.ImageCache
+  alias Ytdarr.{Settings, Cache.ImageCache}
+
+  setup do
+    {group, 0} = System.cmd("id", ["-gn"])
+    {:ok, _} = Settings.put_setting("media.owner_group", String.trim(group))
+    {:ok, _} = Settings.put_setting("media.file_mode", "0644")
+    {:ok, _} = Settings.put_setting("media.directory_mode", "0755")
+    :ok
+  end
 
   test "get_image/2 fetches cache misses remotely and serves later hits from memory" do
     {base_url, state_pid} =
@@ -18,7 +26,12 @@ defmodule Ytdarr.Cache.ImageCacheTest do
 
     assert {:ok, "avatar-v1", "image/png"} = ImageCache.get_image(channel, "avatar")
     assert Agent.get(state_pid, & &1.requests) == 1
-    assert File.exists?(Path.join(channel.base_path, "avatar.png"))
+    image_path = Path.join(channel.base_path, "avatar.png")
+    meta_path = Path.join(channel.base_path, "avatar.meta")
+    assert File.exists?(image_path)
+    assert Bitwise.band(File.stat!(image_path).mode, 0o7777) == 0o644
+    assert Bitwise.band(File.stat!(meta_path).mode, 0o7777) == 0o644
+    assert Bitwise.band(File.stat!(channel.base_path).mode, 0o7777) == 0o755
 
     Agent.update(state_pid, &Map.merge(&1, %{body: "avatar-v2", etag: "etag-v2"}))
 

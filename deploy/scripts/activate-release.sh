@@ -88,7 +88,8 @@ readonly TIMESTAMP
 
 if [[ "$dry_run" == "true" ]]; then
   echo "Dry run: no changes will be made"
-  echo "Would extract $ARCHIVE into $RELEASE_DIR with owner root:$APP_GROUP and no other permissions"
+  echo "Would make $INSTALL_ROOT and $(dirname "$ENV_FILE") world-readable"
+  echo "Would extract $ARCHIVE into $RELEASE_DIR with owner root:$APP_GROUP and world-readable permissions"
   echo "Would stop ${SERVICE_NAME}.service"
 
   if [[ -f "$DATABASE_PATH" ]]; then
@@ -104,6 +105,8 @@ if [[ "$dry_run" == "true" ]]; then
   echo "Would retain the newest $RETENTION release directories and database backups"
   exit 0
 fi
+
+chmod -R a+rX "$INSTALL_ROOT" "$(dirname "$ENV_FILE")"
 
 database_existed="false"
 switched="false"
@@ -143,10 +146,10 @@ rollback_on_error() {
 
 trap rollback_on_error ERR
 
-install -d -o root -g "$APP_GROUP" -m 0750 "$RELEASE_DIR"
+install -d -o root -g "$APP_GROUP" -m 0755 "$RELEASE_DIR"
 tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
 chown -R root:"$APP_GROUP" "$RELEASE_DIR"
-chmod -R o-rwx "$RELEASE_DIR"
+chmod -R a+rX "$RELEASE_DIR"
 
 systemctl stop "${SERVICE_NAME}.service" >/dev/null 2>&1 || true
 

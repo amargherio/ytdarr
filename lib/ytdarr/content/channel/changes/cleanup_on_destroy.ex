@@ -1,15 +1,17 @@
 defmodule Ytdarr.Content.Channel.Changes.CleanupOnDestroy do
-  @moduledoc "Deletes channel files from disk and evicts images from cache on destroy"
+  @moduledoc "Optionally deletes channel files and evicts images from cache on destroy"
   use Ash.Resource.Change
 
   require Logger
 
   @impl true
   def change(changeset, _opts, _context) do
+    delete_files? = Ash.Changeset.get_argument(changeset, :delete_files)
+
     Ash.Changeset.after_action(changeset, fn _changeset, result ->
       base_path = result.base_path
 
-      if base_path && File.dir?(base_path) do
+      if delete_files? && base_path && File.dir?(base_path) do
         case File.rm_rf(base_path) do
           {:ok, _} ->
             Logger.info("CleanupOnDestroy: removed #{base_path} for channel #{result.id}")

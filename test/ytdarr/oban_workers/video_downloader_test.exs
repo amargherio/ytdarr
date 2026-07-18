@@ -28,6 +28,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
 
     original_path = System.get_env("PATH", "")
     System.put_env("PATH", "#{bin_dir}:#{original_path}")
+    configure_test_media_permissions()
 
     on_exit(fn ->
       System.put_env("PATH", original_path)
@@ -149,6 +150,9 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
 
       nfo_path = String.replace_suffix(expected_path, ".mp4", ".nfo")
       assert File.exists?(nfo_path)
+      assert Bitwise.band(File.stat!(expected_path).mode, 0o7777) == 0o644
+      assert Bitwise.band(File.stat!(nfo_path).mode, 0o7777) == 0o644
+      assert Bitwise.band(File.stat!(Path.dirname(expected_path)).mode, 0o7777) == 0o755
 
       nfo_contents = File.read!(nfo_path)
       assert nfo_contents =~ "<title>Video:Title*?</title>"
@@ -169,6 +173,13 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
 
   defp deactivate_all_media_root_folders do
     Enum.each(Settings.list_media_root_folders!(), &Settings.deactivate_media_root_folder/1)
+  end
+
+  defp configure_test_media_permissions do
+    {group, 0} = System.cmd("id", ["-gn"])
+    {:ok, _} = Settings.put_setting("media.owner_group", String.trim(group))
+    {:ok, _} = Settings.put_setting("media.file_mode", "0644")
+    {:ok, _} = Settings.put_setting("media.directory_mode", "0755")
   end
 
   describe "perform/1 with Port-based progress tracking" do
@@ -275,16 +286,6 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
       # Tracker cleaned up even on failure
       assert Ytdarr.Downloads.Tracker.get_progress(video.id) == nil
     end
-  end
-
-  defp clear_default_param_sets do
-    Enum.each(Settings.list_yt_dlp_param_sets!(), fn param_set ->
-      Settings.update_yt_dlp_param_set(param_set, %{is_default: false})
-    end)
-  end
-
-  defp deactivate_all_media_root_folders do
-    Enum.each(Settings.list_media_root_folders!(), &Settings.deactivate_media_root_folder/1)
   end
 
   defp yt_dlp_stub_script do

@@ -73,6 +73,58 @@ defmodule YtdarrWeb.SettingsLive.Sections do
           />
         </:control>
       </.setting_row>
+
+      <.setting_row
+        id="media-owner-group"
+        label="Media group"
+        description="Assign this pre-provisioned POSIX group to new media. Ytdarr must already be a member of it."
+        effect={@setting_effects["media.owner_group"]}
+      >
+        <:control>
+          <.input
+            field={@media_form[:owner_group]}
+            type="text"
+            label="Group name"
+            autocomplete="off"
+          />
+        </:control>
+      </.setting_row>
+
+      <.setting_row
+        id="media-file-mode"
+        label="File permissions"
+        description="Exact octal mode applied to media, metadata, subtitle, and artwork files."
+        effect={@setting_effects["media.file_mode"]}
+      >
+        <:control>
+          <.input
+            field={@media_form[:file_mode]}
+            type="text"
+            label="File mode"
+            inputmode="numeric"
+            pattern="(?:0)?[0-7]{3}"
+            autocomplete="off"
+          />
+        </:control>
+      </.setting_row>
+
+      <.setting_row
+        id="media-directory-mode"
+        label="Directory permissions"
+        description="Exact octal mode applied to media directories. Read and execute access are normally both required for Jellyfin."
+        effect={@setting_effects["media.directory_mode"]}
+      >
+        <:control>
+          <.input
+            field={@media_form[:directory_mode]}
+            type="text"
+            label="Directory mode"
+            inputmode="numeric"
+            pattern="(?:0)?[0-7]{3}"
+            autocomplete="off"
+          />
+        </:control>
+      </.setting_row>
     </.form>
 
     <.save_bar
@@ -80,6 +132,36 @@ defmodule YtdarrWeb.SettingsLive.Sections do
       section="Media Management"
       form_id="media-form"
     />
+
+    <section
+      id="existing-media-permissions"
+      class="mt-8 flex flex-col gap-4 border-y border-base-300 py-5 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold text-base-content">Existing media</h2>
+        <p class="mt-1 max-w-2xl text-sm leading-6 text-base-content/60">
+          Apply the saved group and modes to every configured media root. Symbolic links are skipped.
+        </p>
+        <p
+          :if={@media_permissions_job}
+          id="media-permissions-job-status"
+          class="mt-2 flex items-center gap-1.5 text-xs text-base-content/60"
+        >
+          <.icon name={permission_job_icon(@media_permissions_job)} class="size-3.5 shrink-0" />
+          {permission_job_summary(@media_permissions_job)}
+        </p>
+      </div>
+      <button
+        id="apply-media-permissions"
+        type="button"
+        class="btn btn-secondary btn-sm shrink-0"
+        phx-click="apply-media-permissions"
+        disabled={@media_permissions_active? or @dirty_section == :media}
+      >
+        <.icon name="hero-shield-check" class="size-4" />
+        {permission_action_label(@media_permissions_active?, @dirty_section)}
+      </button>
+    </section>
 
     <div class="mt-10">
       <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -213,6 +295,30 @@ defmodule YtdarrWeb.SettingsLive.Sections do
     </div>
     """
   end
+
+  defp permission_job_summary(%{meta: %{"status" => status} = meta}) do
+    label =
+      if status == "completed_with_errors",
+        do: "Completed with errors",
+        else: String.capitalize(status)
+
+    "#{label}: #{meta["files"] || 0} files, #{meta["directories"] || 0} directories, #{meta["failed"] || 0} failures"
+  end
+
+  defp permission_job_summary(%{state: state}) do
+    state
+    |> String.replace("_", " ")
+    |> String.capitalize()
+  end
+
+  defp permission_job_icon(%{meta: %{"status" => "completed"}}), do: "hero-check-circle"
+  defp permission_job_icon(%{meta: %{"status" => _status}}), do: "hero-exclamation-triangle"
+  defp permission_job_icon(%{state: "executing"}), do: "hero-arrow-path"
+  defp permission_job_icon(_job), do: "hero-clock"
+
+  defp permission_action_label(true, _dirty_section), do: "Update queued"
+  defp permission_action_label(false, :media), do: "Save changes first"
+  defp permission_action_label(false, _dirty_section), do: "Apply to existing media"
 
   def profiles_section(assigns) do
     ~H"""
