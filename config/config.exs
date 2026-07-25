@@ -13,6 +13,7 @@ config :ytdarr, Oban,
   queues: [
     default: 10,
     video_downloader: 2,
+    video_importer: 2,
     sync_worker: 5,
     batch_sync: 1,
     media_permissions: 1

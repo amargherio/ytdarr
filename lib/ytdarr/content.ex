@@ -6,11 +6,19 @@ defmodule Ytdarr.Content do
     otp_app: :ytdarr,
     extensions: [AshAdmin.Domain, AshPhoenix]
 
-  alias Ytdarr.Content.{Channel, Video, Playlist}
+  import Ecto.Query, only: [from: 2]
+
+  alias Ytdarr.Content.{Channel, Playlist, Video}
+  alias Ytdarr.{Imports, Repo}
+  alias Ytdarr.Media.{VideoArtifacts, VideoImport}
   alias Ytdarr.Services.YouTube.{Client, IdentifierParser}
 
   require Ash.Query
   require Logger
+
+  @empty_import_recovery %{"mode" => nil, "entries" => []}
+  @importer_worker "Ytdarr.ObanWorkers.VideoImporter"
+  @incomplete_job_states ["available", "scheduled", "executing", "retryable", "suspended"]
 
   admin do
     show? true
@@ -38,7 +46,15 @@ defmodule Ytdarr.Content do
       define :create_video, action: :create, args: [:channel_id]
       define :upsert_video, action: :upsert, args: [:channel_id]
       define :update_video, action: :update
+      define :begin_video_download, action: :begin_download
+      define :start_video_download, action: :start_download
       define :mark_video_downloaded, action: :mark_downloaded
+      define :reset_video_download, action: :reset_download
+      define :reset_video_downloaded, action: :reset_downloaded
+      define :begin_video_import, action: :begin_import
+      define :mark_video_imported, action: :mark_imported
+      define :mark_video_import_failed, action: :mark_import_failed
+      define :update_video_import_recovery, action: :update_import_recovery
       define :blocklist_video, action: :blocklist
       define :unblocklist_video, action: :unblocklist
       define :destroy_video, action: :destroy
@@ -629,85 +645,307 @@ defmodule Ytdarr.Content do
     end
   end
 
-  @doc """
-  Queue a video for download via Oban.
-
-  Sets the video's `download_state` to `:queued` (not `:downloading`) to indicate
-  it is waiting for an Oban worker slot. The `VideoDownloader.perform/1` callback
-  transitions the state to `:downloading` when the job actually begins executing.
-
-  The Oban `video_downloader` queue has a configured concurrency limit (e.g. 2),
-  meaning only that many jobs execute simultaneously. Additional jobs remain in
-  "available" state until a slot opens.
-  """
+  @doc "Queues a video for guarded, one-at-a-time downloading."
   def queue_video_download(video_id, channel_id) do
-    case get_video(video_id) do
-      {:ok, %Video{is_blocklisted: true}} ->
-        Logger.warning(
-          "Cannot queue download for blocklisted video #{video_id} (channel #{channel_id})"
-        )
-
-        {:error, :video_blocklisted}
-
-      {:ok, video} ->
-        with {:ok, _video} <- update_video(video, %{download_state: :queued}) do
-          %{"video_id" => video_id, "channel_id" => channel_id}
-          |> Ytdarr.ObanWorkers.VideoDownloader.new()
-          |> Oban.insert()
-        end
-
-      {:error, error} ->
-        Logger.error("Failed to find video #{video_id} to queue download: #{inspect(error)}")
-        {:error, error}
+    with {:ok, video_id} <- normalize_positive_id(video_id),
+         {:ok, channel_id} <- normalize_positive_id(channel_id) do
+      case Repo.transaction(
+             fn ->
+               with {:ok, video} <- get_video(video_id),
+                    :ok <- ensure_channel_id(video, channel_id),
+                    :ok <- ensure_not_blocklisted(video),
+                    {:ok, _queued_video} <- begin_video_download(video),
+                    {:ok, job} <- insert_downloader_job(video_id, channel_id),
+                    :ok <- reject_conflicting_download_job(job) do
+                 job
+               else
+                 {:error, reason} -> Repo.rollback(reason)
+               end
+             end,
+             mode: :immediate
+           ) do
+        {:ok, job} -> {:ok, job}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
-  @doc """
-  Deletes the physical video file and updates the database record.
-  """
+  @doc "Queues a selected server-side video import from a retained inspection preview."
+  def queue_video_import(video_id, %VideoImport.Preview{} = preview, selected_sidecar_ids)
+      when is_list(selected_sidecar_ids) do
+    with :ok <- ensure_preview_identity(preview, video_id),
+         {:ok, manifest} <- VideoImport.build_manifest(preview, selected_sidecar_ids),
+         {:ok, video} <- get_video(video_id),
+         {:ok, channel} <- get_channel(preview.channel_id),
+         :ok <- ensure_channel_id(video, channel.id),
+         {:ok, refreshed_preview} <-
+           VideoImport.inspect_source(channel, video, preview.source.source_path),
+         :ok <- ensure_preview_unchanged(preview, refreshed_preview) do
+      enqueue_video_import(video_id, preview, manifest)
+    end
+  end
+
+  def queue_video_import(_video_id, _preview, _selected_sidecar_ids),
+    do: {:error, :video_not_importable}
+
+  @doc "Retries the persisted source restore or cleanup journal for an imported video."
+  def retry_video_import_recovery(video_id) do
+    with {:ok, video} <- get_video(video_id),
+         {:ok, updated_video} <- retry_import_recovery(video) do
+      {:ok, updated_video}
+    end
+  end
+
+  @doc "Deletes a downloaded video only after its import ownership journal is clean."
   def delete_video_file(video_id) do
-    with {:ok, video} <- get_video(video_id) do
-      video_delete_result =
-        if video.download_path do
-          case File.rm(video.download_path) do
-            :ok ->
-              Logger.info("Deleted video file: #{video.download_path}")
-              :ok
+    with {:ok, %Video{download_state: :downloaded} = video} <- get_video(video_id),
+         {:ok, recovered_video} <- recover_before_delete(video),
+         {:ok, artifacts} <- existing_video_artifacts(recovered_video.download_path),
+         :ok <- remove_video_artifacts(artifacts),
+         {:ok, updated_video} <- reset_video_downloaded(recovered_video) do
+      {:ok, updated_video}
+    else
+      {:ok, video} -> {:ok, video}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
-            {:error, :enoent} ->
-              Logger.info("Video file not found, treating as deleted: #{video.download_path}")
-              :ok
+  @doc false
+  def get_importing_video_by_job_id(job_id) when is_integer(job_id) do
+    Video
+    |> Ash.Query.filter(import_job_id == ^job_id and download_state == :importing)
+    |> Ash.read(domain: __MODULE__)
+    |> case do
+      {:ok, [video]} -> {:ok, video}
+      {:ok, []} -> {:error, :not_found}
+      {:ok, [video | _]} -> {:ok, video}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
-            {:error, reason} ->
-              {:error, reason}
-          end
-        else
-          :ok
-        end
+  @doc false
+  def list_importing_videos do
+    Video
+    |> Ash.Query.filter(download_state == :importing)
+    |> Ash.read(domain: __MODULE__)
+  end
 
-      case video_delete_result do
-        :ok ->
-          if video.download_path do
-            nfo_path = Path.rootname(video.download_path) <> ".nfo"
+  defp enqueue_video_import(video_id, preview, manifest) do
+    case Repo.transaction(
+           fn ->
+             with {:ok, video} <- get_video(video_id),
+                  {:ok, channel} <- get_channel(preview.channel_id),
+                  :ok <- ensure_channel_id(video, channel.id),
+                  :ok <- ensure_import_destination(video, channel, preview, manifest),
+                  :ok <- ensure_no_incomplete_import(video.id, preview, manifest),
+                  {:ok, job} <- insert_importer_job(video, channel, preview, manifest),
+                  :ok <- reject_conflicting_import_job(job),
+                  {:ok, _importing_video} <-
+                    begin_video_import(video, %{
+                      import_job_id: job.id,
+                      import_manifest: VideoImport.Manifest.to_map(manifest)
+                    }) do
+               {job, channel.id}
+             else
+               {:error, reason} -> Repo.rollback(normalize_import_enqueue_error(reason))
+             end
+           end,
+           mode: :immediate
+         ) do
+      {:ok, {job, channel_id}} ->
+        :ok = Imports.broadcast_from({:video_import_started, channel_id, video_id})
+        {:ok, job}
 
-            case File.rm(nfo_path) do
-              :ok -> Logger.info("Deleted NFO file: #{nfo_path}")
-              {:error, _} -> :ok
-            end
-          end
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
-          update_video(video, %{
-            download_state: :available,
-            is_downloaded: false,
-            download_path: nil,
-            downloaded_at: nil
-          })
+  defp insert_downloader_job(video_id, channel_id) do
+    %{"video_id" => video_id, "channel_id" => channel_id}
+    |> Ytdarr.ObanWorkers.VideoDownloader.new()
+    |> Oban.insert()
+  end
 
-        {:error, reason} ->
-          Logger.error("Failed to delete video file #{video.download_path}: #{inspect(reason)}")
-          {:error, reason}
+  defp reject_conflicting_download_job(%Oban.Job{conflict?: true}),
+    do: {:error, :download_conflict}
+
+  defp reject_conflicting_download_job(%Oban.Job{}), do: :ok
+
+  defp insert_importer_job(video, channel, preview, manifest) do
+    %{
+      "video_id" => video.id,
+      "channel_id" => channel.id,
+      "source_path" => preview.source.source_path,
+      "destination_path" => manifest.destination.media_path,
+      "manifest" => VideoImport.Manifest.to_map(manifest)
+    }
+    |> Ytdarr.ObanWorkers.VideoImporter.new()
+    |> Oban.insert()
+  end
+
+  defp reject_conflicting_import_job(%Oban.Job{conflict?: true}), do: {:error, :import_conflict}
+  defp reject_conflicting_import_job(%Oban.Job{}), do: :ok
+
+  defp normalize_positive_id(id) when is_integer(id) and id > 0, do: {:ok, id}
+
+  defp normalize_positive_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {parsed, ""} when parsed > 0 -> {:ok, parsed}
+      _ -> {:error, :video_not_importable}
+    end
+  end
+
+  defp normalize_positive_id(_id), do: {:error, :video_not_importable}
+
+  defp ensure_channel_id(%Video{channel_id: channel_id}, channel_id), do: :ok
+  defp ensure_channel_id(_video, _channel_id), do: {:error, :video_not_importable}
+
+  defp ensure_not_blocklisted(%Video{is_blocklisted: false}), do: :ok
+  defp ensure_not_blocklisted(%Video{is_blocklisted: true}), do: {:error, :video_blocklisted}
+
+  defp ensure_preview_identity(
+         %VideoImport.Preview{video_id: video_id, channel_id: channel_id},
+         video_id
+       )
+       when is_integer(channel_id),
+       do: :ok
+
+  defp ensure_preview_identity(_preview, _video_id), do: {:error, :video_not_importable}
+
+  defp ensure_preview_unchanged(preview, refreshed_preview) do
+    if VideoImport.preview_matches?(preview, refreshed_preview) do
+      :ok
+    else
+      if preview.destination == refreshed_preview.destination do
+        {:error, :source_changed}
+      else
+        {:error, :destination_changed}
       end
     end
+  end
+
+  defp ensure_import_destination(video, channel, preview, manifest) do
+    with {:ok, destination} <-
+           VideoArtifacts.build_destination(
+             channel,
+             video,
+             Path.extname(preview.source.source_path)
+           ),
+         true <- destination == preview.destination and destination == manifest.destination do
+      :ok
+    else
+      false -> {:error, :destination_changed}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp ensure_no_incomplete_import(video_id, preview, manifest) do
+    has_conflict? =
+      from(job in Oban.Job,
+        where: job.worker == @importer_worker and job.state in ^@incomplete_job_states
+      )
+      |> Repo.all()
+      |> Enum.any?(fn job ->
+        job.args["video_id"] == video_id and job.args["source_path"] == preview.source.source_path and
+          job.args["destination_path"] == manifest.destination.media_path
+      end)
+
+    if has_conflict?, do: {:error, :import_conflict}, else: :ok
+  end
+
+  defp normalize_import_enqueue_error(%Ash.Error.Invalid{}), do: :video_not_importable
+  defp normalize_import_enqueue_error(reason), do: reason
+
+  defp retry_import_recovery(%Video{} = video) do
+    with :ok <- ensure_recovery_retryable(video),
+         recovery = normalize_recovery(video.import_recovery),
+         result <-
+           VideoImport.recover(nil, nil, video.download_state, recovery: recovery) do
+      persist_recovery_result(video, recovery, result)
+    end
+  end
+
+  defp ensure_recovery_retryable(%Video{download_state: state, import_recovery: recovery})
+       when state in [:downloaded, :import_failed] do
+    case recovery do
+      %{"mode" => mode, "entries" => [_ | _]} when mode in ["restore", "delete"] -> :ok
+      %{"entries" => []} -> {:error, :no_import_recovery}
+      _ -> {:error, :invalid_import_recovery}
+    end
+  end
+
+  defp ensure_recovery_retryable(_video), do: {:error, :no_import_recovery}
+
+  defp recover_before_delete(%Video{import_recovery: @empty_import_recovery} = video),
+    do: {:ok, video}
+
+  defp recover_before_delete(%Video{} = video), do: retry_import_recovery(video)
+
+  defp persist_recovery_result(video, _recovery, {:ok, []}) do
+    with {:ok, updated_video} <-
+           update_video_import_recovery(video, %{import_recovery: @empty_import_recovery}) do
+      :ok =
+        Imports.broadcast_from(
+          {:video_import_recovery_updated, updated_video.channel_id, updated_video.id}
+        )
+
+      {:ok, updated_video}
+    end
+  end
+
+  defp persist_recovery_result(_video, _recovery, {:error, []}), do: {:error, :cleanup_incomplete}
+
+  defp persist_recovery_result(video, recovery, {:error, entries}) when is_list(entries) do
+    remaining_recovery = %{"mode" => recovery["mode"], "entries" => entries}
+
+    with {:ok, updated_video} <-
+           update_video_import_recovery(video, %{import_recovery: remaining_recovery}) do
+      :ok =
+        Imports.broadcast_from(
+          {:video_import_recovery_updated, updated_video.channel_id, updated_video.id}
+        )
+
+      {:error, {:cleanup_incomplete, entries}}
+    end
+  end
+
+  defp persist_recovery_result(_video, _recovery, _result), do: {:error, :cleanup_incomplete}
+
+  defp normalize_recovery(%{"mode" => mode, "entries" => entries}) when is_list(entries),
+    do: %{"mode" => mode, "entries" => entries}
+
+  defp normalize_recovery(_recovery), do: @empty_import_recovery
+
+  defp existing_video_artifacts(nil), do: {:ok, []}
+
+  defp existing_video_artifacts(path) do
+    case VideoArtifacts.existing_artifacts(path) do
+      {:error, :enoent} -> {:ok, []}
+      result -> result
+    end
+  end
+
+  defp remove_video_artifacts(paths) do
+    Enum.reduce_while(paths, :ok, fn path, :ok ->
+      case File.lstat(path) do
+        {:ok, %{type: :regular}} ->
+          case File.rm(path) do
+            :ok -> {:cont, :ok}
+            {:error, :enoent} -> {:cont, :ok}
+            {:error, reason} -> {:halt, {:error, reason}}
+          end
+
+        {:error, :enoent} ->
+          {:cont, :ok}
+
+        {:ok, _other} ->
+          {:halt, {:error, {:unsafe_artifact, path}}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
   end
 
   # ---------------------------------------------------------------------------

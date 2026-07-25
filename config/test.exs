@@ -40,7 +40,16 @@ config :phoenix_live_view,
 config :ytdarr, :enable_youtube_client, false
 
 # Oban
-config :ytdarr, Oban, testing: :manual, engine: Oban.Engines.Lite
+config :ytdarr, Oban,
+  testing: :manual,
+  engine: Oban.Engines.Lite,
+  queues: [
+    video_downloader: 2,
+    video_importer: 2,
+    sync_worker: 5,
+    batch_sync: 1,
+    media_permissions: 1
+  ]
 
 # Nebulex
 config :ytdarr, Ytdarr.Cache.ImageCache,

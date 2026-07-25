@@ -85,6 +85,7 @@ if config_env() == :prod do
     engine: Oban.Engines.Lite,
     queues: [
       video_downloader: 5,
+      video_importer: 2,
       sync_worker: 5,
       batch_sync: 1
     ],

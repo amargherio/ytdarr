@@ -27,6 +27,21 @@ defmodule Ytdarr.Application do
         %{}
       )
 
+    :ok =
+      :telemetry.attach_many(
+        "video-importer-recovery-handler",
+        [
+          [:oban, :job, :exception],
+          [:oban, :job, :stop],
+          [:oban, :engine, :cancel_job, :stop],
+          [:oban, :engine, :cancel_all_jobs, :stop],
+          [:oban, :engine, :delete_job, :stop],
+          [:oban, :engine, :delete_all_jobs, :stop]
+        ],
+        &Ytdarr.ObanWorkers.VideoImporterTelemetry.handle_event/4,
+        %{}
+      )
+
     children = [
       YtdarrWeb.Telemetry,
       Ytdarr.Repo,
@@ -45,6 +60,8 @@ defmodule Ytdarr.Application do
       Ytdarr.Services.YouTube.QuotaTracker,
       # Download progress tracker (must start before Oban so it's ready for job events)
       Ytdarr.Downloads.Tracker,
+      # Reconcile stale importer ownership before Oban can execute any producer work.
+      Ytdarr.Imports.Reconciler,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:ytdarr, Oban)},
       # Image cache (in-memory layer backed by filesystem)
@@ -57,12 +74,15 @@ defmodule Ytdarr.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Ytdarr.Supervisor]
-    result = Supervisor.start_link(children, opts)
 
-    # Schedule initial batch sync after all services are started
-    schedule_initial_batch_sync()
+    case Supervisor.start_link(children, opts) do
+      {:ok, _pid} = result ->
+        schedule_initial_batch_sync()
+        result
 
-    result
+      {:error, _reason} = error ->
+        error
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration
