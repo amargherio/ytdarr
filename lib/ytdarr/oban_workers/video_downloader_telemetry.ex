@@ -1,63 +1,40 @@
 defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetry do
-  @moduledoc """
-  Telemetry handler for VideoDownloader Oban jobs.
+  @moduledoc false
 
-  Resets video download state to `:available` when a job reaches a terminal
-  failure state (cancelled or discarded). Retryable failures are NOT reset
-  because the job will be retried automatically by Oban.
-
-  This handles videos in both `:queued` and `:downloading` states, since a job
-  could be cancelled before it starts executing (while still queued) or while
-  actively downloading.
-  """
-  require Logger
   alias Ytdarr.Content
 
-  def handle_event([:oban, :job, :exception], measurements, meta, _config) do
-    handle_failure(measurements, meta)
+  @worker "Ytdarr.ObanWorkers.VideoDownloader"
+  @terminal_states [:cancelled, :discard, :discarded]
+
+  def handle_event([:oban, :job, :exception], _measurements, %{job: %Oban.Job{} = job}, _config) do
+    reset_video_state(job)
   end
 
-  def handle_event([:oban, :job, :stop], measurements, meta, _config) do
-    # Only reset on terminal states (cancelled/discarded), not retryable failures
-    if meta.state in [:cancelled, :discarded] do
-      handle_failure(measurements, meta)
-    else
-      :ok
-    end
+  def handle_event(
+        [:oban, :job, :stop],
+        _measurements,
+        %{job: %Oban.Job{} = job, state: state},
+        _config
+      )
+      when state in @terminal_states do
+    reset_video_state(job)
   end
 
-  # Handle case where worker is passed as an Atom (standard Oban behavior)
-  defp handle_failure(_measurements, %{
-         worker: Ytdarr.ObanWorkers.VideoDownloader,
-         args: %{"video_id" => video_id}
-       }) do
-    reset_video_state(video_id)
-  end
+  def handle_event(_event, _measurements, _meta, _config), do: :ok
 
-  # Handle case where worker is passed as a String (just in case/legacy)
-  defp handle_failure(_measurements, %{
-         worker: "Ytdarr.ObanWorkers.VideoDownloader",
-         args: %{"video_id" => video_id}
-       }) do
-    reset_video_state(video_id)
-  end
-
-  defp handle_failure(_, _), do: :ok
-
-  defp reset_video_state(video_id) do
-    Logger.info(
-      "VideoDownloader job failed/cancelled/discarded for video #{video_id}. Resetting state."
-    )
-
+  defp reset_video_state(%Oban.Job{worker: @worker, args: %{"video_id" => video_id}})
+       when is_integer(video_id) do
     case Content.get_video(video_id) do
       {:ok, video} ->
-        Content.update_video(video, %{
-          download_state: :available,
-          is_downloaded: false
-        })
+        case Content.reset_video_download(video) do
+          {:ok, _reset_video} -> :ok
+          {:error, _stale_or_invalid} -> :ok
+        end
 
-      _ ->
+      {:error, _not_found} ->
         :ok
     end
   end
+
+  defp reset_video_state(_job), do: :ok
 end

@@ -1,120 +1,99 @@
 defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetryTest do
   use Ytdarr.DataCase
-  alias Ytdarr.ObanWorkers.VideoDownloaderTelemetry
+
+  import Ytdarr.ContentFixtures
+
   alias Ytdarr.Content
+  alias Ytdarr.ObanWorkers.VideoDownloaderTelemetry
 
-  describe "handle_event" do
-    test "resets video state on job exception" do
-      {:ok, channel} =
-        Content.create_channel(%{
-          external_id: "telemetry_channel",
-          name: "Telemetry Channel",
-          url: "https://youtube.com/telemetry_channel"
-        })
+  test "resets a downloading video from real Oban exception metadata" do
+    video = downloading_video()
+    job = downloader_job(video.id)
 
-      {:ok, video} =
-        Content.create_video(channel.id, %{
-          external_id: "telemetry_video",
-          title: "Telemetry Video",
-          url: "https://youtube.com/watch?v=telemetry_video",
-          download_state: :downloading
-        })
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :job, :exception],
+               %{},
+               %{job: job, state: :failure, reason: :download_failed},
+               %{}
+             )
 
-      meta = %{
-        worker: Ytdarr.ObanWorkers.VideoDownloader,
-        args: %{"video_id" => video.id}
-      }
+    assert {:ok, updated_video} = Content.get_video(video.id)
+    assert updated_video.download_state == :available
+    refute updated_video.is_downloaded
+  end
 
-      VideoDownloaderTelemetry.handle_event([:oban, :job, :exception], %{}, meta, %{})
+  test "resets a queued video when a downloader job is cancelled before execution" do
+    video = video_fixture()
+    assert {:ok, queued} = Content.begin_video_download(video)
 
-      {:ok, updated_video} = Content.get_video(video.id)
-      assert updated_video.download_state == :available
-    end
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :job, :stop],
+               %{},
+               %{job: downloader_job(queued.id), state: :cancelled},
+               %{}
+             )
 
-    test "resets video state on job cancelled stop" do
-      {:ok, channel} =
-        Content.create_channel(%{
-          external_id: "telemetry_channel_2",
-          name: "Telemetry Channel 2",
-          url: "https://youtube.com/telemetry_channel_2"
-        })
+    assert {:ok, updated_video} = Content.get_video(queued.id)
+    assert updated_video.download_state == :available
+  end
 
-      {:ok, video} =
-        Content.create_video(channel.id, %{
-          external_id: "telemetry_video_2",
-          title: "Telemetry Video 2",
-          url: "https://youtube.com/watch?v=telemetry_video_2",
-          download_state: :downloading
-        })
+  test "does not downgrade an already downloaded video from stale terminal telemetry" do
+    video = downloading_video()
 
-      meta = %{
-        worker: Ytdarr.ObanWorkers.VideoDownloader,
-        args: %{"video_id" => video.id},
-        state: :cancelled
-      }
+    assert {:ok, downloaded} =
+             Content.mark_video_downloaded(video, %{
+               download_path: "/tmp/downloaded.mp4",
+               file_size: 1,
+               download_quality: "720p"
+             })
 
-      VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{})
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :job, :stop],
+               %{},
+               %{job: downloader_job(downloaded.id), state: :cancelled},
+               %{}
+             )
 
-      {:ok, updated_video} = Content.get_video(video.id)
-      assert updated_video.download_state == :available
-    end
+    assert {:ok, fresh_video} = Content.get_video(downloaded.id)
+    assert fresh_video.download_state == :downloaded
+    assert fresh_video.download_path == "/tmp/downloaded.mp4"
+  end
 
-    test "ignores other workers" do
-      meta = %{
-        worker: "SomeOtherWorker",
-        args: %{"video_id" => 123},
-        state: :cancelled
-      }
+  test "ignores other workers and non-terminal stops" do
+    other_job = %Oban.Job{worker: "SomeOtherWorker", args: %{"video_id" => 123}}
 
-      assert VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{}) == :ok
-    end
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :job, :stop],
+               %{},
+               %{job: other_job, state: :cancelled},
+               %{}
+             )
 
-    test "accepts worker passed as a String" do
-      {:ok, channel} =
-        Content.create_channel(%{
-          external_id: "telemetry_string_channel",
-          name: "Telemetry String Channel",
-          url: "https://youtube.com/telemetry_string_channel"
-        })
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :job, :stop],
+               %{},
+               %{job: downloader_job(123), state: :success},
+               %{}
+             )
+  end
 
-      {:ok, video} =
-        Content.create_video(channel.id, %{
-          external_id: "telemetry_string_video",
-          title: "Telemetry String Video",
-          url: "https://youtube.com/watch?v=telemetry_string_video",
-          download_state: :downloading
-        })
+  defp downloading_video do
+    video = video_fixture()
+    assert {:ok, queued} = Content.begin_video_download(video)
+    assert {:ok, downloading} = Content.start_video_download(queued)
+    downloading
+  end
 
-      meta = %{
-        worker: "Ytdarr.ObanWorkers.VideoDownloader",
-        args: %{"video_id" => video.id},
-        state: :cancelled
-      }
-
-      VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{})
-
-      {:ok, updated_video} = Content.get_video(video.id)
-      assert updated_video.download_state == :available
-    end
-
-    test "ignores non-terminal stop states (e.g. completed)" do
-      meta = %{
-        worker: Ytdarr.ObanWorkers.VideoDownloader,
-        args: %{"video_id" => 1},
-        state: :completed
-      }
-
-      assert VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{}) == :ok
-    end
-
-    test "no-ops when the referenced video does not exist" do
-      meta = %{
-        worker: Ytdarr.ObanWorkers.VideoDownloader,
-        args: %{"video_id" => 999_999_999},
-        state: :cancelled
-      }
-
-      assert VideoDownloaderTelemetry.handle_event([:oban, :job, :stop], %{}, meta, %{}) == :ok
-    end
+  defp downloader_job(video_id) do
+    %Oban.Job{
+      id: System.unique_integer([:positive]),
+      worker: "Ytdarr.ObanWorkers.VideoDownloader",
+      args: %{"video_id" => video_id}
+    }
   end
 end

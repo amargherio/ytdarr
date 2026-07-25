@@ -3,6 +3,56 @@ defmodule YtdarrWeb.CustomComponents do
   use Gettext, backend: YtdarrWeb.Gettext
 
   import YtdarrWeb.CoreComponents, only: [icon: 1]
+  alias YtdarrWeb.ChannelLive.ImportModal
+
+  @doc "Returns true when a video has a known upload date."
+  @spec dated?(map()) :: boolean()
+  def dated?(%{upload_date: upload_date}), do: not is_nil(upload_date)
+
+  @doc "Returns the persisted import recovery entries for a video, defaulting to none."
+  @spec recovery_entries(map()) :: [map()]
+  def recovery_entries(video) do
+    case Map.get(video, :import_recovery) do
+      %{"entries" => entries} when is_list(entries) -> entries
+      _ -> []
+    end
+  end
+
+  @doc "Returns true when a video has no pending import recovery entries."
+  @spec recovery_empty?(map()) :: boolean()
+  def recovery_empty?(video), do: recovery_entries(video) == []
+
+  @doc "Returns true when a video's download state alone (ignoring its date) permits importing."
+  @spec import_state_ready?(map()) :: boolean()
+  def import_state_ready?(video) do
+    video.download_state in [:available, :missing] or
+      (video.download_state == :import_failed and recovery_empty?(video))
+  end
+
+  @doc "Returns true when Import should be offered for a video, regardless of blocklist."
+  @spec import_eligible?(map()) :: boolean()
+  def import_eligible?(video), do: dated?(video) and import_state_ready?(video)
+
+  @doc "Returns true when Import is state-eligible but disabled for lack of an upload date."
+  @spec import_unavailable?(map()) :: boolean()
+  def import_unavailable?(video), do: not dated?(video) and import_state_ready?(video)
+
+  @doc "Returns true when Download should be offered for a video."
+  @spec download_eligible?(map()) :: boolean()
+  def download_eligible?(video), do: not video.is_blocklisted and import_state_ready?(video)
+
+  @doc "Returns true when a Retry source recovery/cleanup control should be offered."
+  @spec retry_recovery_eligible?(map()) :: boolean()
+  def retry_recovery_eligible?(video) do
+    video.download_state in [:import_failed, :downloaded] and not recovery_empty?(video)
+  end
+
+  @doc "Builds tooltip text for a pending-recovery indicator: a label plus each recovery path."
+  @spec recovery_tooltip(String.t(), map()) :: String.t()
+  def recovery_tooltip(label, video) do
+    paths = video |> recovery_entries() |> Enum.map(& &1["path"])
+    Enum.join([label | paths], "\n")
+  end
 
   attr :variant, :string,
     values: ~w(primary secondary info success warning error),
@@ -284,40 +334,83 @@ defmodule YtdarrWeb.CustomComponents do
   end
 
   @doc """
-  Renders a styled badge for video download state.
+  Renders a styled badge for video download state. `tooltip` (when truthy) sets
+  both `title` and `aria-label` so status detail is available to sighted and
+  assistive-technology users alike without adding extra table text.
 
   ## Examples
 
       <.download_status_badge state={:downloaded} />
-      <.download_status_badge state={:downloading} />
+      <.download_status_badge state={:import_failed} tooltip="Import failed: disk full" />
   """
   attr :state, :atom, required: true
+  attr :tooltip, :string, default: nil
 
   def download_status_badge(assigns) do
     ~H"""
     <%= case @state do %>
       <% :available -> %>
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-200 text-base-content/60">
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-200 text-base-content/60"
+        >
           <.icon name="hero-cloud-arrow-down" class="size-3.5" /> Available
         </span>
       <% :queued -> %>
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-info/15 text-info">
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-info/15 text-info"
+        >
           <.icon name="hero-clock" class="size-3.5" /> Queued
         </span>
       <% :downloading -> %>
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/15 text-warning">
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/15 text-warning"
+        >
           <.icon name="hero-arrow-path" class="size-3.5 animate-spin" /> Downloading
         </span>
       <% :downloaded -> %>
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success">
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success"
+        >
           <.icon name="hero-check-badge" class="size-3.5" /> Downloaded
         </span>
       <% :missing -> %>
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error">
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error"
+        >
           <.icon name="hero-exclamation-triangle" class="size-3.5" /> Missing
         </span>
+      <% :importing -> %>
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/15 text-warning"
+        >
+          <.icon name="hero-arrow-path" class="size-3.5 motion-safe:animate-spin" /> Importing
+        </span>
+      <% :import_failed -> %>
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error"
+        >
+          <.icon name="hero-x-circle" class="size-3.5" /> Import failed
+        </span>
       <% _ -> %>
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-200 text-base-content/40">
+        <span
+          title={@tooltip}
+          aria-label={@tooltip}
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-200 text-base-content/40"
+        >
           <.icon name="hero-question-mark-circle" class="size-3.5" /> Unknown
         </span>
     <% end %>
@@ -345,13 +438,17 @@ defmodule YtdarrWeb.CustomComponents do
             <th class="w-20">Thumb</th>
             <th>Title</th>
             <th class="w-28">Upload Date</th>
-            <th class="w-32">Status</th>
-            <th class="w-20">Actions</th>
+            <th class="w-40">Status</th>
+            <th class="w-32">Actions</th>
           </tr>
         </thead>
         <tbody id={@id}>
           <%= for video <- @videos do %>
-            <tr class="hover:bg-base-200/50 transition-colors">
+            <tr
+              id={ImportModal.row_id(@id, video.id)}
+              tabindex="-1"
+              class="hover:bg-base-200/50 transition-colors"
+            >
               <td>
                 <%= if video.thumbnail_url do %>
                   <img
@@ -374,7 +471,28 @@ defmodule YtdarrWeb.CustomComponents do
               </td>
               <td>
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <.download_status_badge state={video.download_state} />
+                  <.download_status_badge
+                    state={video.download_state}
+                    tooltip={
+                      video.download_state == :import_failed && "Import failed: #{video.import_error}"
+                    }
+                  />
+                  <span
+                    :if={video.download_state == :import_failed and not recovery_empty?(video)}
+                    title={recovery_tooltip("Source recovery needed", video)}
+                    aria-label={recovery_tooltip("Source recovery needed", video)}
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/15 text-warning"
+                  >
+                    <.icon name="hero-wrench-screwdriver" class="size-3.5" /> Source recovery needed
+                  </span>
+                  <span
+                    :if={video.download_state == :downloaded and not recovery_empty?(video)}
+                    title={recovery_tooltip("Source cleanup needed", video)}
+                    aria-label={recovery_tooltip("Source cleanup needed", video)}
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/15 text-warning"
+                  >
+                    <.icon name="hero-wrench-screwdriver" class="size-3.5" /> Source cleanup needed
+                  </span>
                   <span
                     :if={video.is_blocklisted}
                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error"
@@ -384,48 +502,92 @@ defmodule YtdarrWeb.CustomComponents do
                 </div>
               </td>
               <td>
-                <%= if video.download_state == :downloaded do %>
-                  <button
-                    title="Delete downloaded video"
-                    phx-click="delete-video"
-                    phx-value-id={video.id}
-                    class="btn btn-ghost btn-xs text-error hover:bg-error/10"
-                    data-confirm="Are you sure you want to delete this video file?"
-                  >
-                    <.icon name="hero-trash" class="size-3.5" />
-                  </button>
-                <% else %>
-                  <%= if not video.is_blocklisted and video.download_state in [:available, :missing] do %>
+                <div class="flex flex-wrap items-center gap-1">
+                  <%= if video.download_state == :downloaded do %>
                     <button
-                      title="Queue Download"
-                      phx-click="queue-download"
+                      title="Delete downloaded video"
+                      phx-click="delete-video"
                       phx-value-id={video.id}
-                      phx-value-channel-id={@channel_id}
-                      class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
+                      class="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                      data-confirm="Are you sure you want to delete this video file?"
                     >
-                      <.icon name="hero-arrow-down-tray" class="size-3.5" />
+                      <.icon name="hero-trash" class="size-3.5" />
+                    </button>
+                  <% else %>
+                    <%= if download_eligible?(video) do %>
+                      <button
+                        title="Queue Download"
+                        phx-click="queue-download"
+                        phx-value-id={video.id}
+                        phx-value-channel-id={@channel_id}
+                        class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
+                      >
+                        <.icon name="hero-arrow-down-tray" class="size-3.5" />
+                      </button>
+                    <% end %>
+                  <% end %>
+
+                  <%= if import_eligible?(video) do %>
+                    <button
+                      id={ImportModal.import_button_id(@id, video.id)}
+                      title="Import existing file"
+                      aria-label="Import existing file"
+                      phx-click="open-video-import"
+                      phx-value-id={video.id}
+                      phx-value-table-id={@id}
+                      class="btn btn-ghost btn-xs text-info hover:bg-info/10"
+                    >
+                      <.icon name="hero-folder-arrow-down" class="size-3.5" />
                     </button>
                   <% end %>
-                <% end %>
-                <%= if video.is_blocklisted do %>
-                  <button
-                    title="Remove video from blocklist"
-                    phx-click="unblocklist-video"
-                    phx-value-id={video.id}
-                    class="btn btn-ghost btn-xs text-success hover:bg-success/10"
-                  >
-                    <.icon name="hero-check-circle" class="size-3.5" />
-                  </button>
-                <% else %>
-                  <button
-                    title="Add video to blocklist"
-                    phx-click="blocklist-video"
-                    phx-value-id={video.id}
-                    class="btn btn-ghost btn-xs text-error hover:bg-error/10"
-                  >
-                    <.icon name="hero-no-symbol" class="size-3.5" />
-                  </button>
-                <% end %>
+                  <%= if import_unavailable?(video) do %>
+                    <button
+                      type="button"
+                      title="Import unavailable: refresh video metadata to obtain an upload date"
+                      aria-label="Import unavailable: refresh video metadata to obtain an upload date"
+                      disabled
+                      class="btn btn-ghost btn-xs text-base-content/30"
+                    >
+                      <.icon name="hero-folder-arrow-down" class="size-3.5" />
+                    </button>
+                  <% end %>
+                  <%= if retry_recovery_eligible?(video) do %>
+                    <button
+                      id={ImportModal.retry_button_id(@id, video.id)}
+                      title={
+                        if(video.download_state == :import_failed,
+                          do: "Retry source recovery",
+                          else: "Retry source cleanup"
+                        )
+                      }
+                      phx-click="retry-import-recovery"
+                      phx-value-id={video.id}
+                      class="btn btn-ghost btn-xs text-warning hover:bg-warning/10"
+                    >
+                      <.icon name="hero-arrow-path-rounded-square" class="size-3.5" />
+                    </button>
+                  <% end %>
+
+                  <%= if video.is_blocklisted do %>
+                    <button
+                      title="Remove video from blocklist"
+                      phx-click="unblocklist-video"
+                      phx-value-id={video.id}
+                      class="btn btn-ghost btn-xs text-success hover:bg-success/10"
+                    >
+                      <.icon name="hero-check-circle" class="size-3.5" />
+                    </button>
+                  <% else %>
+                    <button
+                      title="Add video to blocklist"
+                      phx-click="blocklist-video"
+                      phx-value-id={video.id}
+                      class="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                    >
+                      <.icon name="hero-no-symbol" class="size-3.5" />
+                    </button>
+                  <% end %>
+                </div>
               </td>
             </tr>
           <% end %>

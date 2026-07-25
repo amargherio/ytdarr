@@ -3,17 +3,39 @@ defmodule YtdarrWeb.ChannelLiveTest do
 
   import Phoenix.LiveViewTest
   import Ytdarr.ContentFixtures
+  alias Ytdarr.Settings
 
   defp create_channel(_) do
+    root = activate_test_media_root()
     channel = channel_fixture()
+    on_exit(fn -> File.rm_rf!(root) end)
 
     %{channel: channel}
   end
 
   defp create_channel_with_playlist(_) do
+    root = activate_test_media_root()
     channel = channel_fixture()
     playlist = playlist_fixture(%{channel_id: channel.id})
+    on_exit(fn -> File.rm_rf!(root) end)
+
     %{channel: channel, playlist: playlist}
+  end
+
+  defp activate_test_media_root do
+    root =
+      Path.join(System.tmp_dir!(), "ytdarr-channel-live-#{System.unique_integer([:positive])}")
+
+    File.mkdir_p!(root)
+    {:ok, active_root} = Settings.create_media_root_folder(%{path: root})
+
+    Settings.list_media_root_folders!()
+    |> Enum.filter(&(&1.active and &1.id != active_root.id))
+    |> Enum.each(fn folder ->
+      {:ok, _folder} = Settings.deactivate_media_root_folder(folder)
+    end)
+
+    root
   end
 
   describe "Index" do

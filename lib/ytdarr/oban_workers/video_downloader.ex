@@ -1,45 +1,57 @@
 defmodule Ytdarr.ObanWorkers.VideoDownloader do
   @moduledoc """
   Oban worker for downloading videos using yt-dlp.
-
-  The logical flow for this is pulling video details, any custom
-  yt-dlp settings and parameters saved, generating the target
-  file path, and invoking the download process.
   """
 
-  use Oban.Worker, queue: :video_downloader
+  use Oban.Worker,
+    queue: :video_downloader,
+    unique: [
+      period: :infinity,
+      fields: [:worker, :args],
+      keys: [:video_id],
+      states: :incomplete
+    ]
 
   alias Ytdarr.{Content, MediaPermissions}
-  alias Ytdarr.Content.{Channel, Video}
   alias Ytdarr.Downloads
   alias Ytdarr.Downloads.{Tracker, YtdlpProgressParser}
+  alias Ytdarr.Media.VideoArtifacts
+
   require Logger
 
-  require Ash.Query
-
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"video_id" => vid, "channel_id" => cid}} = job) do
-    # Retrieve video details and settings
-    video = Content.get_video!(vid)
-    channel = Content.get_channel!(cid)
+  def perform(%Oban.Job{args: %{"video_id" => video_id, "channel_id" => channel_id}} = job) do
+    with {:ok, video} <- Content.get_video(video_id),
+         {:ok, channel} <- Content.get_channel(channel_id),
+         {:ok, destination} <- VideoArtifacts.build_destination(channel, video, ".mp4") do
+      start_and_download(job, video_id, channel, video, destination)
+    else
+      {:error, reason} -> cancel_download(reason)
+    end
+  end
 
-    # Transition from :queued to :downloading now that the job is executing
-    Content.update_video(video, %{download_state: :downloading})
+  defp start_and_download(job, video_id, channel, video, destination) do
+    case Content.start_video_download(video) do
+      {:ok, downloading_video} ->
+        prepare_and_download(job, video_id, channel, downloading_video, destination)
 
+      {:error, reason} ->
+        cancel_download(reason)
+    end
+  end
+
+  defp prepare_and_download(job, video_id, channel, video, destination) do
+    with {:ok, policy} <- MediaPermissions.load_policy(),
+         :ok <- MediaPermissions.mkdir_p(destination.season_directory, policy) do
+      download(job, video_id, channel, video, destination)
+    else
+      {:error, reason} -> fail_download(job, video_id, reason)
+    end
+  end
+
+  defp download(job, video_id, channel, video, destination) do
     ytdlp_params = retrieve_ytdlp_parameters()
     Logger.info("Full yt-dlp parameters: #{inspect(ytdlp_params)}")
-
-    # Get the current episode count for the year so we can number the episode.
-    episode_number = calculate_episode_number(channel, video.upload_date.year, video)
-
-    # Check if our season folder exists, create if not
-    season_folder = "#{channel.base_path}/Season #{video.upload_date.year}"
-
-    policy = load_media_policy!()
-    :ok = apply_permissions!(MediaPermissions.mkdir_p(season_folder, policy))
-
-    ytdlp_out =
-      "#{season_folder}/#{channel.name} - S#{video.upload_date.year}E#{episode_number |> Integer.to_string() |> String.pad_leading(3, "0")} - #{sanitize_filename(video.title)}.mp4"
 
     progress_flags = [
       "--newline",
@@ -48,103 +60,131 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       "download:%(progress._percent_str)s %(progress._speed_str)s %(progress._eta_str)s"
     ]
 
-    # trigger yt-dlp to the target URL and out to the correct output file
-    Tracker.track_start(job.id, vid)
+    Tracker.track_start(job.id, video_id)
 
     Downloads.broadcast(
-      {:download_started, job.id, vid, %{title: video.title, channel_name: channel.name}}
+      {:download_started, job.id, video_id, %{title: video.title, channel_name: channel.name}}
     )
 
     try do
-      ytdlp_path = System.find_executable("yt-dlp") || raise "yt-dlp not found in PATH"
+      case run_ytdlp(
+             job,
+             video_id,
+             video.url,
+             ytdlp_params,
+             progress_flags,
+             destination.media_path
+           ) do
+        {:ok, 0} ->
+          case finalize_download(video, destination) do
+            :ok ->
+              Downloads.broadcast({:download_completed, job.id, video_id})
+              :ok
 
-      port =
-        Port.open({:spawn_executable, ytdlp_path}, [
-          :binary,
-          :exit_status,
-          :stderr_to_stdout,
-          args: [video.url | ytdlp_params ++ progress_flags ++ ["-o", ytdlp_out]]
-        ])
+            {:error, reason} ->
+              fail_download(job, video_id, reason)
+          end
 
-      try do
-        {output, status} = stream_port_output(port, job.id, vid, [])
-        Logger.info("yt-dlp output: #{output}")
+        {:ok, status} ->
+          Logger.error("yt-dlp failed with status: #{status}")
+          fail_download(job, video_id, :download_failed)
 
-        case status do
-          0 ->
-            final_policy = load_media_policy!()
-            :ok = generate_nfo_file(channel, video, episode_number, ytdlp_out, final_policy)
-
-            {:ok, _artifact_count} =
-              MediaPermissions.apply_download_artifacts(ytdlp_out, final_policy)
-
-            # Update video status in DB
-            Content.update_video(video, %{
-              download_state: :downloaded,
-              download_path: ytdlp_out,
-              is_downloaded: true,
-              downloaded_at: DateTime.utc_now()
-            })
-
-            Downloads.broadcast({:download_completed, job.id, vid})
-            :ok
-
-          _ ->
-            Logger.error("yt-dlp failed with status: #{status}")
-            Downloads.broadcast({:download_failed, job.id, vid, :download_failed})
-            {:error, :download_failed}
-        end
-      after
-        if Port.info(port) != nil, do: Port.close(port)
+        {:error, reason} ->
+          fail_download(job, video_id, reason)
       end
     after
-      Tracker.track_complete(job.id, vid)
+      Tracker.track_complete(job.id, video_id)
     end
+  end
+
+  defp run_ytdlp(job, video_id, url, ytdlp_params, progress_flags, output_path) do
+    case System.find_executable("yt-dlp") do
+      nil ->
+        {:error, :ytdlp_unavailable}
+
+      ytdlp_path ->
+        run_ytdlp_port(
+          ytdlp_path,
+          [url | ytdlp_params ++ progress_flags ++ ["-o", output_path]],
+          job.id,
+          video_id
+        )
+    end
+  end
+
+  defp run_ytdlp_port(ytdlp_path, args, job_id, video_id) do
+    port =
+      Port.open({:spawn_executable, ytdlp_path}, [
+        :binary,
+        :exit_status,
+        :stderr_to_stdout,
+        args: args
+      ])
+
+    try do
+      {output, status} = stream_port_output(port, job_id, video_id, [])
+      Logger.info("yt-dlp output: #{output}")
+      {:ok, status}
+    after
+      if Port.info(port), do: Port.close(port)
+    end
+  rescue
+    ArgumentError -> {:error, :ytdlp_unavailable}
+  end
+
+  defp finalize_download(video, destination) do
+    with {:ok, policy} <- MediaPermissions.load_policy(),
+         :ok <-
+           VideoArtifacts.write_nfo(
+             destination.nfo_path,
+             video,
+             destination.episode_number,
+             policy
+           ),
+         {:ok, _artifact_count} <-
+           MediaPermissions.apply_download_artifacts(destination.media_path, policy),
+         {:ok, %{size: size}} <- File.stat(destination.media_path),
+         {:ok, _video} <-
+           Content.mark_video_downloaded(video, %{
+             download_path: destination.media_path,
+             file_size: size,
+             download_quality: nil
+           }) do
+      :ok
+    end
+  end
+
+  defp fail_download(job, video_id, reason) do
+    Logger.error("Video download failed for #{video_id}: #{inspect(reason)}")
+    Downloads.broadcast({:download_failed, job.id, video_id, reason})
+    {:error, reason}
+  end
+
+  defp cancel_download(reason) do
+    Logger.warning("Cancelling video download before execution: #{inspect(reason)}")
+    {:cancel, reason}
   end
 
   defp stream_port_output(port, job_id, video_id, output_acc) do
     receive do
       {^port, {:data, data}} ->
-        lines = String.split(data, "\n", trim: true)
-
-        Enum.each(lines, fn line ->
+        data
+        |> String.split("\n", trim: true)
+        |> Enum.each(fn line ->
           case YtdlpProgressParser.parse_line(line) do
-            {:progress, progress_data} ->
-              Tracker.update_progress(job_id, video_id, progress_data)
-
-            _ ->
-              :ok
+            {:progress, progress_data} -> Tracker.update_progress(job_id, video_id, progress_data)
+            _ -> :ok
           end
         end)
 
-        stream_port_output(port, job_id, video_id, [output_acc, data])
+        stream_port_output(port, job_id, video_id, [data | output_acc])
 
       {^port, {:exit_status, status}} ->
-        {IO.iodata_to_binary(output_acc), status}
-    end
-  end
-
-  def calculate_episode_number(%Channel{} = _channel, year, %Video{} = video) do
-    year_string = Integer.to_string(year)
-
-    # Count videos from the same channel, same year, uploaded before this video
-    query =
-      Video
-      |> Ash.Query.filter(channel_id == ^video.channel_id)
-      |> Ash.Query.filter(fragment("strftime('%Y', ?)", upload_date) == ^year_string)
-      |> Ash.Query.filter(
-        upload_date < ^video.upload_date or
-          (upload_date == ^video.upload_date and id < ^video.id)
-      )
-
-    case Ash.read(query) do
-      {:ok, videos} -> length(videos) + 1
-      {:error, _} -> 1
+        {output_acc |> Enum.reverse() |> IO.iodata_to_binary(), status}
     end
   end
 
   @default_ytdlp_params [
-    # "--postprocessor-args ffmpeg:'-c:a libopus -b:a 128k -c:v libsvtav1 -preset 4 -crf 24 -svtav1-params keyint=10s:tune=0:enable-overlays=1:scd=1:scm=0'",
     "--embed-chapters",
     "--embed-thumbnail",
     "--embed-metadata",
@@ -176,48 +216,5 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
       _ ->
         @default_ytdlp_params
     end
-  end
-
-  defp sanitize_filename(name) do
-    name
-    |> String.replace(~r/[\/\\?%*:|"<>]/, "_")
-    |> String.trim()
-  end
-
-  defp generate_nfo_file(
-         %Channel{} = _channel,
-         %Video{} = video,
-         episode_number,
-         file_path,
-         policy
-       ) do
-    nfo_content = """
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <episodedetails>
-      <title>#{video.title}</title>
-      <season>#{video.upload_date.year}</season>
-      <episode>#{episode_number}</episode>
-      <plot>#{video.description}</plot>
-      <aired>#{Date.to_iso8601(video.upload_date)}</aired>
-      <uniqueid type="youtube" default="true">#{video.id}</uniqueid>
-      <url>#{video.url}</url>
-    </episodedetails>
-    """
-
-    nfo_file_path = String.replace_suffix(file_path, ".mp4", ".nfo")
-    MediaPermissions.write_file(nfo_file_path, nfo_content, policy)
-  end
-
-  defp load_media_policy! do
-    case MediaPermissions.load_policy() do
-      {:ok, policy} -> policy
-      {:error, reason} -> raise MediaPermissions.error_message(reason)
-    end
-  end
-
-  defp apply_permissions!(:ok), do: :ok
-
-  defp apply_permissions!({:error, reason}) do
-    raise MediaPermissions.error_message(reason)
   end
 end
