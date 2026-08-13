@@ -2,13 +2,18 @@ defmodule YtdarrWeb.ChannelLive.Show do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Content
+  alias Ytdarr.Imports
+  alias Ytdarr.Media.{FileBrowser, VideoImport}
+  alias YtdarrWeb.ChannelLive.ImportModal
+  alias YtdarrWeb.ChannelLive.ImportModal.State
+  alias YtdarrWeb.CustomComponents
 
   require Logger
 
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} nav={:channels}>
+    <Layouts.app flash={@flash} nav={:channels} modal_open?={@import_modal != nil}>
       <%!-- Action toolbar (Sonarr-inspired) --%>
       <div class="flex flex-wrap items-center gap-2 px-2 py-2 -mx-6 -mt-4 mb-4 bg-base-200/50 border-b border-base-300">
         <div class="flex flex-wrap items-center gap-1.5 flex-1">
@@ -139,6 +144,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
         <div class="flex items-center gap-3 px-4 py-3">
           <.icon name="hero-film" class="size-5 text-base-content/50 flex-shrink-0" />
           <button
+            id="toggle-all-videos"
             phx-click="toggle-videos-expand"
             class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
           >
@@ -155,6 +161,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
               <.icon name="hero-trash" class="size-3.5" />
             </button>
             <button
+              id="toggle-all-videos-chevron"
               phx-click="toggle-videos-expand"
               class="btn btn-ghost btn-xs btn-square"
             >
@@ -195,6 +202,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
               <% end %>
             </button>
             <button
+              id={"toggle-playlist-#{playlist.id}"}
               phx-click="toggle-playlist-expand"
               phx-value-id={to_string(playlist.id)}
               class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
@@ -213,6 +221,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
                 <.icon name="hero-trash" class="size-3.5" />
               </button>
               <button
+                id={"toggle-playlist-#{playlist.id}-chevron"}
                 phx-click="toggle-playlist-expand"
                 phx-value-id={to_string(playlist.id)}
                 class="btn btn-ghost btn-xs btn-square"
@@ -238,18 +247,27 @@ defmodule YtdarrWeb.ChannelLive.Show do
           <% end %>
         </div>
       <% end %>
+      <:modal :if={@import_modal}>
+        <ImportModal.modal state={@import_modal} />
+      </:modal>
     </Layouts.app>
     """
   end
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    channel = Content.get_channel!(id, load: [:playlists, :videos])
+    if connected?(socket), do: Imports.subscribe()
 
-    # Load videos for each playlist with videos in descending order by upload date
+    channel = Content.get_channel!(id, load: [:playlists, :videos])
+    videos_by_id = Map.new(channel.videos, &{&1.id, &1})
+
+    # Load videos for each playlist, synced against the canonical per-video
+    # struct so every duplicate row (all-videos + playlist) agrees, in
+    # descending order by upload date.
     playlists =
       Enum.map(channel.playlists, fn playlist ->
         Ash.get!(Content.Playlist, playlist.id, load: [:videos])
+        |> sync_playlist_videos(videos_by_id)
         |> sort_playlist_videos()
       end)
 
@@ -260,7 +278,9 @@ defmodule YtdarrWeb.ChannelLive.Show do
      |> assign(:page_title, channel.name)
      |> assign(:channel, channel)
      |> assign(:playlists, playlists)
-     |> assign(:videos, sort_videos(channel.videos))
+     |> assign(:videos, sort_videos(Map.values(videos_by_id)))
+     |> assign(:videos_by_id, videos_by_id)
+     |> assign(:import_modal, nil)
      |> assign(:expanded_playlists, MapSet.new())
      |> assign(:all_expanded?, false)
      |> assign(:videos_expanded?, false)
@@ -423,12 +443,34 @@ defmodule YtdarrWeb.ChannelLive.Show do
   @impl true
   def handle_event("delete-video", %{"id" => video_id}, socket) do
     Logger.info("Delete video #{video_id}")
-    Content.delete_video_file(video_id)
 
-    {:noreply,
-     socket
-     |> refresh_video_assigns()
-     |> put_flash(:info, "Video file deleted.")}
+    case Content.delete_video_file(video_id) do
+      {:ok, _video} ->
+        {:noreply,
+         socket
+         |> refresh_video_assigns()
+         |> put_flash(:info, "Video file deleted.")}
+
+      {:error, {:cleanup_incomplete, _entries}} ->
+        {:noreply,
+         socket
+         |> refresh_video_assigns()
+         |> put_flash(:error, "Some source files still need attention.")}
+
+      {:error, :cleanup_incomplete} ->
+        {:noreply,
+         socket
+         |> refresh_video_assigns()
+         |> put_flash(:error, "Some source files still need attention.")}
+
+      {:error, reason} ->
+        Logger.error("Failed to delete video #{video_id}: #{inspect(reason)}")
+
+        {:noreply,
+         socket
+         |> refresh_video_assigns()
+         |> put_flash(:error, "Failed to delete video file.")}
+    end
   end
 
   @impl true
@@ -464,6 +506,283 @@ defmodule YtdarrWeb.ChannelLive.Show do
      |> put_flash(:info, "Channel data refresh in progress.")}
   end
 
+  @impl true
+  def handle_event("open-video-import", %{"id" => video_id_str, "table-id" => table_id}, socket) do
+    with nil <- socket.assigns.import_modal,
+         {:ok, video} <- fetch_importable_video(socket, video_id_str, table_id) do
+      row_selector = "#" <> ImportModal.row_id(table_id, video.id)
+      opener_selector = "#" <> ImportModal.import_button_id(table_id, video.id)
+      fallback_selector = "#" <> ImportModal.fallback_id(table_id)
+
+      state = ImportModal.new(video, table_id, row_selector, opener_selector, fallback_selector)
+
+      {:noreply,
+       socket
+       |> assign(:import_modal, state)
+       |> dispatch_import_list(state, "/", query: "", show_hidden?: false, page: 1)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("close-video-import", %{"token" => token}, socket) do
+    with %State{token: ^token} = state <- socket.assigns.import_modal do
+      {:noreply,
+       socket
+       |> cancel_import_async(state)
+       |> assign(:import_modal, nil)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("browse-import-directory", %{"token" => token, "path" => path}, socket) do
+    with %State{token: ^token} = state <- socket.assigns.import_modal do
+      {new_state, list_path, opts} = ImportModal.navigate_to(state, path)
+      {:noreply, dispatch_import_list(socket, new_state, list_path, opts)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("filter-import-directory", %{"token" => token} = params, socket) do
+    with %State{token: ^token} = state <- socket.assigns.import_modal do
+      filter_params = Map.get(params, "filter", %{})
+      query = Map.get(filter_params, "query", "")
+      show_hidden? = Map.get(filter_params, "show_hidden") in ["true", true]
+
+      {new_state, list_path, opts} = ImportModal.apply_filter_change(state, query, show_hidden?)
+      {:noreply, dispatch_import_list(socket, new_state, list_path, opts)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("change-import-page", %{"token" => token, "page" => page_str}, socket) do
+    with %State{token: ^token} = state <- socket.assigns.import_modal,
+         {page, ""} <- Integer.parse(page_str),
+         {new_state, list_path, opts} <- ImportModal.change_page(state, page) do
+      {:noreply, dispatch_import_list(socket, new_state, list_path, opts)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("select-import-file", %{"token" => token, "id" => entry_id}, socket) do
+    with %State{token: ^token, phase: phase, page: %{entries: entries}} = state <-
+           socket.assigns.import_modal,
+         true <- phase in [:listing, :browsing, :inspecting],
+         %{kind: :video} = entry <- Enum.find(entries, &(&1.id == entry_id)) do
+      video = Map.fetch!(socket.assigns.videos_by_id, state.video_id)
+      new_state = ImportModal.start_inspection(state, entry.id)
+      channel = socket.assigns.channel
+
+      {:noreply,
+       socket
+       |> assign(:import_modal, new_state)
+       |> cancel_async({:inspect_video_import, token})
+       |> start_async({:inspect_video_import, token}, fn ->
+         VideoImport.inspect_source(channel, video, entry.path)
+       end)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle-import-sidecar", %{"token" => token} = params, socket) do
+    with %State{token: ^token} = state <- socket.assigns.import_modal do
+      ids = get_in(params, ["import", "sidecar_ids"]) || []
+      {:noreply, assign(socket, :import_modal, ImportModal.replace_selected_sidecars(state, ids))}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("clear-import-selection", %{"token" => token}, socket) do
+    with %State{token: ^token} = state <- socket.assigns.import_modal do
+      {:noreply,
+       socket
+       |> cancel_async({:inspect_video_import, token})
+       |> assign(:import_modal, ImportModal.clear_selection(state))}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("confirm-video-import", %{"token" => token} = params, socket) do
+    with %State{token: ^token, phase: :ready, preview: %VideoImport.Preview{} = preview} = state <-
+           socket.assigns.import_modal do
+      selected_ids = params |> Map.get("import", %{}) |> Map.get("sidecar_ids", [])
+      state = ImportModal.replace_selected_sidecars(state, selected_ids)
+      queueing_state = ImportModal.start_queueing(state)
+      socket = assign(socket, :import_modal, queueing_state)
+
+      selected_sidecar_ids = MapSet.to_list(queueing_state.selected_sidecar_ids)
+
+      case Content.queue_video_import(state.video_id, preview, selected_sidecar_ids) do
+        {:ok, _job} ->
+          {:noreply,
+           socket
+           |> assign(:import_modal, nil)
+           |> refresh_video_assigns()
+           |> put_flash(:info, "Import started for “#{state.video_title}”.")}
+
+        {:error, reason} ->
+          new_state = ImportModal.apply_queue_error(queueing_state, reason)
+          socket = assign(socket, :import_modal, new_state)
+
+          socket =
+            if new_state.phase == :state_changed, do: refresh_video_assigns(socket), else: socket
+
+          {:noreply, socket}
+      end
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("retry-import-recovery", %{"id" => video_id_str}, socket) do
+    with {video_id, ""} <- Integer.parse(video_id_str) do
+      case Content.retry_video_import_recovery(video_id) do
+        {:ok, %{download_state: :import_failed}} ->
+          {:noreply,
+           socket
+           |> refresh_video_assigns()
+           |> put_flash(:info, "Source recovery completed.")}
+
+        {:ok, %{download_state: :downloaded}} ->
+          {:noreply,
+           socket
+           |> refresh_video_assigns()
+           |> put_flash(:info, "Source cleanup completed.")}
+
+        {:ok, _video} ->
+          {:noreply, refresh_video_assigns(socket)}
+
+        {:error, {:cleanup_incomplete, _entries}} ->
+          {:noreply,
+           socket
+           |> refresh_video_assigns()
+           |> put_flash(:error, "Some source files still need attention.")}
+
+        {:error, :cleanup_incomplete} ->
+          {:noreply,
+           socket
+           |> refresh_video_assigns()
+           |> put_flash(:error, "Some source files still need attention.")}
+
+        {:error, reason} ->
+          Logger.error(
+            "Failed to retry import recovery for video #{video_id}: #{inspect(reason)}"
+          )
+
+          {:noreply,
+           socket
+           |> refresh_video_assigns()
+           |> put_flash(:error, "Some source files still need attention.")}
+      end
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_async({:list_video_import, token, seq}, result, socket) do
+    case socket.assigns.import_modal do
+      %State{token: ^token, list_seq: ^seq} = state ->
+        {:noreply,
+         assign(socket, :import_modal, ImportModal.apply_list_result(state, unwrap_async(result)))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_async({:inspect_video_import, token}, result, socket) do
+    case socket.assigns.import_modal do
+      %State{token: ^token, phase: :inspecting} = state ->
+        {:noreply,
+         assign(
+           socket,
+           :import_modal,
+           ImportModal.apply_inspection_result(state, unwrap_async(result))
+         )}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:video_import_started, channel_id, video_id}, socket) do
+    handle_import_event(socket, channel_id, video_id, fn socket, _video -> {:noreply, socket} end)
+  end
+
+  @impl true
+  def handle_info({:video_import_completed, channel_id, video_id}, socket) do
+    handle_import_event(socket, channel_id, video_id, fn socket, video ->
+      socket =
+        if video.download_state == :downloaded and CustomComponents.recovery_empty?(video) do
+          put_flash(socket, :info, "Imported “#{video.title}”.")
+        else
+          socket
+        end
+
+      {:noreply, socket}
+    end)
+  end
+
+  @impl true
+  def handle_info({:video_import_failed, channel_id, video_id, safe_message}, socket) do
+    handle_import_event(socket, channel_id, video_id, fn socket, video ->
+      socket =
+        if video.download_state == :import_failed do
+          put_flash(socket, :error, "Import failed for “#{video.title}”: #{safe_message}")
+        else
+          socket
+        end
+
+      {:noreply, socket}
+    end)
+  end
+
+  @impl true
+  def handle_info({:video_import_cleanup_warning, channel_id, video_id}, socket) do
+    handle_import_event(socket, channel_id, video_id, fn socket, video ->
+      socket =
+        if video.download_state == :downloaded and not CustomComponents.recovery_empty?(video) do
+          put_flash(
+            socket,
+            :info,
+            "Imported “#{video.title}”, but source cleanup still needs attention."
+          )
+        else
+          socket
+        end
+
+      {:noreply, socket}
+    end)
+  end
+
+  @impl true
+  def handle_info({:video_import_recovery_updated, channel_id, video_id}, socket) do
+    handle_import_event(socket, channel_id, video_id, fn socket, _video -> {:noreply, socket} end)
+  end
+
+  defp sync_playlist_videos(playlist, videos_by_id) do
+    %{playlist | videos: Enum.map(playlist.videos, &Map.get(videos_by_id, &1.id, &1))}
+  end
+
   defp sort_playlist_videos(playlist) do
     %{playlist | videos: sort_videos(playlist.videos)}
   end
@@ -474,18 +793,91 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
   defp refresh_video_assigns(socket) do
     channel = Content.get_channel!(socket.assigns.channel.id, load: [:playlists, :videos])
+    videos_by_id = Map.new(channel.videos, &{&1.id, &1})
 
     playlists =
       Enum.map(channel.playlists, fn playlist ->
         Content.get_playlist!(playlist.id, load: [:videos])
+        |> sync_playlist_videos(videos_by_id)
         |> sort_playlist_videos()
       end)
 
     socket
     |> assign(:channel, channel)
     |> assign(:playlists, playlists)
-    |> assign(:videos, sort_videos(channel.videos))
+    |> assign(:videos, sort_videos(Map.values(videos_by_id)))
+    |> assign(:videos_by_id, videos_by_id)
   end
+
+  defp fetch_importable_video(socket, video_id_str, table_id) do
+    with {video_id, ""} <- Integer.parse(video_id_str),
+         %{} = video <- Map.get(socket.assigns.videos_by_id, video_id),
+         true <- table_contains_video?(socket, table_id, video_id),
+         true <- CustomComponents.import_eligible?(video) do
+      {:ok, video}
+    else
+      _ -> {:error, :not_importable}
+    end
+  end
+
+  defp table_contains_video?(_socket, "all-videos", _video_id), do: true
+
+  defp table_contains_video?(socket, table_id, video_id) do
+    Enum.any?(socket.assigns.playlists, fn playlist ->
+      "videos-#{playlist.id}" == table_id and Enum.any?(playlist.videos, &(&1.id == video_id))
+    end)
+  end
+
+  defp dispatch_import_list(socket, %State{} = state, path, opts) do
+    new_seq = state.list_seq + 1
+    new_state = %{state | list_seq: new_seq}
+
+    socket
+    |> cancel_async({:list_video_import, state.token, state.list_seq})
+    |> assign(:import_modal, new_state)
+    |> start_async({:list_video_import, state.token, new_seq}, fn ->
+      FileBrowser.list(path, opts)
+    end)
+  end
+
+  defp cancel_import_async(socket, %State{} = state) do
+    Enum.reduce(ImportModal.async_keys(state), socket, &cancel_async(&2, &1))
+  end
+
+  defp handle_import_event(socket, channel_id, video_id, fun) do
+    if channel_id == socket.assigns.channel.id do
+      socket = maybe_invalidate_modal(socket, video_id)
+
+      case Content.get_video(video_id) do
+        {:ok, video} ->
+          socket = refresh_video_assigns(socket)
+          fun.(socket, video)
+
+        {:error, _reason} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp maybe_invalidate_modal(socket, video_id) do
+    case socket.assigns.import_modal do
+      %State{video_id: ^video_id} = state ->
+        socket
+        |> cancel_import_async(state)
+        |> assign(
+          :import_modal,
+          ImportModal.invalidate(state, ImportModal.state_changed_message())
+        )
+
+      _ ->
+        socket
+    end
+  end
+
+  defp unwrap_async({:ok, inner_result}), do: inner_result
+  defp unwrap_async({:exit, reason}), do: {:error, {:exit, reason}}
 
   defp format_datetime(nil), do: "—"
 

@@ -38,41 +38,6 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
     {:ok, downloads_root: downloads_root}
   end
 
-  describe "calculate_episode_number/3" do
-    test "returns 1 for the first video in a year" do
-      channel = channel_fixture()
-      video = video_fixture(%{channel_id: channel.id, upload_date: ~D[2025-01-01]})
-
-      assert VideoDownloader.calculate_episode_number(channel, 2025, video) == 1
-    end
-
-    test "orders videos by upload date within the same channel and year" do
-      channel = channel_fixture()
-
-      first_video = video_fixture(%{channel_id: channel.id, upload_date: ~D[2025-01-01]})
-      second_video = video_fixture(%{channel_id: channel.id, upload_date: ~D[2025-01-15]})
-      third_video = video_fixture(%{channel_id: channel.id, upload_date: ~D[2025-02-01]})
-
-      assert VideoDownloader.calculate_episode_number(channel, 2025, first_video) == 1
-      assert VideoDownloader.calculate_episode_number(channel, 2025, second_video) == 2
-      assert VideoDownloader.calculate_episode_number(channel, 2025, third_video) == 3
-    end
-
-    test "counts only videos from the same channel and year" do
-      channel = channel_fixture()
-      other_channel = channel_fixture()
-
-      _previous_year_video = video_fixture(%{channel_id: channel.id, upload_date: ~D[2024-12-31]})
-
-      _other_channel_video =
-        video_fixture(%{channel_id: other_channel.id, upload_date: ~D[2025-01-01]})
-
-      target_video = video_fixture(%{channel_id: channel.id, upload_date: ~D[2025-01-01]})
-
-      assert VideoDownloader.calculate_episode_number(channel, 2025, target_video) == 1
-    end
-  end
-
   describe "retrieve_ytdlp_parameters/0" do
     test "returns the built-in defaults when no default param set exists" do
       clear_default_param_sets()
@@ -128,6 +93,8 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
           upload_date: ~D[2025-03-01]
         })
 
+      assert {:ok, _queued_video} = Content.begin_video_download(video)
+
       assert :ok =
                perform_job(VideoDownloader, %{
                  "video_id" => video.id,
@@ -146,9 +113,11 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
       assert updated_video.is_downloaded
       assert updated_video.download_state == :downloaded
       assert updated_video.download_path == expected_path
+      assert updated_video.file_size == byte_size("stub video")
+      assert updated_video.download_quality == nil
       assert File.exists?(expected_path)
 
-      nfo_path = String.replace_suffix(expected_path, ".mp4", ".nfo")
+      nfo_path = Path.rootname(expected_path) <> ".nfo"
       assert File.exists?(nfo_path)
       assert Bitwise.band(File.stat!(expected_path).mode, 0o7777) == 0o644
       assert Bitwise.band(File.stat!(nfo_path).mode, 0o7777) == 0o644
@@ -160,8 +129,32 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
       assert nfo_contents =~ "<episode>1</episode>"
       assert nfo_contents =~ "<plot>Generated description</plot>"
       assert nfo_contents =~ "<aired>2025-03-01</aired>"
-      assert nfo_contents =~ "<uniqueid type=\"youtube\" default=\"true\">#{video.id}</uniqueid>"
+
+      assert nfo_contents =~
+               "<uniqueid type=\"youtube\" default=\"true\">#{video.external_id}</uniqueid>"
+
       assert nfo_contents =~ "<url>#{video.url}</url>"
+    end
+
+    test "cancels a job whose video is no longer queued", %{downloads_root: downloads_root} do
+      deactivate_all_media_root_folders()
+      assert {:ok, _folder} = Settings.create_media_root_folder(%{path: downloads_root})
+
+      channel = channel_fixture()
+      video = video_fixture(%{channel_id: channel.id, upload_date: ~D[2025-06-01]})
+
+      Ytdarr.Downloads.subscribe()
+
+      job = %Oban.Job{
+        id: System.unique_integer([:positive]),
+        args: %{"video_id" => video.id, "channel_id" => channel.id},
+        queue: "video_downloader",
+        worker: "Ytdarr.ObanWorkers.VideoDownloader"
+      }
+
+      assert {:cancel, _reason} = VideoDownloader.perform(job)
+      refute_received {:download_started, _, _, _}
+      assert Content.get_video!(video.id).download_state == :available
     end
   end
 
@@ -205,6 +198,8 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
           external_id: "port-video-#{unique}",
           upload_date: ~D[2025-06-01]
         })
+
+      assert {:ok, _queued_video} = Content.begin_video_download(video)
 
       Ytdarr.Downloads.subscribe()
 
@@ -256,6 +251,8 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
           external_id: "fail-video-#{unique}",
           upload_date: ~D[2025-06-01]
         })
+
+      assert {:ok, _queued_video} = Content.begin_video_download(video)
 
       # Replace stub with a failing script
       bin_dir = System.get_env("PATH") |> String.split(":") |> List.first()
