@@ -37,6 +37,8 @@ The production runtime requires the following values before it can start:
   <dd>SQLite repository pool size, default <code>10</code>. It must parse as an integer; malformed input stops startup. The generated deployment environment deliberately uses <code>5</code>.</dd>
   <dt><code>DNS_CLUSTER_QUERY</code></dt>
   <dd>Optional DNSCluster query. When absent, clustering is ignored.</dd>
+  <dt><code>YTDARR_IMPORT_ROOTS</code></dt>
+  <dd>Optional, non-secret comma-separated list of absolute directories visible to the service; default is empty, disabling import browsing. Whitespace is trimmed, repeated roots are removed, and a relative path stops startup. Set only trusted-writable, import-only staging paths, not the managed <code>/downloads</code> tree. A source or companion already recorded as another video's downloaded media is rejected. A directory must exist and be writable when browsing/importing; changes take effect after restart. Path checks reject pre-existing symlinks but are not atomic against another process changing directories concurrently. See <a href="../../guides/importing-existing-media/">Import existing media</a>.</dd>
 </dl>
 
 A Compose host-port mapping changes only the host side of `YTDARR_PORT:4000`; it does not change the container listener, the image's `PORT=4000`, or its readiness probe.

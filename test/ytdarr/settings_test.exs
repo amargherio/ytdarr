@@ -23,6 +23,14 @@ defmodule Ytdarr.SettingsTest do
       assert Settings.get_setting_value("youtube.primary_api_key") == "db_key"
     end
 
+    test "database value remains effective when an environment override is blank" do
+      {:ok, _} = Settings.put_setting("youtube.primary_api_key", "db_key")
+      System.put_env("YTDARR_YOUTUBE_API_KEY", "")
+      on_exit(fn -> System.delete_env("YTDARR_YOUTUBE_API_KEY") end)
+
+      assert Settings.get_setting_value("youtube.primary_api_key") == "db_key"
+    end
+
     test "startup loader loads env into db when empty" do
       case Settings.get_app_setting_by_key("youtube.primary_api_key") do
         {:ok, setting} when not is_nil(setting) -> Settings.destroy_app_setting(setting)
@@ -59,6 +67,13 @@ defmodule Ytdarr.SettingsTest do
       payload = %{"foo" => "bar"}
       assert {:ok, setting} = Settings.put_setting("misc.map_setting", payload, "json")
       assert setting.value == payload
+    end
+
+    test "returns map values stored as JSON settings" do
+      payload = %{"preferred_codecs" => ["av1", "h264"]}
+      assert {:ok, _} = Settings.put_setting("misc.codec_preferences", payload, "json")
+
+      assert Settings.get_setting_value("misc.codec_preferences") == payload
     end
 
     test "delete_setting removes an existing setting" do
@@ -137,6 +152,20 @@ defmodule Ytdarr.SettingsTest do
     end
   end
 
+  describe "Catalog environment and allowed-value metadata" do
+    test "returns configured environment variables and nil for settings without one" do
+      assert Catalog.env_var("youtube.primary_api_key") == "YTDARR_YOUTUBE_API_KEY"
+      assert Catalog.env_var("youtube.region") == nil
+      assert Catalog.env_var("unknown.setting") == nil
+    end
+
+    test "restricts only settings with an explicit allowed value set" do
+      assert Catalog.allowed_values("media.move_strategy") == ["hardlink", "copy", "move"]
+      assert Catalog.allowed_values("youtube.region") == nil
+      assert Catalog.allowed_values("unknown.setting") == nil
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # get_setting_with_source/2
   # ---------------------------------------------------------------------------
@@ -168,23 +197,16 @@ defmodule Ytdarr.SettingsTest do
       assert val == "DE"
     end
 
-    test "returns :default source for catalogued key with no stored value" do
-      {val, source} =
-        Settings.get_setting_with_source("youtube.region_#{System.unique_integer()}")
-
-      assert source in [:default, :unset]
-      _ = val
+    test "returns the catalog default for an unset catalogued key" do
+      assert {"US", :default} = Settings.get_setting_with_source("youtube.region")
     end
 
-    test "returns :default with catalog default for missing catalogued key" do
-      {val, source} =
-        Settings.get_setting_with_source(
-          "media.move_strategy_missing_#{System.unique_integer()}",
-          nil
-        )
-
-      assert source in [:default, :unset]
-      _ = val
+    test "uses a caller-provided default for an unset unknown key" do
+      assert {"fallback", :default} =
+               Settings.get_setting_with_source(
+                 "unknown.default.#{System.unique_integer()}",
+                 "fallback"
+               )
     end
 
     test "returns :unset when no value and no catalog default" do
@@ -286,6 +308,11 @@ defmodule Ytdarr.SettingsTest do
       File.write!(file_path, "content")
       assert {:error, :not_directory, msg} = Settings.validate_path(file_path)
       assert is_binary(msg)
+    end
+
+    test "returns :not_writable for a read-only system directory" do
+      assert {:error, :not_writable, "directory is not writable by the application"} =
+               Settings.validate_path("/sys")
     end
   end
 
@@ -429,6 +456,38 @@ defmodule Ytdarr.SettingsTest do
     end
   end
 
+  describe "settings form submissions" do
+    test "create and update actions persist validated user parameters" do
+      dir = create_test_dir()
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      assert {:ok, folder} =
+               Settings.form_to_create_media_root_folder()
+               |> AshPhoenix.Form.submit(params: %{"path" => dir, "purpose" => "videos"})
+
+      assert folder.path == dir
+      assert folder.purpose == "videos"
+
+      {:ok, profile} = Settings.create_quality_profile(%{name: "Form profile"})
+
+      assert {:ok, updated} =
+               Settings.form_to_update_quality_profile(profile)
+               |> AshPhoenix.Form.submit(params: %{"max_height" => "720"})
+
+      assert updated.max_height == 720
+      assert Settings.get_quality_profile!(profile.id).max_height == 720
+
+      assert {:ok, param_set} =
+               Settings.form_to_create_yt_dlp_param_set()
+               |> AshPhoenix.Form.submit(
+                 params: %{"name" => "Form downloads", "concurrency" => "2"}
+               )
+
+      assert param_set.concurrency == 2
+      assert Settings.get_yt_dlp_param_set!(param_set.id).concurrency == 2
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # sync_interval_minutes key consistency
   # ---------------------------------------------------------------------------
@@ -437,14 +496,6 @@ defmodule Ytdarr.SettingsTest do
     test "string key is used consistently — stored value is returned" do
       {:ok, _} = Settings.put_setting("sync_interval_minutes", 30)
       assert Settings.get_setting_value("sync_interval_minutes", 60) == 30
-    end
-
-    test "atom key never matches database (verifying the bug is fixed)" do
-      {:ok, _} = Settings.put_setting("sync_interval_minutes", 30)
-      # The atom version should NOT find the string-keyed record
-      # get_setting_value now requires binary keys — atom args would fail at compile/match
-      # Confirming the string key works:
-      assert Settings.get_setting_value("sync_interval_minutes") == 30
     end
   end
 
@@ -481,19 +532,6 @@ defmodule Ytdarr.SettingsTest do
       refute state.value =~ "supersecret"
       assert state.metadata.sensitive? == true
       assert state.metadata.env_var == "YTDARR_YOUTUBE_API_KEY"
-    end
-
-    test "returns source: :default and configured?: false for unset catalogued key" do
-      System.delete_env("YTDARR_YOUTUBE_API_KEY")
-
-      # Use a unique suffix to guarantee no DB record
-      state = Settings.setting_state("youtube.region")
-
-      # If there's a DB record from another test, this may be :database — that's fine.
-      # Just verify shape is correct.
-      assert is_atom(state.source)
-      assert is_boolean(state.configured?)
-      assert is_map(state.metadata)
     end
 
     test "returns source: :unset and configured?: false for completely unknown key" do
@@ -590,12 +628,6 @@ defmodule Ytdarr.SettingsTest do
       file = Path.join(dir, "file.txt")
       File.write!(file, "x")
       assert {:error, :not_directory} = Settings.validate_media_root_path(file)
-    end
-
-    test "error tuples are 2-element (reason atom only, no message string)" do
-      result = Settings.validate_media_root_path("relative")
-      assert {:error, atom} = result
-      assert is_atom(atom)
     end
   end
 

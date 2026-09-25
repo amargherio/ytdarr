@@ -25,8 +25,14 @@ defmodule Ytdarr.Settings.StartupLoaderTest do
   end
 
   describe "run/0" do
-    test "delegates to load_youtube_api_key without raising" do
+    test "replaces an empty database API key with the environment value" do
+      {:ok, _} = Settings.put_setting("youtube.primary_api_key", "")
+      System.put_env("YTDARR_YOUTUBE_API_KEY", "startup_sync_key")
+
       assert :ok = StartupLoader.run()
+
+      assert {:ok, %{value: %{"v" => "startup_sync_key"}}} =
+               Settings.get_app_setting_by_key("youtube.primary_api_key")
     end
   end
 

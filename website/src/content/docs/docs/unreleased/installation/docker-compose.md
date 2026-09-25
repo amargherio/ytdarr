@@ -28,6 +28,8 @@ Install Docker with the Compose plugin. The initial local build needs the reposi
    sudo chown 10001:10001 deploy/downloads
    ```
 
+   If importing existing media later, create `deploy/downloads/.incoming` with the same ownership and add `YTDARR_IMPORT_ROOTS=/downloads/.incoming` to `deploy/.env` before restarting. Do not expose the entire managed `/downloads` directory as an import root; see [Import existing media](../../guides/importing-existing-media/) for a separate bind-mount option.
+
 3. Build the local image with a published compatible builder, then start only that image:
 
    ```sh

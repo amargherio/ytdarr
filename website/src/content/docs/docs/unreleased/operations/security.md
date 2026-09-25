@@ -21,4 +21,4 @@ Session data is signed, not encrypted. Keep signing secrets, the YouTube API key
 
 ## Limit filesystem exposure
 
-The import browser can see files accessible to the service process. Give it only the paths it needs and avoid mounting unrelated private directories. Use a shared media group deliberately, protect the SQLite volume and backup copies, and revoke old API keys if they appear in logs or a copied environment file.
+The import browser can see files accessible to the service process only within `YTDARR_IMPORT_ROOTS` (empty by default). Give it dedicated import-only directories rather than the entire managed `/downloads` tree; already-managed media and same-stem companions are rejected as sources. Keep untrusted local writers out of these directories: validation of pathnames and symlinks is not atomic with the later filesystem operations. Avoid mounting unrelated private directories. Use a shared media group deliberately, protect the SQLite volume and backup copies, and revoke old API keys if they appear in logs or a copied environment file.

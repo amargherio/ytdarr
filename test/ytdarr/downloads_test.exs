@@ -15,6 +15,7 @@ defmodule Ytdarr.DownloadsTest do
 
     test "returns executing download jobs with video metadata" do
       %{channel: channel, video: video} = create_video_with_channel()
+      other_video = additional_video(channel)
 
       {:ok, job} =
         VideoDownloader.new(%{"video_id" => video.id, "channel_id" => channel.id})
@@ -24,7 +25,7 @@ defmodule Ytdarr.DownloadsTest do
       job = update_job(job, state: "executing", attempted_at: started_at)
 
       {:ok, other_job} =
-        VideoDownloader.new(%{"video_id" => video.id, "channel_id" => channel.id})
+        VideoDownloader.new(%{"video_id" => other_video.id, "channel_id" => channel.id})
         |> Oban.insert()
 
       update_job(other_job, state: "available")
@@ -136,6 +137,7 @@ defmodule Ytdarr.DownloadsTest do
 
     test "counts only executing video downloader jobs" do
       %{channel: channel, video: video} = create_video_with_channel()
+      other_video = additional_video(channel)
 
       executing_job =
         video
@@ -143,7 +145,7 @@ defmodule Ytdarr.DownloadsTest do
         |> update_job(state: "executing", attempted_at: utc_now())
 
       available_job =
-        video
+        other_video
         |> insert_download_job(channel)
         |> update_job(state: "available")
 
@@ -167,15 +169,15 @@ defmodule Ytdarr.DownloadsTest do
       |> insert_download_job(channel)
       |> update_job(state: "available")
 
-      video
+      additional_video(channel)
       |> insert_download_job(channel)
       |> update_job(state: "scheduled", scheduled_at: utc_now())
 
-      video
+      additional_video(channel)
       |> insert_download_job(channel)
       |> update_job(state: "retryable", scheduled_at: utc_now())
 
-      video
+      additional_video(channel)
       |> insert_download_job(channel)
       |> update_job(state: "executing", attempted_at: utc_now())
 
@@ -200,11 +202,11 @@ defmodule Ytdarr.DownloadsTest do
       |> insert_download_job(channel)
       |> update_job(state: "executing", attempted_at: now)
 
-      video
+      additional_video(channel)
       |> insert_download_job(channel)
       |> update_job(state: "available", scheduled_at: now)
 
-      video
+      additional_video(channel)
       |> insert_download_job(channel)
       |> update_job(state: "scheduled", scheduled_at: DateTime.add(now, 30))
 
@@ -243,6 +245,16 @@ defmodule Ytdarr.DownloadsTest do
       })
 
     %{channel: channel, video: video}
+  end
+
+  defp additional_video(channel) do
+    unique = System.unique_integer([:positive])
+
+    video_fixture(%{
+      channel_id: channel.id,
+      title: "Downloads Video #{unique}",
+      external_id: "downloads-video-#{unique}"
+    })
   end
 
   defp insert_download_job(video, channel) do

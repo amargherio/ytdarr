@@ -154,10 +154,21 @@ defmodule Ytdarr.Downloads do
   operation).
   """
   def queue_concurrency do
-    case Oban.config() do
-      %{queues: queues} ->
-        queue_limit(Keyword.get(queues, :video_downloader))
-    end
+    runtime_limit =
+      case Oban.config() do
+        %{queues: queues} -> queue_limit(Keyword.get(queues, :video_downloader))
+        _ -> nil
+      end
+
+    runtime_limit || configured_queue_limit(:video_downloader)
+  end
+
+  defp configured_queue_limit(queue) do
+    :ytdarr
+    |> Application.get_env(Oban, [])
+    |> Keyword.get(:queues, [])
+    |> Keyword.get(queue)
+    |> queue_limit()
   end
 
   @doc """

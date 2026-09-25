@@ -37,6 +37,8 @@ defmodule Ytdarr.Content.Video do
         :is_blocklisted
       ]
 
+      validate one_of(:download_state, [:available, :missing, :downloaded])
+
       argument :channel_id, :integer do
         allow_nil? false
       end
@@ -78,24 +80,163 @@ defmodule Ytdarr.Content.Video do
         :duration,
         :upload_date,
         :thumbnail_url,
-        :is_downloaded,
-        :download_state,
-        :download_path,
-        :downloaded_at,
-        :file_size,
-        :download_quality,
         :discovered_from,
         :position_in_uploads,
         :is_blocklisted
       ]
     end
 
+    update :begin_download do
+      accept []
+
+      validate present(:upload_date), message: "requires an upload date"
+      validate data_one_of(:download_state, [:available, :missing, :import_failed])
+
+      validate attribute_equals(:import_recovery, %{"mode" => nil, "entries" => []}),
+        message: "must not have pending recovery work"
+
+      change set_attribute(:download_state, :queued)
+      change set_attribute(:is_downloaded, false)
+      change set_attribute(:download_path, nil)
+      change set_attribute(:downloaded_at, nil)
+      change set_attribute(:file_size, nil)
+      change set_attribute(:download_quality, nil)
+      change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
+      change set_attribute(:import_job_id, nil)
+      change set_attribute(:import_manifest, nil)
+      change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
+    end
+
+    update :set_download_job do
+      accept [:download_job_id]
+
+      validate present(:download_job_id)
+      validate compare(:download_job_id, greater_than: 0)
+      validate data_one_of(:download_state, [:queued])
+
+      validate data_one_of(:download_job_id, [nil]),
+        message: "must not already have a download job"
+    end
+
+    update :start_download do
+      accept []
+
+      validate data_one_of(:download_state, [:queued])
+
+      change set_attribute(:download_state, :downloading)
+    end
+
     update :mark_downloaded do
       accept [:download_path, :file_size, :download_quality]
+      validate present(:download_path)
+
+      validate data_one_of(:download_state, [:downloading])
 
       change set_attribute(:is_downloaded, true)
       change set_attribute(:download_state, :downloaded)
       change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
+      change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
+      change set_attribute(:import_job_id, nil)
+      change set_attribute(:import_manifest, nil)
+      change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
+    end
+
+    update :reset_download do
+      accept []
+
+      validate data_one_of(:download_state, [:queued, :downloading])
+
+      change set_attribute(:is_downloaded, false)
+      change set_attribute(:download_state, :available)
+      change set_attribute(:download_path, nil)
+      change set_attribute(:downloaded_at, nil)
+      change set_attribute(:file_size, nil)
+      change set_attribute(:download_quality, nil)
+      change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
+      change set_attribute(:import_job_id, nil)
+      change set_attribute(:import_manifest, nil)
+      change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
+    end
+
+    update :reset_downloaded do
+      accept []
+
+      validate data_one_of(:download_state, [:downloaded])
+
+      change set_attribute(:is_downloaded, false)
+      change set_attribute(:download_state, :available)
+      change set_attribute(:download_path, nil)
+      change set_attribute(:downloaded_at, nil)
+      change set_attribute(:file_size, nil)
+      change set_attribute(:download_quality, nil)
+      change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
+      change set_attribute(:import_job_id, nil)
+      change set_attribute(:import_manifest, nil)
+      change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
+    end
+
+    update :begin_import do
+      accept [:import_job_id, :import_manifest]
+      validate present(:import_job_id)
+      validate compare(:import_job_id, greater_than: 0)
+      validate present(:import_manifest)
+
+      validate data_one_of(:download_state, [:available, :missing, :import_failed])
+
+      validate attribute_equals(:import_recovery, %{"mode" => nil, "entries" => []}),
+        message: "must not have pending recovery work"
+
+      change set_attribute(:is_downloaded, false)
+      change set_attribute(:download_state, :importing)
+      change set_attribute(:download_path, nil)
+      change set_attribute(:downloaded_at, nil)
+      change set_attribute(:file_size, nil)
+      change set_attribute(:download_quality, nil)
+      change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
+    end
+
+    update :mark_imported do
+      accept [:download_path, :file_size, :download_quality, :import_recovery]
+      validate present([:download_path, :import_recovery])
+
+      validate data_one_of(:download_state, [:importing])
+
+      change set_attribute(:is_downloaded, true)
+      change set_attribute(:download_state, :downloaded)
+      change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
+      change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
+      change set_attribute(:import_job_id, nil)
+      change set_attribute(:import_manifest, nil)
+    end
+
+    update :mark_import_failed do
+      accept [:import_error, :import_recovery]
+      validate present([:import_error, :import_recovery])
+
+      validate data_one_of(:download_state, [:importing])
+
+      change set_attribute(:is_downloaded, false)
+      change set_attribute(:download_state, :import_failed)
+      change set_attribute(:download_path, nil)
+      change set_attribute(:downloaded_at, nil)
+      change set_attribute(:file_size, nil)
+      change set_attribute(:download_quality, nil)
+      change set_attribute(:download_job_id, nil)
+      change set_attribute(:import_job_id, nil)
+      change set_attribute(:import_manifest, nil)
+    end
+
+    update :update_import_recovery do
+      accept [:import_recovery]
+      validate present(:import_recovery)
+
+      validate data_one_of(:download_state, [:downloaded, :import_failed])
     end
 
     update :blocklist do
@@ -170,9 +311,41 @@ defmodule Ytdarr.Content.Video do
     end
 
     attribute :download_state, :atom do
-      constraints one_of: [:available, :queued, :downloading, :downloaded, :missing]
+      constraints one_of: [
+                    :available,
+                    :queued,
+                    :downloading,
+                    :downloaded,
+                    :missing,
+                    :importing,
+                    :import_failed
+                  ]
+
       default :available
       allow_nil? false
+      public? true
+    end
+
+    attribute :download_job_id, :integer do
+      public? true
+    end
+
+    attribute :import_error, :string do
+      constraints max_length: 500
+      public? true
+    end
+
+    attribute :import_job_id, :integer do
+      public? true
+    end
+
+    attribute :import_manifest, :map do
+      public? true
+    end
+
+    attribute :import_recovery, :map do
+      allow_nil? false
+      default %{"mode" => nil, "entries" => []}
       public? true
     end
 
@@ -216,5 +389,6 @@ defmodule Ytdarr.Content.Video do
 
   identities do
     identity :unique_external_id, [:external_id]
+    identity :unique_download_job_id, [:download_job_id]
   end
 end
