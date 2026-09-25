@@ -1,0 +1,12 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import manifest from '../../generated/docs-versions.json';
+import { docsHref } from '../../lib/urls';
+---
+<StarlightPage frontmatter={{ title: 'Documentation', description: 'Select the Ytdarr documentation matching your installation.', template: 'splash' }}>
+  <p>Start with the version matching your installation. The newest stable patch of each minor release line remains available here.</p>
+  <ul>
+    {manifest.versions.map((version) => <li><a href={docsHref(version.id)}>{version.label}</a> {version.id === manifest.defaultVersion && '(default)'}</li>)}
+  </ul>
+  {manifest.versions.length === 1 && <p>No stable releases have been published. These guides describe the current Unreleased source.</p>}
+</StarlightPage>

@@ -34,6 +34,13 @@ ytdarr-*.tar
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
 /assets/node_modules/
+/website/node_modules/
+/website/.astro/
+/website/dist/
+/website/src/generated/
+/website/src/content/docs/docs/v[0-9]*/
+/website/test-results/
+/website/public/search.js
 
 # Database files
 *.db

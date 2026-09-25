@@ -1,0 +1,27 @@
+{
+  "name": "ytdarr-website",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24 <27" },
+  "scripts": {
+    "dev": "node scripts/prepare-docs.mjs && node scripts/build-search.mjs && astro dev",
+    "build": "node scripts/prepare-docs.mjs && node scripts/build-search.mjs && astro build --force",
+    "check": "astro check",
+    "preview": "astro preview",
+    "test:versions": "node --test tests/versions.test.mjs",
+    "verify:site": "node scripts/verify-site.mjs"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.42.4",
+    "@astrojs/starlight-tailwind": "5.0.0",
+    "@tailwindcss/vite": "4.3.3",
+    "astro": "7.3.5",
+    "tailwindcss": "4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "axe-core": "4.13.0",
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0"
+  }
+}

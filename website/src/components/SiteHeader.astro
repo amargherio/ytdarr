@@ -1,0 +1,37 @@
+---
+import ThemeSelect from './SiteThemeSelect.astro';
+import manifest from '../generated/docs-versions.json';
+import { docsHref, withBase } from '../lib/urls';
+import VersionPicker from './VersionPicker.astro';
+
+const route = Astro.locals.starlightRoute;
+const routeVersion = /^docs\/(unreleased|v\d+\.\d+)/.exec(route.id)?.[1];
+const version = routeVersion ?? manifest.defaultVersion;
+const isDocumentation = route.id.startsWith('docs/');
+---
+
+<div class="site-header">
+  <a class="site-wordmark" href={withBase('/')} aria-label="Ytdarr home">Ytdarr</a>
+  <nav class="site-links" aria-label="Site navigation">
+    <a href={withBase('/features/')}>Features</a>
+    <a href={withBase('/docs/')}>Docs</a>
+    <a href={docsHref(version, 'reference')}>Configuration</a>
+    <a href="https://github.com/amargherio/ytdarr">GitHub</a>
+  </nav>
+  <div class="site-tools">
+    <a class="site-search" href={`${withBase('/search/')}?version=${version}`}>Search documentation</a>
+    <ThemeSelect />
+  </div>
+  <details class="mobile-site-links">
+    <summary>Menu</summary>
+    <nav aria-label="Mobile site navigation">
+      <a href={withBase('/features/')}>Features</a>
+      <a href={withBase('/docs/')}>Docs</a>
+      <a href={docsHref(version, 'reference')}>Configuration</a>
+      <a href={`${withBase('/search/')}?version=${version}`}>Search documentation</a>
+      <a href="https://github.com/amargherio/ytdarr">GitHub</a>
+      {isDocumentation && <VersionPicker />}
+    </nav>
+  </details>
+  {isDocumentation && <div class="desktop-version-picker"><VersionPicker /></div>}
+</div>

@@ -1,0 +1,15 @@
+---
+import Select from '@astrojs/starlight/components/Select.astro';
+---
+<starlight-theme-select>
+  <Select
+    icon="laptop"
+    label="Select theme"
+    options={[
+      { label: 'Dark', selected: false, value: 'dark' },
+      { label: 'Light', selected: false, value: 'light' },
+      { label: 'Auto', selected: true, value: 'auto' },
+    ]}
+    width="6.25em"
+  />
+</starlight-theme-select>
