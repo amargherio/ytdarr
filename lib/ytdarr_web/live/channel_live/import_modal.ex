@@ -14,6 +14,7 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
 
   alias Phoenix.LiveView.JS
   alias Ytdarr.Imports.SafeMessage
+  alias Ytdarr.Media.ImportRoots
   alias Ytdarr.Media.FileBrowser.Page
   alias Ytdarr.Media.VideoImport.Preview
 
@@ -28,6 +29,8 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
     Modal state carried in the parent LiveView's `:import_modal` assign.
     `nil` in the parent assign means the modal is closed.
     """
+    alias Ytdarr.Media.FileBrowser.Page
+    alias Ytdarr.Media.VideoImport.Preview
 
     @enforce_keys [
       :token,
@@ -47,7 +50,8 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
       :selected_sidecar_ids,
       :selected_entry_id,
       :error,
-      :filter_form
+      :filter_form,
+      :roots
     ]
     defstruct @enforce_keys
 
@@ -71,7 +75,8 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
             selected_sidecar_ids: MapSet.t(String.t()),
             selected_entry_id: String.t() | nil,
             error: String.t() | nil,
-            filter_form: Phoenix.HTML.Form.t()
+            filter_form: Phoenix.HTML.Form.t(),
+            roots: [Path.t()]
           }
   end
 
@@ -122,7 +127,8 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
       selected_sidecar_ids: MapSet.new(),
       selected_entry_id: nil,
       error: nil,
-      filter_form: filter_form("", false)
+      filter_form: filter_form("", false),
+      roots: ImportRoots.roots()
     }
   end
 
@@ -172,9 +178,10 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
 
   def change_page(%State{}, _page), do: :out_of_range
 
-  @spec current_path(State.t()) :: Path.t()
+  @spec current_path(State.t()) :: Path.t() | nil
   def current_path(%State{page: %Page{path: path}}), do: path
-  def current_path(%State{}), do: "/"
+  def current_path(%State{roots: [root | _]}), do: root
+  def current_path(%State{}), do: nil
 
   @doc "Applies an async directory listing result. Failure leaves the last successful page in place."
   @spec apply_list_result(State.t(), {:ok, Page.t()} | {:error, term()}) :: State.t()
@@ -382,19 +389,26 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
   defp browser_panel(assigns) do
     ~H"""
     <div class="space-y-3">
-      <nav aria-label="Breadcrumb" class="flex flex-wrap items-center gap-1 text-sm">
+      <nav
+        aria-label="Import locations and breadcrumb"
+        class="flex flex-wrap items-center gap-1 text-sm"
+      >
+        <span class="text-xs font-medium text-base-content/60 mr-1">Import locations</span>
         <button
+          :for={root <- @state.roots}
           type="button"
-          id="video-import-root"
+          id={"video-import-root-#{Base.url_encode64(root, padding: false)}"}
           phx-click="browse-import-directory"
           phx-value-token={@state.token}
-          phx-value-path="/"
-          class="btn btn-ghost btn-xs btn-square"
-          title="Root"
-          aria-label="Root"
+          phx-value-path={root}
+          class="btn btn-ghost btn-xs max-w-48 truncate"
+          title={root}
         >
-          <.icon name="hero-home" class="size-3.5" />
+          {root}
         </button>
+        <span :if={@state.roots == []} class="text-sm text-base-content/60">
+          No import locations configured.
+        </span>
         <%= for {crumb, index} <- Enum.with_index(breadcrumbs(@state)) do %>
           <.icon name="hero-chevron-right" class="size-3 text-base-content/30 flex-shrink-0" />
           <button
@@ -467,7 +481,6 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
                 :if={entry.kind == :directory}
                 type="button"
                 id={"video-import-folder-#{entry.id}"}
-                tabindex="-1"
                 phx-click="browse-import-directory"
                 phx-value-token={@state.token}
                 phx-value-path={entry.path}
@@ -480,7 +493,6 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
                 :if={entry.kind == :video}
                 type="button"
                 id={"video-import-file-#{entry.id}"}
-                tabindex="-1"
                 phx-click="select-import-file"
                 phx-value-token={@state.token}
                 phx-value-id={entry.id}
@@ -646,12 +658,16 @@ defmodule YtdarrWeb.ChannelLive.ImportModal do
     Enum.any?(candidates, &String.contains?(text, Atom.to_string(&1)))
   end
 
+  defp browse_error_message(reason) when reason in [:no_import_roots, :outside_import_roots],
+    do: SafeMessage.for(reason)
+
   defp browse_error_message(:directory_not_found), do: "That folder is no longer available."
 
   defp browse_error_message(:directory_not_readable),
     do: "Ytdarr cannot read that folder. Check its permissions."
 
   defp browse_error_message(:not_a_directory), do: "That path is not a folder."
+
   defp browse_error_message(:page_out_of_range), do: "That page no longer exists."
 
   defp browse_error_message(_reason),

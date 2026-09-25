@@ -29,12 +29,22 @@ defmodule Ytdarr.Media.VideoImportTest do
     File.mkdir_p!(source_root)
     File.mkdir_p!(media_root)
 
+    original_import_roots = Application.get_env(:ytdarr, :import_roots)
+    Application.put_env(:ytdarr, :import_roots, [source_root])
+
     channel = channel_fixture()
     channel = %{channel | base_path: media_root, name: "Import / Channel"}
 
     policy = media_policy(media_root)
 
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn ->
+      File.rm_rf!(root)
+
+      case original_import_roots do
+        nil -> Application.delete_env(:ytdarr, :import_roots)
+        roots -> Application.put_env(:ytdarr, :import_roots, roots)
+      end
+    end)
 
     %{source_root: source_root, media_root: media_root, channel: channel, policy: policy}
   end
@@ -137,6 +147,100 @@ defmodule Ytdarr.Media.VideoImportTest do
 
     assert {:error, :no_video_stream} =
              VideoImport.inspect_source(context.channel, video, source, probe: NoVideoProbe)
+  end
+
+  test "rejects outside-root and symlink-ancestor sources", context do
+    outside =
+      Path.join(System.tmp_dir!(), "ytdarr-outside-#{System.unique_integer([:positive])}.mkv")
+
+    File.write!(outside, "outside")
+    on_exit(fn -> File.rm(outside) end)
+
+    {video, source} = create_source_video(context, "symlinked")
+    linked_directory = Path.join(context.source_root, "linked")
+    File.ln_s!(context.source_root, linked_directory)
+
+    assert {:error, :outside_import_roots} =
+             VideoImport.inspect_source(context.channel, video, outside, probe: Probe)
+
+    assert {:error, :outside_import_roots} =
+             VideoImport.inspect_source(
+               context.channel,
+               video,
+               Path.join(linked_directory, Path.basename(source)), probe: Probe)
+  end
+
+  test "skips symlinked optional companions without blocking a valid source", context do
+    {video, source} = create_source_video(context, "optional-link")
+    File.ln_s!("/etc/hosts", Path.join(context.source_root, "optional-link.nfo"))
+
+    assert {:ok, preview} =
+             VideoImport.inspect_source(context.channel, video, source, probe: Probe)
+
+    assert is_nil(preview.source_nfo)
+  end
+
+  test "does not consume media or companions owned by another downloaded video", context do
+    {target, source} = create_source_video(context, "managed-source")
+
+    assert {:ok, preview} =
+             VideoImport.inspect_source(context.channel, target, source, probe: Probe)
+
+    assert {:ok, manifest} = VideoImport.build_manifest(preview, [])
+
+    video_fixture(%{
+      channel_id: context.channel.id,
+      download_path: source,
+      is_downloaded: true,
+      download_state: :downloaded
+    })
+
+    assert {:error, :source_is_managed} =
+             VideoImport.inspect_source(context.channel, target, source, probe: Probe)
+
+    assert {:error, :source_is_managed, []} =
+             VideoImport.stage(41_006, manifest, context.channel, target,
+               probe: Probe,
+               policy: context.policy
+             )
+
+    assert File.read!(source) == "managed-source video"
+
+    {other_target, other_source} = create_source_video(context, "managed-companions")
+    managed_path = Path.rootname(other_source) <> ".mp4"
+    File.write!(managed_path, "other managed video")
+    File.write!(Path.rootname(other_source) <> ".nfo", "managed metadata")
+
+    video_fixture(%{
+      channel_id: context.channel.id,
+      download_path: managed_path,
+      is_downloaded: true,
+      download_state: :downloaded
+    })
+
+    assert {:error, :source_is_managed} =
+             VideoImport.inspect_source(context.channel, other_target, other_source, probe: Probe)
+
+    assert File.read!(Path.rootname(other_source) <> ".nfo") == "managed metadata"
+  end
+
+  test "rejects a source replaced by a symlinked ancestor before staging", context do
+    {video, source} = create_source_video(context, "replaced")
+
+    assert {:ok, preview} =
+             VideoImport.inspect_source(context.channel, video, source, probe: Probe)
+
+    assert {:ok, manifest} = VideoImport.build_manifest(preview, [])
+
+    moved_source_root = context.source_root <> "-moved"
+    File.rename!(context.source_root, moved_source_root)
+    File.ln_s!(moved_source_root, context.source_root)
+
+    assert {:error, :outside_import_roots, []} =
+             VideoImport.stage(41_005, manifest, context.channel, video,
+               probe: Probe,
+               policy: context.policy
+             )
   end
 
   test "rejects sources whose directory cannot pass the exclusive write probe", context do

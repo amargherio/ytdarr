@@ -37,9 +37,17 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
     File.write!(source_file, "fake-video-bytes")
     File.write!(Path.join(source_root, "legacy.en.srt"), "1\n00:00:00,000 --> 00:00:01,000\nHi\n")
 
+    original_import_roots = Application.get_env(:ytdarr, :import_roots)
+    Application.put_env(:ytdarr, :import_roots, [source_root])
+
     on_exit(fn ->
       File.rm_rf!(ffprobe_root)
       File.rm_rf!(source_root)
+
+      case original_import_roots do
+        nil -> Application.delete_env(:ytdarr, :import_roots)
+        roots -> Application.put_env(:ytdarr, :import_roots, roots)
+      end
 
       case original_ffprobe_path do
         nil -> Application.delete_env(:ytdarr, :ffprobe_path)
@@ -98,31 +106,13 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
   defp expand_table(view, "videos-" <> playlist_id),
     do: expand_playlist(view, String.to_integer(playlist_id))
 
-  # Filters the current listing down to `name` before clicking the matching
-  # folder, so navigation never depends on alphabetical position within the
-  # first paginated page of a real, possibly-crowded directory (`/`, `/tmp`).
-  defp filter_and_open_folder(view, name) do
-    view
-    |> form("#video-import-filter-form", %{"filter" => %{"query" => name}})
-    |> render_change()
-
-    render_async(view)
-
-    view |> element("button[id^='video-import-folder-']", name) |> render_click()
-    render_async(view)
-  end
-
-  # Drives the modal from closed through :ready with `legacy.mkv` inspected, by
-  # clicking through the real filesystem: root -> /tmp -> the fixture directory.
-  defp open_browse_and_inspect(view, video, dir_name, table_id \\ "all-videos") do
+  # Opens the configured import location and inspects the fixture video.
+  defp open_browse_and_inspect(view, video, _dir_name, table_id \\ "all-videos") do
     unless has_element?(view, "##{import_button_id(table_id, video.id)}"),
       do: expand_table(view, table_id)
 
     view |> element("##{import_button_id(table_id, video.id)}") |> render_click()
     render_async(view)
-
-    filter_and_open_folder(view, "tmp")
-    filter_and_open_folder(view, dir_name)
 
     view |> element("button[id^='video-import-file-']", "legacy.mkv") |> render_click()
     render_async(view)
@@ -354,15 +344,12 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
          %{
            conn: conn,
            channel: channel,
-           video: video,
-           dir_name: dir_name
+           video: video
          } do
       {:ok, view, _html} = live(conn, ~p"/channels/#{channel}")
       expand_all_videos(view)
       view |> element("##{import_button_id("all-videos", video.id)}") |> render_click()
       render_async(view)
-      filter_and_open_folder(view, "tmp")
-      filter_and_open_folder(view, dir_name)
 
       before_html = render(view)
       assert before_html =~ "Page 1 of 1"
@@ -380,24 +367,25 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
   # ---------------------------------------------------------------------------
 
   describe "browsing" do
-    test "navigates from root through a real directory and lists the fixture video file", %{
+    test "lists the configured import location and rejects a forged root path", %{
       conn: conn,
       channel: channel,
       video: video,
-      dir_name: dir_name
+      source_root: source_root
     } do
       {:ok, view, _html} = live(conn, ~p"/channels/#{channel}")
       expand_all_videos(view)
       view |> element("##{import_button_id("all-videos", video.id)}") |> render_click()
       render_async(view)
 
-      assert has_element?(view, "#video-import-root")
+      assert has_element?(view, "button[id^='video-import-root-']", source_root)
 
-      filter_and_open_folder(view, "tmp")
-      assert has_element?(view, "#video-import-breadcrumb-0")
+      [_, token] = Regex.run(~r/name="token" value="([^"]+)"/, render(view))
+      render_hook(view, "browse-import-directory", %{"token" => token, "path" => "/etc"})
+      forged_html = render_async(view)
+      assert forged_html =~ "outside"
+      refute forged_html =~ "/etc"
 
-      view |> element("button[id^='video-import-folder-']", dir_name) |> render_click()
-      render_async(view)
       html = render(view)
 
       assert html =~ "legacy.mkv"
@@ -406,18 +394,33 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
       refute html =~ "legacy.en.srt"
     end
 
-    test "filter-import-directory filters entries by query and resets to page 1", %{
+    test "reports a safe configuration error when no import root is configured", %{
       conn: conn,
       channel: channel,
       video: video,
-      dir_name: dir_name
+      source_root: source_root
+    } do
+      Application.put_env(:ytdarr, :import_roots, [])
+      on_exit(fn -> Application.put_env(:ytdarr, :import_roots, [source_root]) end)
+
+      {:ok, view, _html} = live(conn, ~p"/channels/#{channel}")
+      expand_all_videos(view)
+
+      html = view |> element("##{import_button_id("all-videos", video.id)}") |> render_click()
+
+      assert html =~ "Set YTDARR_IMPORT_ROOTS and restart Ytdarr."
+      refute html =~ "phx-value-path=\"/\""
+    end
+
+    test "filter-import-directory filters entries by query and resets to page 1", %{
+      conn: conn,
+      channel: channel,
+      video: video
     } do
       {:ok, view, _html} = live(conn, ~p"/channels/#{channel}")
       expand_all_videos(view)
       view |> element("##{import_button_id("all-videos", video.id)}") |> render_click()
       render_async(view)
-      filter_and_open_folder(view, "tmp")
-      filter_and_open_folder(view, dir_name)
 
       assert render(view) =~ "legacy.mkv"
 
@@ -468,15 +471,12 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
          %{
            conn: conn,
            channel: channel,
-           video: video,
-           dir_name: dir_name
+           video: video
          } do
       {:ok, view, _html} = live(conn, ~p"/channels/#{channel}")
       expand_all_videos(view)
       view |> element("##{import_button_id("all-videos", video.id)}") |> render_click()
       render_async(view)
-      filter_and_open_folder(view, "tmp")
-      filter_and_open_folder(view, dir_name)
 
       browsing_html = render(view)
       [_, entry_id] = Regex.run(~r/id="video-import-file-([^"]+)"/, browsing_html)
@@ -496,7 +496,6 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
       conn: conn,
       channel: channel,
       video: video,
-      dir_name: dir_name,
       source_root: source_root
     } do
       marker = Path.join(source_root, ".release-ffprobe")
@@ -524,8 +523,6 @@ defmodule YtdarrWeb.ChannelLiveImportTest do
       expand_all_videos(view)
       view |> element("##{import_button_id("all-videos", video.id)}") |> render_click()
       render_async(view)
-      filter_and_open_folder(view, "tmp")
-      filter_and_open_folder(view, dir_name)
 
       # Selecting the file starts an inspection blocked on the stubbed ffprobe
       # under the CURRENT token; do not await it.

@@ -25,6 +25,7 @@ config :ash,
   include_embedded_source_by_default?: false,
   show_keysets_for_all_actions?: false,
   default_page_type: :keyset,
+  default_string_length_count: :codepoints,
   policies: [no_filter_static_forbidden_reads?: false],
   keep_read_action_loads_when_loading?: false,
   default_actions_require_atomic?: true,
@@ -67,6 +68,8 @@ config :ytdarr,
   generators: [timestamp_type: :utc_datetime],
   ash_domains: [Ytdarr.Accounts, Ytdarr.Content, Ytdarr.Settings],
   ash_authentication: [return_error_on_invalid_magic_link_token?: true]
+
+config :ytdarr, :import_roots, []
 
 # Configures the endpoint
 config :ytdarr, YtdarrWeb.Endpoint,

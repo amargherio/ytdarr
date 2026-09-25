@@ -31,6 +31,29 @@ defmodule Ytdarr.ObanWorkers.VideoImporterTest do
     assert imported.import_recovery == @empty_recovery
   end
 
+  test "leaves the video ready for another import when staging changed nothing" do
+    {video, job} = importing_job(:empty_stage_failure)
+
+    assert {:cancel, :source_changed} =
+             VideoImporter.run(job,
+               video_import: ImporterVideoImport,
+               content: Content,
+               imports: ImporterImports
+             )
+
+    assert {:ok, failed} = Content.get_video(video.id)
+    assert failed.download_state == :import_failed
+    assert failed.import_recovery == @empty_recovery
+
+    assert {:ok, retried} =
+             Content.begin_video_import(failed, %{
+               import_job_id: System.unique_integer([:positive]),
+               import_manifest: %{"source" => "retry"}
+             })
+
+    assert retried.download_state == :importing
+  end
+
   test "persists restore evidence and a safe error before cancelling a stage failure" do
     {video, job} = importing_job(:stage_failure)
 
@@ -43,8 +66,9 @@ defmodule Ytdarr.ObanWorkers.VideoImporterTest do
 
     channel_id = video.channel_id
     video_id = video.id
-    message = "The selected file changed. Select it again."
-    assert_receive {:import_event, {:video_import_failed, ^channel_id, ^video_id, ^message}}, 100
+    assert_receive {:import_event, {:video_import_failed, ^channel_id, ^video_id, message}}, 100
+    refute String.contains?(message, "source_changed")
+    refute String.contains?(message, job.args["source_path"])
 
     assert {:ok, failed} = Content.get_video(video.id)
     assert failed.download_state == :import_failed
@@ -148,6 +172,7 @@ defmodule Ytdarr.ObanWorkers.VideoImporterTest do
     def stage(_job_id, manifest, _channel, _video) do
       case manifest.outcome do
         "stage_failure" -> {:error, :source_changed, [%{"path" => "/tmp/restore"}]}
+        "empty_stage_failure" -> {:error, :source_changed}
         outcome -> {:ok, %{file_size: 123, quality: "1080p", outcome: outcome}}
       end
     end

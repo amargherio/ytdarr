@@ -5,6 +5,7 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
   use Oban.Worker,
     queue: :video_downloader,
+    max_attempts: 1,
     unique: [
       period: :infinity,
       fields: [:worker, :args],

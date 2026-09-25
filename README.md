@@ -7,6 +7,7 @@ Ytdarr is a self-hosted YouTube channel monitor and video downloader that organi
 - Discover and monitor YouTube channels and playlist metadata
 - Synchronize metadata in background jobs
 - Manually queue chosen videos for yt-dlp downloads
+- Import existing videos only from explicitly configured server-side directories
 - Organize media into channel/year seasons with episode NFO files
 - Inspect application jobs through the built-in Oban dashboard
 - Run with SQLite rather than a separate database service
@@ -34,6 +35,8 @@ docker compose -f deploy/compose.yaml build \
   --build-arg BUILDER_IMAGE=docker.io/hexpm/elixir:1.20.4-erlang-29.1.1-debian-bookworm-20260918-slim
 docker compose -f deploy/compose.yaml up --no-build --pull never -d
 ```
+
+To enable existing-media imports with the stock Compose mount, create a dedicated `deploy/downloads/.incoming` directory writable by UID/GID `10001`, set `YTDARR_IMPORT_ROOTS=/downloads/.incoming` in `deploy/.env`, and restart. The setting accepts comma-separated absolute directories visible to Ytdarr; unset disables browsing. Do not set it to all of `/downloads`: that directory also contains managed videos. Imports reject paths matching a managed video's media or companions, but source files can be moved and deleted after success. For stronger separation, bind-mount a dedicated staging directory outside the managed media root and allow only its in-container path. Only trusted operators and local processes should have write access to these directories; pathname validation cannot protect against a concurrent symlink swap by another local writer.
 
 ## Documentation
 

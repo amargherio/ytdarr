@@ -69,6 +69,12 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
     end
   end
 
+  test "rejects an undated video before it can enter the download lifecycle" do
+    video = video_fixture(%{upload_date: nil})
+
+    assert {:error, _} = Content.begin_video_download(video)
+  end
+
   describe "perform/1" do
     test "downloads to a sanitized filename and generates an nfo file", %{
       downloads_root: downloads_root

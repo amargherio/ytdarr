@@ -43,10 +43,12 @@ defmodule Ytdarr.Content do
       define :list_videos, action: :read
       define :get_video, action: :read, get_by: [:id]
       define :get_video_by_external_id, action: :read, get_by: [:external_id]
+      define :get_video_by_download_job_id, action: :read, get_by: [:download_job_id]
       define :create_video, action: :create, args: [:channel_id]
       define :upsert_video, action: :upsert, args: [:channel_id]
       define :update_video, action: :update
       define :begin_video_download, action: :begin_download
+      define :set_video_download_job, action: :set_download_job
       define :start_video_download, action: :start_download
       define :mark_video_downloaded, action: :mark_downloaded
       define :reset_video_download, action: :reset_download
@@ -654,9 +656,12 @@ defmodule Ytdarr.Content do
                with {:ok, video} <- get_video(video_id),
                     :ok <- ensure_channel_id(video, channel_id),
                     :ok <- ensure_not_blocklisted(video),
-                    {:ok, _queued_video} <- begin_video_download(video),
+                    :ok <- ensure_upload_date(video),
+                    {:ok, queued_video} <- begin_video_download(video),
                     {:ok, job} <- insert_downloader_job(video_id, channel_id),
-                    :ok <- reject_conflicting_download_job(job) do
+                    :ok <- reject_conflicting_download_job(job),
+                    {:ok, _linked_video} <-
+                      set_video_download_job(queued_video, %{download_job_id: job.id}) do
                  job
                else
                  {:error, reason} -> Repo.rollback(reason)
@@ -803,6 +808,9 @@ defmodule Ytdarr.Content do
 
   defp ensure_not_blocklisted(%Video{is_blocklisted: false}), do: :ok
   defp ensure_not_blocklisted(%Video{is_blocklisted: true}), do: {:error, :video_blocklisted}
+
+  defp ensure_upload_date(%Video{upload_date: %Date{}}), do: :ok
+  defp ensure_upload_date(_video), do: {:error, :missing_upload_date}
 
   defp ensure_preview_identity(
          %VideoImport.Preview{video_id: video_id, channel_id: channel_id},

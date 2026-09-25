@@ -315,5 +315,25 @@ defmodule YtdarrWeb.CustomComponentsTest do
       assert html =~ "phx-click=\"blocklist-video\""
       refute html =~ "phx-click=\"unblocklist-video\""
     end
+
+    test "does not render a download action for an undated video" do
+      html =
+        render_component(&CustomComponents.video_table/1, %{
+          id: "vt-undated",
+          videos: [
+            %{
+              id: 6,
+              title: "Undated Video",
+              thumbnail_url: nil,
+              upload_date: nil,
+              download_state: :available,
+              is_blocklisted: false
+            }
+          ],
+          channel_id: 1
+        })
+
+      refute html =~ "phx-click=\"queue-download\""
+    end
   end
 end

@@ -12,12 +12,18 @@ defmodule Ytdarr.Media.FileBrowserTest do
     %{root: root}
   end
 
-  test "lists / with an absolute root breadcrumb" do
-    assert {:ok, page} = FileBrowser.list("/")
-    assert [%{label: "/", path: "/"} | _] = page.breadcrumbs
-    assert page.path == "/"
+  test "lists a configured root with a confined breadcrumb", %{root: root} do
+    assert {:ok, page} = FileBrowser.list(root, roots: [root])
+    assert [%{label: ^root, path: ^root}] = page.breadcrumbs
+    assert page.path == root
     assert page.parent_path == nil
     assert page.per_page == 100
+  end
+
+  test "rejects missing, forged, and relative import roots", %{root: root} do
+    assert {:error, :no_import_roots} = FileBrowser.list(root, roots: [])
+    assert {:error, :outside_import_roots} = FileBrowser.list("/", roots: [root])
+    assert {:error, :outside_import_roots} = FileBrowser.list(".", roots: [root])
   end
 
   test "lists only real directories and supported videos in directory-first pages", %{root: root} do
@@ -34,7 +40,7 @@ defmodule Ytdarr.Media.FileBrowserTest do
     File.ln_s!("/dev/null", Path.join(root, "linked.mp4"))
     File.ln_s!(Path.join(root, "Directory 001"), Path.join(root, "linked-directory"))
 
-    assert {:ok, first_page} = FileBrowser.list(root)
+    assert {:ok, first_page} = FileBrowser.list(root, roots: [root])
     assert first_page.total_entries == 102
     assert first_page.total_pages == 2
     assert length(first_page.entries) == 100
@@ -46,7 +52,7 @@ defmodule Ytdarr.Media.FileBrowserTest do
              &(&1.name in ["linked.mp4", "linked-directory", "notes.txt", ".hidden.mp4"])
            )
 
-    assert {:ok, second_page} = FileBrowser.list(root, page: 2)
+    assert {:ok, second_page} = FileBrowser.list(root, roots: [root], page: 2)
     assert Enum.map(second_page.entries, & &1.kind) == [:directory, :video]
     assert Enum.map(second_page.entries, & &1.name) == ["Directory 101", "movie.MKV"]
   end
@@ -57,12 +63,14 @@ defmodule Ytdarr.Media.FileBrowserTest do
     File.write!(Path.join(root, "beta.webm"), "b")
     File.write!(Path.join(root, ".private.avi"), "c")
 
-    assert {:ok, page} = FileBrowser.list(root, query: "ALPHA")
+    assert {:ok, page} = FileBrowser.list(root, roots: [root], query: "ALPHA")
     assert page.query == "ALPHA"
     assert Enum.map(page.entries, & &1.name) == ["alpha.mp4"]
     refute page.show_hidden?
 
-    assert {:ok, hidden_page} = FileBrowser.list(root, query: "private", show_hidden?: true)
+    assert {:ok, hidden_page} =
+             FileBrowser.list(root, roots: [root], query: "private", show_hidden?: true)
+
     assert hidden_page.show_hidden?
     assert Enum.map(hidden_page.entries, & &1.name) == [".private.avi"]
   end
@@ -71,9 +79,20 @@ defmodule Ytdarr.Media.FileBrowserTest do
     file = Path.join(root, "not-a-directory.mp4")
     File.write!(file, "video")
 
-    assert {:error, :directory_not_found} = FileBrowser.list(Path.join(root, "gone"))
-    assert {:error, :not_a_directory} = FileBrowser.list(file)
-    assert {:error, :page_out_of_range} = FileBrowser.list(root, page: 2)
+    assert {:error, :directory_not_found} =
+             FileBrowser.list(Path.join(root, "gone"), roots: [root])
+
+    assert {:error, :not_a_directory} = FileBrowser.list(file, roots: [root])
+    assert {:error, :page_out_of_range} = FileBrowser.list(root, roots: [root], page: 2)
+  end
+
+  test "rejects a symlinked directory ancestor", %{root: root} do
+    target = Path.join(root, "target")
+    linked = Path.join(root, "linked")
+    File.mkdir_p!(target)
+    File.ln_s!(target, linked)
+
+    assert {:error, :outside_import_roots} = FileBrowser.list(linked, roots: [root])
   end
 
   test "does not render unreadable folders", %{root: root} do
@@ -83,6 +102,6 @@ defmodule Ytdarr.Media.FileBrowserTest do
 
     on_exit(fn -> File.chmod(unreadable, 0o700) end)
 
-    assert {:error, :directory_not_readable} = FileBrowser.list(unreadable)
+    assert {:error, :directory_not_readable} = FileBrowser.list(unreadable, roots: [root])
   end
 end

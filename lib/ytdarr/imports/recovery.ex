@@ -72,13 +72,11 @@ defmodule Ytdarr.Imports.Recovery do
 
   defp manifest_from_video(_video, _video_import), do: {:error, :invalid_import_manifest}
 
-  defp recovery_from_result({:ok, []}), do: {:ok, @empty_recovery}
-
-  defp recovery_from_result({:error, entries}) when is_list(entries),
-    do: {:ok, %{"mode" => "restore", "entries" => entries}}
-
-  defp recovery_from_result({:ok, entries}) when is_list(entries),
-    do: {:ok, %{"mode" => "restore", "entries" => entries}}
+  defp recovery_from_result({result, entries}) when result in [:ok, :error] and is_list(entries),
+    do: {:ok, recovery_map(entries)}
 
   defp recovery_from_result(_result), do: {:error, :invalid_recovery_result}
+
+  defp recovery_map([]), do: @empty_recovery
+  defp recovery_map(entries), do: %{"mode" => "restore", "entries" => entries}
 end

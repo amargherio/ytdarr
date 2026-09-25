@@ -3,7 +3,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
   alias Ytdarr.Content
   alias Ytdarr.Imports
-  alias Ytdarr.Media.{FileBrowser, VideoImport}
+  alias Ytdarr.Media.{FileBrowser, ImportRoots, VideoImport}
   alias YtdarrWeb.ChannelLive.ImportModal
   alias YtdarrWeb.ChannelLive.ImportModal.State
   alias YtdarrWeb.CustomComponents
@@ -516,10 +516,17 @@ defmodule YtdarrWeb.ChannelLive.Show do
 
       state = ImportModal.new(video, table_id, row_selector, opener_selector, fallback_selector)
 
-      {:noreply,
-       socket
-       |> assign(:import_modal, state)
-       |> dispatch_import_list(state, "/", query: "", show_hidden?: false, page: 1)}
+      socket = assign(socket, :import_modal, state)
+
+      case ImportRoots.first() do
+        {:ok, root} ->
+          {:noreply,
+           dispatch_import_list(socket, state, root, query: "", show_hidden?: false, page: 1)}
+
+        {:error, reason} ->
+          {:noreply,
+           assign(socket, :import_modal, ImportModal.apply_list_result(state, {:error, reason}))}
+      end
     else
       _ -> {:noreply, socket}
     end
@@ -836,7 +843,7 @@ defmodule YtdarrWeb.ChannelLive.Show do
     |> cancel_async({:list_video_import, state.token, state.list_seq})
     |> assign(:import_modal, new_state)
     |> start_async({:list_video_import, state.token, new_seq}, fn ->
-      FileBrowser.list(path, opts)
+      FileBrowser.list(path, Keyword.put(opts, :roots, state.roots))
     end)
   end
 

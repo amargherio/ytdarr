@@ -10,8 +10,10 @@ defmodule Ytdarr.Media.VideoImport do
   which files belong to them.
   """
 
-  alias Ytdarr.{MediaPermissions}
-  alias Ytdarr.Media.{Ffprobe, VideoArtifacts}
+  alias Ytdarr.Media.{Ffprobe, ImportRoots, VideoArtifacts}
+
+  require Ash.Query
+  alias Ytdarr.MediaPermissions
   alias Ytdarr.Media.VideoArtifacts.Destination
 
   @video_extensions MapSet.new(
@@ -567,16 +569,19 @@ defmodule Ytdarr.Media.VideoImport do
   def inspect_source(channel, video, source_path, opts)
       when is_binary(source_path) and is_list(opts) do
     ops = file_ops(opts)
-    source_path = Path.expand(source_path)
 
-    with {:ok, source} <- source_artifact(source_path, ops),
+    with :ok <- ensure_absolute_source_path(source_path),
+         source_path <- Path.expand(source_path),
+         :ok <- validate_source_path(source_path, :regular, opts),
+         {:ok, source} <- source_artifact(source_path, ops),
+         :ok <- ensure_unmanaged_source(source_path),
          :ok <- ensure_video_extension(source_path),
          :ok <- ensure_readable(source_path),
          :ok <- ensure_source_directory_writable(Path.dirname(source_path), ops),
          {:ok, destination} <-
            VideoArtifacts.build_destination(channel, video, Path.extname(source_path)),
          source = %{source | destination_path: destination.media_path},
-         {:ok, sidecars, source_nfo} <- discover_companions(source, destination, ops),
+         {:ok, sidecars, source_nfo} <- discover_companions(source, destination, ops, opts),
          :ok <- ensure_initial_destination_available(destination, ops),
          {:ok, probe_result} <- probe(opts).probe(source_path, probe_timeout(opts)) do
       {:ok,
@@ -653,8 +658,10 @@ defmodule Ytdarr.Media.VideoImport do
     ops = file_ops(opts)
 
     with :ok <- validate_manifest(manifest),
+         :ok <- validate_manifest_sources(manifest, opts),
+         :ok <- ensure_unmanaged_source(manifest.source.source_path),
          :ok <- validate_stage_identity(manifest, channel, video),
-         :ok <- validate_stale_preview(manifest, channel, video, ops),
+         :ok <- validate_stale_preview(manifest, channel, video, ops, opts),
          :ok <- ensure_selected_destination_available(manifest, ops),
          {:ok, policy} <- load_policy(opts),
          :ok <- permissions(opts).mkdir_p(manifest.destination.season_directory, policy) do
@@ -758,7 +765,7 @@ defmodule Ytdarr.Media.VideoImport do
               {:ok, verified_placement} ->
                 case promote_destination_files(verified_placement, ops) do
                   {:ok, promoted_placement} ->
-                    case quarantine_sources(promoted_placement, ops) do
+                    case quarantine_sources(promoted_placement, ops, opts) do
                       {:ok, quarantined_placement} ->
                         {:ok, quarantined_placement}
 
@@ -896,7 +903,8 @@ defmodule Ytdarr.Media.VideoImport do
   defp stage_copied_marker(placement, pair, artifact, policy, opts) do
     ops = file_ops(opts)
 
-    with :ok <- ensure_artifact_unchanged(artifact, ops) do
+    with :ok <- validate_source_path(artifact.source_path, :regular, opts),
+         :ok <- ensure_artifact_unchanged(artifact, ops) do
       case normalize_op(ops_copy(ops, artifact.source_path, pair.marker_path)) do
         :ok ->
           case refresh_marker_fingerprint(placement, pair.id, ops) do
@@ -1059,12 +1067,14 @@ defmodule Ytdarr.Media.VideoImport do
     end
   end
 
-  defp quarantine_sources(placement, ops) do
-    with {:ok, placement} <- create_quarantine_directory(placement, ops),
+  defp quarantine_sources(placement, ops, opts) do
+    with :ok <- validate_source_directory(placement.manifest.source.source_path, opts),
+         {:ok, placement} <- create_quarantine_directory(placement, ops),
          {:ok, placement} <- create_quarantine_owner(placement, ops) do
-      move_source_artifacts(placement, ops)
+      move_source_artifacts(placement, ops, opts)
     else
       {:error, reason, partial_placement} -> {:error, reason, partial_placement}
+      {:error, reason} -> {:error, reason, placement}
     end
   end
 
@@ -1094,14 +1104,14 @@ defmodule Ytdarr.Media.VideoImport do
     end
   end
 
-  defp move_source_artifacts(placement, ops) do
+  defp move_source_artifacts(placement, ops, opts) do
     source_artifacts = source_artifacts_to_quarantine(placement.manifest)
 
     Enum.reduce_while(source_artifacts, {:ok, placement}, fn artifact, {:ok, current} ->
       quarantine_path =
         Path.join(current.source_quarantine_directory, Path.basename(artifact.source_path))
 
-      case move_one_source_artifact(current, artifact, quarantine_path, ops) do
+      case move_one_source_artifact(current, artifact, quarantine_path, ops, opts) do
         {:ok, updated_placement} ->
           {:cont, {:ok, updated_placement}}
 
@@ -1111,8 +1121,9 @@ defmodule Ytdarr.Media.VideoImport do
     end)
   end
 
-  defp move_one_source_artifact(placement, artifact, quarantine_path, ops) do
-    with :ok <- ensure_artifact_unchanged(artifact, ops),
+  defp move_one_source_artifact(placement, artifact, quarantine_path, ops, opts) do
+    with :ok <- validate_source_path(artifact.source_path, :regular, opts),
+         :ok <- ensure_artifact_unchanged(artifact, ops),
          :ok <- ensure_path_absent(quarantine_path, ops) do
       case ops_rename(ops, artifact.source_path, quarantine_path) do
         :ok ->
@@ -1172,11 +1183,47 @@ defmodule Ytdarr.Media.VideoImport do
     end
   end
 
+  defp ensure_absolute_source_path(path) when is_binary(path) do
+    if String.starts_with?(path, "/"), do: :ok, else: {:error, :outside_import_roots}
+  end
+
+  defp validate_source_path(path, kind, opts) do
+    ImportRoots.validate_path(path, kind, Keyword.get(opts, :import_roots, ImportRoots.roots()))
+  end
+
+  defp ensure_unmanaged_source(path) do
+    stem_prefix = Path.rootname(path) <> "."
+
+    Ytdarr.Content.Video
+    |> Ash.Query.filter(string_starts_with(download_path, ^stem_prefix))
+    |> Ash.exists(domain: Ytdarr.Content)
+    |> case do
+      {:ok, false} -> :ok
+      {:ok, true} -> {:error, :source_is_managed}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_source_directory(path, opts) do
+    validate_source_path(Path.dirname(path), :directory, opts)
+  end
+
   defp validate_manifest(%Manifest{} = manifest) do
     case Manifest.from_map(Manifest.to_map(manifest)) do
       {:ok, _manifest} -> :ok
       {:error, _reason} -> {:error, :source_changed}
     end
+  end
+
+  defp validate_manifest_sources(manifest, opts) do
+    manifest
+    |> source_artifacts_to_quarantine()
+    |> Enum.reduce_while(:ok, fn artifact, :ok ->
+      case validate_source_path(artifact.source_path, :regular, opts) do
+        :ok -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
   end
 
   defp validate_stage_identity(manifest, channel, video) do
@@ -1187,16 +1234,17 @@ defmodule Ytdarr.Media.VideoImport do
     end
   end
 
-  defp validate_stale_preview(manifest, channel, video, ops) do
+  defp validate_stale_preview(manifest, channel, video, ops, opts) do
     source_path = manifest.source.source_path
 
-    with {:ok, source} <- source_artifact(source_path, ops),
+    with :ok <- validate_source_path(source_path, :regular, opts),
+         {:ok, source} <- source_artifact(source_path, ops),
          {:ok, destination} <-
            VideoArtifacts.build_destination(channel, video, Path.extname(source_path)),
          :ok <- ensure_destination_matches(destination, manifest.destination),
          source = %{source | destination_path: destination.media_path},
          true <- immutable_artifact?(source, manifest.source),
-         {:ok, sidecars, source_nfo} <- discover_companions(source, destination, ops),
+         {:ok, sidecars, source_nfo} <- discover_companions(source, destination, ops, opts),
          true <- immutable_artifacts?(sidecars, manifest.sidecars),
          true <- nullable_artifact_equal?(source_nfo, manifest.source_nfo),
          :ok <- ensure_initial_destination_available(destination, ops) do
@@ -1271,7 +1319,7 @@ defmodule Ytdarr.Media.VideoImport do
     end
   end
 
-  defp discover_companions(%Artifact{} = source, %Destination{} = destination, ops) do
+  defp discover_companions(%Artifact{} = source, %Destination{} = destination, ops, opts) do
     directory = Path.dirname(source.source_path)
     stem = source.source_path |> Path.basename() |> Path.rootname()
 
@@ -1285,7 +1333,7 @@ defmodule Ytdarr.Media.VideoImport do
             {:cont, {:ok, sidecars, source_nfo}}
 
           kind ->
-            case companion_artifact(path, name, stem, destination, kind, ops) do
+            case companion_artifact(path, name, stem, destination, kind, ops, opts) do
               {:ok, nil} -> {:cont, {:ok, sidecars, source_nfo}}
               {:ok, %Artifact{kind: :source_nfo} = artifact} -> {:cont, {:ok, sidecars, artifact}}
               {:ok, artifact} -> {:cont, {:ok, [artifact | sidecars], source_nfo}}
@@ -1312,23 +1360,25 @@ defmodule Ytdarr.Media.VideoImport do
     end
   end
 
-  defp companion_artifact(path, name, stem, destination, kind, ops) do
+  defp companion_artifact(path, name, stem, destination, kind, ops, opts) do
     case ops_lstat(ops, path) do
       {:ok, %{type: :regular} = stat} ->
-        destination_path =
-          case kind do
-            :source_nfo -> nil
-            _ -> replace_stem(destination.media_path, name, stem)
-          end
+        with :ok <- validate_source_path(path, :regular, opts) do
+          destination_path =
+            case kind do
+              :source_nfo -> nil
+              _ -> replace_stem(destination.media_path, name, stem)
+            end
 
-        {:ok,
-         %Artifact{
-           id: opaque_id(),
-           kind: kind,
-           source_path: path,
-           destination_path: destination_path,
-           fingerprint: Fingerprint.from_stat(stat)
-         }}
+          {:ok,
+           %Artifact{
+             id: opaque_id(),
+             kind: kind,
+             source_path: path,
+             destination_path: destination_path,
+             fingerprint: Fingerprint.from_stat(stat)
+           }}
+        end
 
       {:ok, _non_regular} ->
         {:ok, nil}
@@ -1488,6 +1538,9 @@ defmodule Ytdarr.Media.VideoImport do
               :missing_upload_date,
               :source_unavailable,
               :source_changed,
+              :outside_import_roots,
+              :source_is_managed,
+              :no_import_roots,
               :destination_changed,
               :destination_exists,
               :invalid_sidecar_selection,

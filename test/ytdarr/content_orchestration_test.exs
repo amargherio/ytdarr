@@ -10,10 +10,11 @@ defmodule Ytdarr.ContentOrchestrationTest do
     channel = channel_fixture()
     video = video_fixture(%{channel_id: channel.id})
 
-    assert {:ok, _job} = Content.queue_video_download(video.id, channel.id)
+    assert {:ok, job} = Content.queue_video_download(video.id, channel.id)
 
     assert {:ok, updated_video} = Content.get_video(video.id)
     assert updated_video.download_state == :queued
+    assert updated_video.download_job_id == job.id
 
     assert_enqueued(
       worker: Ytdarr.ObanWorkers.VideoDownloader,
@@ -41,6 +42,15 @@ defmodule Ytdarr.ContentOrchestrationTest do
 
     assert {:ok, unchanged_video} = Content.get_video(video.id)
     assert unchanged_video.download_state == :available
+    assert [] == all_enqueued(worker: Ytdarr.ObanWorkers.VideoDownloader)
+  end
+
+  test "queue_video_download/2 rejects undated videos without changing state or enqueueing" do
+    channel = channel_fixture()
+    video = video_fixture(%{channel_id: channel.id, upload_date: nil})
+
+    assert {:error, :missing_upload_date} = Content.queue_video_download(video.id, channel.id)
+    assert {:ok, %{download_state: :available}} = Content.get_video(video.id)
     assert [] == all_enqueued(worker: Ytdarr.ObanWorkers.VideoDownloader)
   end
 

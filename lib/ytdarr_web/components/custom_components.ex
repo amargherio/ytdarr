@@ -5,9 +5,10 @@ defmodule YtdarrWeb.CustomComponents do
   import YtdarrWeb.CoreComponents, only: [icon: 1]
   alias YtdarrWeb.ChannelLive.ImportModal
 
-  @doc "Returns true when a video has a known upload date."
+  @doc "Returns true when a video has a valid upload date."
   @spec dated?(map()) :: boolean()
-  def dated?(%{upload_date: upload_date}), do: not is_nil(upload_date)
+  def dated?(%{upload_date: %Date{}}), do: true
+  def dated?(_video), do: false
 
   @doc "Returns the persisted import recovery entries for a video, defaulting to none."
   @spec recovery_entries(map()) :: [map()]
@@ -37,9 +38,10 @@ defmodule YtdarrWeb.CustomComponents do
   @spec import_unavailable?(map()) :: boolean()
   def import_unavailable?(video), do: not dated?(video) and import_state_ready?(video)
 
-  @doc "Returns true when Download should be offered for a video."
+  @doc "Returns true when Download should be offered for a dated video."
   @spec download_eligible?(map()) :: boolean()
-  def download_eligible?(video), do: not video.is_blocklisted and import_state_ready?(video)
+  def download_eligible?(video),
+    do: dated?(video) and not video.is_blocklisted and import_state_ready?(video)
 
   @doc "Returns true when a Retry source recovery/cleanup control should be offered."
   @spec retry_recovery_eligible?(map()) :: boolean()

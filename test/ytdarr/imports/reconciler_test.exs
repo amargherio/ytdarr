@@ -7,6 +7,8 @@ defmodule Ytdarr.Imports.ReconcilerTest do
   alias Ytdarr.Imports.Reconciler
   alias __MODULE__.{ReconcilerImports, ReconcilerVideoImport}
 
+  @empty_recovery %{"mode" => nil, "entries" => []}
+
   test "recovers every stale executing importer before cancelling its job row" do
     {video, job} = importing_job("executing")
 
@@ -18,6 +20,7 @@ defmodule Ytdarr.Imports.ReconcilerTest do
 
     assert {:ok, failed} = Content.get_video(video.id)
     assert failed.download_state == :import_failed
+    assert failed.import_recovery == @empty_recovery
     assert Repo.get!(Oban.Job, job.id).state == "cancelled"
   end
 

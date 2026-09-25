@@ -20,6 +20,23 @@ if System.get_env("PHX_SERVER") do
   config :ytdarr, YtdarrWeb.Endpoint, server: true
 end
 
+import_roots =
+  System.get_env("YTDARR_IMPORT_ROOTS", "")
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.trim/1)
+  |> Enum.reject(&(&1 == ""))
+  |> Enum.map(fn path ->
+    if String.starts_with?(path, "/") do
+      Path.expand(path)
+    else
+      raise ArgumentError,
+            "YTDARR_IMPORT_ROOTS entries must be absolute paths; received #{inspect(path)}"
+    end
+  end)
+  |> Enum.uniq()
+
+config :ytdarr, :import_roots, import_roots
+
 if config_env() == :prod do
   database_path =
     System.get_env("DATABASE_PATH") ||

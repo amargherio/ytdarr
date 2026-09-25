@@ -87,6 +87,7 @@ defmodule Ytdarr.Content.Video do
     update :begin_download do
       accept []
 
+      validate present(:upload_date), message: "requires an upload date"
       validate data_one_of(:download_state, [:available, :missing, :import_failed])
 
       validate attribute_equals(:import_recovery, %{"mode" => nil, "entries" => []}),
@@ -99,9 +100,21 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:file_size, nil)
       change set_attribute(:download_quality, nil)
       change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
       change set_attribute(:import_job_id, nil)
       change set_attribute(:import_manifest, nil)
       change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
+    end
+
+    update :set_download_job do
+      accept [:download_job_id]
+
+      validate present(:download_job_id)
+      validate compare(:download_job_id, greater_than: 0)
+      validate data_one_of(:download_state, [:queued])
+
+      validate data_one_of(:download_job_id, [nil]),
+        message: "must not already have a download job"
     end
 
     update :start_download do
@@ -122,6 +135,7 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:download_state, :downloaded)
       change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
       change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
       change set_attribute(:import_job_id, nil)
       change set_attribute(:import_manifest, nil)
       change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
@@ -139,6 +153,7 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:file_size, nil)
       change set_attribute(:download_quality, nil)
       change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
       change set_attribute(:import_job_id, nil)
       change set_attribute(:import_manifest, nil)
       change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
@@ -156,6 +171,7 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:file_size, nil)
       change set_attribute(:download_quality, nil)
       change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
       change set_attribute(:import_job_id, nil)
       change set_attribute(:import_manifest, nil)
       change set_attribute(:import_recovery, %{"mode" => nil, "entries" => []})
@@ -179,6 +195,7 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:file_size, nil)
       change set_attribute(:download_quality, nil)
       change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
     end
 
     update :mark_imported do
@@ -191,6 +208,7 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:download_state, :downloaded)
       change set_attribute(:downloaded_at, &Ytdarr.Content.Video.Changes.utc_now_truncated/0)
       change set_attribute(:import_error, nil)
+      change set_attribute(:download_job_id, nil)
       change set_attribute(:import_job_id, nil)
       change set_attribute(:import_manifest, nil)
     end
@@ -207,6 +225,7 @@ defmodule Ytdarr.Content.Video do
       change set_attribute(:downloaded_at, nil)
       change set_attribute(:file_size, nil)
       change set_attribute(:download_quality, nil)
+      change set_attribute(:download_job_id, nil)
       change set_attribute(:import_job_id, nil)
       change set_attribute(:import_manifest, nil)
     end
@@ -305,6 +324,10 @@ defmodule Ytdarr.Content.Video do
       public? true
     end
 
+    attribute :download_job_id, :integer do
+      public? true
+    end
+
     attribute :import_error, :string do
       constraints max_length: 500
       public? true
@@ -364,5 +387,6 @@ defmodule Ytdarr.Content.Video do
 
   identities do
     identity :unique_external_id, [:external_id]
+    identity :unique_download_job_id, [:download_job_id]
   end
 end

@@ -1,9 +1,11 @@
 defmodule Ytdarr.Media.FileBrowser do
   @moduledoc """
-  Lists directories in the Ytdarr process filesystem without ever following
-  symbolic links. The browser deliberately has no configured root: callers
-  begin at `/` and retain the returned opaque entry ids in server state.
+  Lists directories beneath configured import roots without following symbolic
+  links. Callers retain opaque entry ids in server state, but every requested
+  directory is independently revalidated before it is listed.
   """
+
+  alias Ytdarr.Media.ImportRoots
 
   @video_extensions MapSet.new(
                       ~w(.mp4 .mkv .webm .mov .m4v .avi .mpg .mpeg .ts .m2ts .wmv .flv .ogv)
@@ -68,22 +70,26 @@ defmodule Ytdarr.Media.FileBrowser do
   def list(path, opts \\ [])
 
   def list(path, opts) when is_binary(path) and is_list(opts) do
-    path = Path.expand(path)
+    roots = Keyword.get(opts, :roots, ImportRoots.roots())
     query = normalize_query(Keyword.get(opts, :query, ""))
     show_hidden? = Keyword.get(opts, :show_hidden?, false) == true
     page = normalize_page(Keyword.get(opts, :page, 1))
+    absolute? = String.starts_with?(path, "/")
+    browse_path = Path.expand(path)
 
-    with :ok <- ensure_directory(path),
-         {:ok, entries} <- list_entries(path, show_hidden?),
+    with true <- absolute?,
+         :ok <- ImportRoots.validate_path(browse_path, :directory, roots),
+         {:ok, root} <- root_for(browse_path, roots),
+         {:ok, entries} <- list_entries(browse_path, show_hidden?),
          filtered_entries <- filter_entries(entries, query),
          total_entries <- length(filtered_entries),
          total_pages <- max(1, ceil_div(total_entries, @per_page)),
          :ok <- ensure_page_in_range(page, total_pages) do
       {:ok,
        %Page{
-         path: path,
-         parent_path: parent_path(path),
-         breadcrumbs: breadcrumbs(path),
+         path: browse_path,
+         parent_path: parent_path(browse_path, root),
+         breadcrumbs: breadcrumbs(browse_path, root),
          entries: page_entries(filtered_entries, page),
          page: page,
          per_page: @per_page,
@@ -92,6 +98,9 @@ defmodule Ytdarr.Media.FileBrowser do
          query: query,
          show_hidden?: show_hidden?
        }}
+    else
+      false -> {:error, :outside_import_roots}
+      {:error, reason} -> {:error, directory_error(reason)}
     end
   end
 
@@ -110,12 +119,16 @@ defmodule Ytdarr.Media.FileBrowser do
   @spec video_extensions() :: MapSet.t(String.t())
   def video_extensions, do: @video_extensions
 
-  defp ensure_directory(path) do
-    case File.lstat(path) do
-      {:ok, %{type: :directory}} -> :ok
-      {:ok, _} -> {:error, :not_a_directory}
-      {:error, reason} -> {:error, directory_error(reason)}
+  defp root_for(path, roots) do
+    case Enum.find(roots, &within?(&1, path)) do
+      nil -> {:error, :outside_import_roots}
+      root -> {:ok, Path.expand(root)}
     end
+  end
+
+  defp within?(root, path) do
+    root = Path.expand(root)
+    root == "/" or path == root or String.starts_with?(path, root <> "/")
   end
 
   defp list_entries(path, show_hidden?) do
@@ -185,22 +198,20 @@ defmodule Ytdarr.Media.FileBrowser do
     |> Enum.take(@per_page)
   end
 
-  defp breadcrumbs("/"), do: [%{label: "/", path: "/"}]
-
-  defp breadcrumbs(path) do
-    relative_path = Path.relative_to(path, "/")
-
-    relative_path
+  defp breadcrumbs(path, root) do
+    path
+    |> Path.relative_to(root)
     |> Path.split()
-    |> Enum.reduce({"/", [%{label: "/", path: "/"}]}, fn segment, {parent, crumbs} ->
+    |> Enum.reject(&(&1 == "."))
+    |> Enum.reduce({root, [%{label: root, path: root}]}, fn segment, {parent, crumbs} ->
       next_path = Path.join(parent, segment)
       {next_path, crumbs ++ [%{label: segment, path: next_path}]}
     end)
     |> elem(1)
   end
 
-  defp parent_path("/"), do: nil
-  defp parent_path(path), do: Path.dirname(path)
+  defp parent_path(path, root) when path == root, do: nil
+  defp parent_path(path, _root), do: Path.dirname(path)
 
   defp normalize_query(query) when is_binary(query), do: query
   defp normalize_query(_query), do: ""

@@ -7,6 +7,12 @@ defmodule Ytdarr.Imports.SafeMessage do
   def for(reason) do
     message =
       cond do
+        contains?(reason, :no_import_roots) ->
+          "No import folders are configured. Set YTDARR_IMPORT_ROOTS and restart Ytdarr."
+
+        contains?(reason, :outside_import_roots) ->
+          "The selected file is outside the configured import folders."
+
         contains?(reason, :ffprobe_unavailable) ->
           "ffprobe is unavailable. Install ffmpeg and restart Ytdarr."
 
@@ -19,6 +25,9 @@ defmodule Ytdarr.Imports.SafeMessage do
         contains?(reason, :source_missing) or contains?(reason, :source_unavailable) or
             contains?(reason, :enoent) ->
           "The selected file is no longer available."
+
+        contains?(reason, :source_is_managed) ->
+          "This file or its companions belong to another downloaded video. Choose an import-only copy."
 
         contains?(reason, :source_changed) ->
           "The selected file changed. Select it again."

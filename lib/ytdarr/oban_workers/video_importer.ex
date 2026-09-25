@@ -177,7 +177,7 @@ defmodule Ytdarr.ObanWorkers.VideoImporter do
 
   defp persist_failure_if_current(job, video, reason, recovery_entries, content, imports) do
     if importing_job?(video, job) do
-      recovery = %{"mode" => "restore", "entries" => recovery_entries}
+      recovery = recovery_map(recovery_entries)
 
       case content.mark_video_import_failed(video, %{
              import_error: SafeMessage.for(reason),
@@ -249,4 +249,7 @@ defmodule Ytdarr.ObanWorkers.VideoImporter do
 
   defp recovery_entries(%{"entries" => entries}) when is_list(entries), do: entries
   defp recovery_entries(_recovery), do: []
+
+  defp recovery_map([]), do: @empty_recovery
+  defp recovery_map(entries), do: %{"mode" => "restore", "entries" => entries}
 end
