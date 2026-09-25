@@ -42,6 +42,15 @@ npm-debug.log
 /website/test-results/
 /website/public/search.js
 
+# Astro documentation site: keep source and its lockfile, not generated output.
+/website/node_modules/
+/website/.astro/
+/website/dist/
+/website/src/generated/
+/website/src/content/docs/docs/v[0-9]*/
+/website/public/search.js
+/website/test-results/
+
 # Database files
 *.db
 *.db-*
