@@ -8,7 +8,7 @@ on:
 
 env:
   MIX_ENV: test
-  ELIXIR_VERSION: "1.19.5"
+  ELIXIR_VERSION: "1.20.4"
   OTP_VERSION: "29.0"
 
 permissions:
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   compile:
     name: Compile & Lint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -59,7 +59,7 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: compile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -99,7 +99,7 @@ jobs:
 
   dialyzer:
     name: Dialyzer
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: compile
     env:
       MIX_ENV: dev
@@ -146,7 +146,7 @@ jobs:
 
   assets:
     name: Assets
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: compile
     env:
       MIX_ENV: prod
@@ -173,14 +173,14 @@ jobs:
         run: mix deps.get --only prod
 
       - name: Compile
-        run: mix compile
+        run: mix compile --force
 
       - name: Build assets
         run: mix assets.deploy
 
   release:
     name: OTP Release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [compile, test, assets]
     env:
       MIX_ENV: prod
@@ -204,6 +204,7 @@ jobs:
       - name: Build release
         run: |
           mix deps.get --only prod
+          mix compile --force
           mix assets.deploy
           mix release --overwrite
           version="$(cat VERSION)"
@@ -213,7 +214,7 @@ jobs:
 
   container:
     name: Container Smoke Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [compile, test, assets]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
