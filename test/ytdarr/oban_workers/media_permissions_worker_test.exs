@@ -72,6 +72,75 @@ defmodule Ytdarr.ObanWorkers.MediaPermissionsWorkerTest do
     assert Bitwise.band(File.stat!(nested).mode, 0o7777) == 0o750
   end
 
+  test "persists invalid captured policy failures with their cancellation message" do
+    assert {:ok, job} =
+             %{"owner_group" => "test-media"}
+             |> MediaPermissionsWorker.new(meta: %{"trigger" => "test"})
+             |> Oban.insert()
+
+    assert {:cancel, ":invalid_policy_snapshot"} = MediaPermissionsWorker.perform(job)
+
+    updated_job = Repo.get!(Oban.Job, job.id)
+    assert updated_job.meta["trigger"] == "test"
+    assert updated_job.meta["status"] == "failed"
+    assert updated_job.meta["policy"] == job.args
+    assert updated_job.meta["files"] == 0
+    assert updated_job.meta["directories"] == 0
+    assert updated_job.meta["skipped"] == 0
+    assert updated_job.meta["failed"] == 1
+
+    assert updated_job.meta["errors"] == [
+             %{
+               "operation" => "validate_policy",
+               "reason" => ":invalid_policy_snapshot"
+             }
+           ]
+  end
+
+  test "records a missing configured root while normalizing remaining roots", %{
+    root: root,
+    nested: nested,
+    policy: policy
+  } do
+    missing_root = root <> "-missing"
+    File.mkdir_p!(missing_root)
+
+    assert {:ok, _root_folder} =
+             Settings.create_media_root_folder(%{path: root, active: true, purpose: "videos"})
+
+    assert {:ok, _missing_root_folder} =
+             Settings.create_media_root_folder(%{
+               path: missing_root,
+               active: false,
+               purpose: "music"
+             })
+
+    File.rm_rf!(missing_root)
+
+    assert {:ok, job} =
+             policy
+             |> MediaPermissions.policy_args()
+             |> MediaPermissionsWorker.new()
+             |> Oban.insert()
+
+    assert :ok = MediaPermissionsWorker.perform(job)
+
+    updated_job = Repo.get!(Oban.Job, job.id)
+    assert updated_job.meta["status"] == "completed_with_errors"
+    assert updated_job.meta["files"] == 1
+    assert updated_job.meta["directories"] == 2
+    assert updated_job.meta["skipped"] == 0
+    assert updated_job.meta["failed"] == 1
+
+    assert [error] = updated_job.meta["errors"]
+    assert error["path"] == Path.expand(missing_root)
+    assert error["operation"] == "normalize_root"
+    assert error["reason"] =~ ":enoent"
+
+    assert Bitwise.band(File.stat!(Path.join(nested, "video.mp4")).mode, 0o7777) == 0o640
+    assert Bitwise.band(File.stat!(root).mode, 0o7777) == 0o750
+  end
+
   test "deduplicates nested configured roots", %{root: root, nested: nested} do
     assert {:ok, _root_folder} =
              Settings.create_media_root_folder(%{path: root, active: true, purpose: "videos"})

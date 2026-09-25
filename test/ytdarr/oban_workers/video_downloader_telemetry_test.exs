@@ -13,11 +13,27 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetryTest do
              VideoDownloaderTelemetry.handle_event(
                [:oban, :job, :exception],
                %{},
-               %{job: job, state: :failure, reason: :download_failed},
+               %{job: job, state: :discard, reason: :download_failed},
                %{}
              )
 
     assert_available(video.id)
+  end
+
+  test "keeps a downloading video linked while Oban will retry the job" do
+    {video, job} = downloading_video()
+
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :job, :exception],
+               %{},
+               %{job: %{job | attempt: 1, max_attempts: 2}, state: :failure},
+               %{}
+             )
+
+    assert {:ok, retriable_video} = Content.get_video(video.id)
+    assert retriable_video.download_state == :downloading
+    assert retriable_video.download_job_id == job.id
   end
 
   test "resets a queued video when a downloader job is cancelled before execution" do
@@ -70,6 +86,37 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetryTest do
 
     assert_available(cancelled_video.id)
     assert_available(deleted_video.id)
+  end
+
+  test "bulk cancellation resets an owned job supplied as a full Oban struct" do
+    {video, job} = queued_video()
+
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :engine, :cancel_all_jobs, :stop],
+               %{},
+               %{jobs: [%{job | state: "available"}]},
+               %{}
+             )
+
+    assert_available(video.id)
+  end
+
+  test "a job event with another video's id cannot reset its actual owner" do
+    {video, job} = queued_video()
+    other_video = video_fixture()
+
+    assert :ok =
+             VideoDownloaderTelemetry.handle_event(
+               [:oban, :job, :stop],
+               %{},
+               %{job: %{job | args: %{"video_id" => other_video.id}}, state: :cancelled},
+               %{}
+             )
+
+    assert {:ok, queued} = Content.get_video(video.id)
+    assert queued.download_state == :queued
+    assert queued.download_job_id == job.id
   end
 
   test "does not downgrade a completed download or newer job from stale telemetry" do

@@ -1192,8 +1192,33 @@ defmodule Ytdarr.Media.VideoImport do
   end
 
   defp ensure_unmanaged_source(path) do
-    stem_prefix = Path.rootname(path) <> "."
+    directory = Path.dirname(path)
 
+    path
+    |> Path.basename()
+    |> Path.rootname()
+    |> stem_prefixes()
+    |> Enum.reduce_while(:ok, fn stem, :ok ->
+      case source_is_managed?(Path.join(directory, stem) <> ".") do
+        :ok -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp stem_prefixes(stem) do
+    {prefixes, _prefix} =
+      stem
+      |> String.split(".", trim: false)
+      |> Enum.reduce({[], ""}, fn component, {prefixes, prefix} ->
+        prefix = if prefix == "", do: component, else: prefix <> "." <> component
+        {[prefix | prefixes], prefix}
+      end)
+
+    Enum.reject(prefixes, &(&1 == ""))
+  end
+
+  defp source_is_managed?(stem_prefix) do
     Ytdarr.Content.Video
     |> Ash.Query.filter(string_starts_with(download_path, ^stem_prefix))
     |> Ash.exists(domain: Ytdarr.Content)

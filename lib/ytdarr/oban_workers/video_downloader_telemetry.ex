@@ -8,7 +8,12 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTelemetry do
   @terminal_states [:cancelled, :discard, :discarded]
   @engine_operations [:cancel_job, :cancel_all_jobs, :delete_job, :delete_all_jobs]
 
-  def handle_event([:oban, :job, :exception], _measurements, %{job: %Oban.Job{} = job}, _config) do
+  def handle_event(
+        [:oban, :job, :exception],
+        _measurements,
+        %{job: %Oban.Job{} = job, state: :discard},
+        _config
+      ) do
     reset_video_state(job)
   end
 

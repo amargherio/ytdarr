@@ -22,13 +22,31 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"video_id" => video_id, "channel_id" => channel_id}} = job) do
-    with {:ok, video} <- Content.get_video(video_id),
+    with {:ok, video} <- video_owned_by_job(video_id, job.id),
          {:ok, channel} <- Content.get_channel(channel_id),
          {:ok, destination} <- VideoArtifacts.build_destination(channel, video, ".mp4") do
       start_and_download(job, video_id, channel, video, destination)
     else
       {:error, reason} -> cancel_download(reason)
     end
+  end
+
+  defp video_owned_by_job(video_id, job_id) do
+    case Content.get_video_by_download_job_id(job_id) do
+      {:ok, %{id: ^video_id} = video} -> {:ok, video}
+      {:ok, _video} -> {:error, :download_job_video_mismatch}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp start_and_download(
+         job,
+         video_id,
+         channel,
+         %{download_state: :downloading} = video,
+         destination
+       ) do
+    prepare_and_download(job, video_id, channel, video, destination)
   end
 
   defp start_and_download(job, video_id, channel, video, destination) do

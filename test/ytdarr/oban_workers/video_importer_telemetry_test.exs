@@ -5,7 +5,15 @@ defmodule Ytdarr.ObanWorkers.VideoImporterTelemetryTest do
 
   alias Ytdarr.Content
   alias Ytdarr.ObanWorkers.VideoImporterTelemetry
-  alias __MODULE__.{TelemetryImports, TelemetryVideoImport}
+
+  alias __MODULE__.{
+    BulkRecoveryUnavailableContent,
+    MissingImportContent,
+    MissingTelemetryVideoContent,
+    RecoveryUnavailableContent,
+    TelemetryImports,
+    TelemetryVideoImport
+  }
 
   test "recovers a still-importing video from real job exception metadata" do
     {video, job} = importing_video("exception")
@@ -114,6 +122,93 @@ defmodule Ytdarr.ObanWorkers.VideoImporterTelemetryTest do
     assert fresh.download_state == :downloaded
   end
 
+  test "skips malformed bulk cancellation entries while recovering valid imports" do
+    {video, job} = importing_video("bulk-with-malformed")
+
+    assert :ok =
+             VideoImporterTelemetry.handle_event(
+               [:oban, :engine, :delete_all_jobs, :stop],
+               %{},
+               %{
+                 jobs: [%{id: job.id, state: "available"}, %{id: "bad", state: "available"}, %{}]
+               },
+               telemetry_config()
+             )
+
+    video_id = video.id
+    assert_receive {:telemetry_import_event, {:video_import_failed, _, ^video_id, _}}
+    assert {:ok, failed} = Content.get_video(video.id)
+    assert failed.download_state == :import_failed
+  end
+
+  test "ignores missing and unavailable imports during a bulk cancellation" do
+    missing_job_id = System.unique_integer([:positive])
+    unavailable_job_id = System.unique_integer([:positive])
+    Process.put(:unavailable_import_job_id, unavailable_job_id)
+
+    on_exit(fn -> Process.delete(:unavailable_import_job_id) end)
+
+    assert :ok =
+             VideoImporterTelemetry.handle_event(
+               [:oban, :engine, :delete_all_jobs, :stop],
+               %{},
+               %{
+                 jobs: [
+                   %{id: missing_job_id, state: "available"},
+                   %{id: unavailable_job_id, state: "available"}
+                 ]
+               },
+               %{
+                 content: BulkRecoveryUnavailableContent,
+                 imports: TelemetryImports,
+                 video_import: TelemetryVideoImport
+               }
+             )
+
+    refute_receive {:telemetry_import_event, _}
+  end
+
+  test "warns about an unfinished cleanup when terminal recovery cannot access the import" do
+    {video, job} = importing_video("recovery-unavailable")
+    imported = mark_imported(video, job.id)
+
+    assert :ok =
+             VideoImporterTelemetry.handle_event(
+               [:oban, :job, :stop],
+               %{},
+               %{job: job, state: :cancelled},
+               %{
+                 content: RecoveryUnavailableContent,
+                 imports: TelemetryImports,
+                 video_import: TelemetryVideoImport
+               }
+             )
+
+    channel_id = imported.channel_id
+    video_id = imported.id
+
+    assert_receive {:telemetry_import_event,
+                    {:video_import_cleanup_warning, ^channel_id, ^video_id}}
+  end
+
+  test "does not broadcast for a terminal job whose video was already removed" do
+    job = %Oban.Job{
+      id: System.unique_integer([:positive]),
+      worker: "Ytdarr.ObanWorkers.VideoImporter",
+      args: %{"video_id" => System.unique_integer([:positive])}
+    }
+
+    assert :ok =
+             VideoImporterTelemetry.handle_event(
+               [:oban, :job, :stop],
+               %{},
+               %{job: job, state: :cancelled},
+               %{content: MissingTelemetryVideoContent, imports: TelemetryImports}
+             )
+
+    refute_receive {:telemetry_import_event, _}
+  end
+
   defp importing_video(label) do
     channel = channel_fixture()
     video = video_fixture(%{channel_id: channel.id})
@@ -155,6 +250,30 @@ defmodule Ytdarr.ObanWorkers.VideoImporterTelemetryTest do
       send(self(), {:telemetry_import_event, event})
       :ok
     end
+  end
+
+  defmodule BulkRecoveryUnavailableContent do
+    def get_importing_video_by_job_id(job_id) do
+      if Process.get(:unavailable_import_job_id) == job_id do
+        {:error, :database_unavailable}
+      else
+        {:error, :not_found}
+      end
+    end
+  end
+
+  defmodule RecoveryUnavailableContent do
+    def get_importing_video_by_job_id(_job_id), do: {:error, :database_unavailable}
+    def get_video(video_id), do: Content.get_video(video_id)
+  end
+
+  defmodule MissingTelemetryVideoContent do
+    def get_importing_video_by_job_id(_job_id), do: {:error, :not_found}
+    def get_video(_video_id), do: {:error, :not_found}
+  end
+
+  defmodule MissingImportContent do
+    def get_importing_video_by_job_id(_job_id), do: {:error, :not_found}
   end
 
   defmodule TelemetryVideoImport do

@@ -37,6 +37,8 @@ defmodule Ytdarr.Content.Video do
         :is_blocklisted
       ]
 
+      validate one_of(:download_state, [:available, :missing, :downloaded])
+
       argument :channel_id, :integer do
         allow_nil? false
       end

@@ -5,7 +5,7 @@ defmodule Ytdarr.Imports.ReconcilerTest do
 
   alias Ytdarr.{Content, Repo}
   alias Ytdarr.Imports.Reconciler
-  alias __MODULE__.{ReconcilerImports, ReconcilerVideoImport}
+  alias __MODULE__.{ReconcilerFailingContent, ReconcilerImports, ReconcilerVideoImport}
 
   @empty_recovery %{"mode" => nil, "entries" => []}
 
@@ -33,6 +33,35 @@ defmodule Ytdarr.Imports.ReconcilerTest do
     assert {:ok, importing} = Content.get_video(video.id)
     assert importing.download_state == :importing
     assert Repo.get!(Oban.Job, job.id).state == "available"
+  end
+
+  test "leaves a suspended importer for Oban to resume" do
+    {video, job} = importing_job("suspended")
+
+    assert :ok = Reconciler.reconcile(reconciler_opts())
+    refute_receive {:reconciler_import_event, _}
+
+    assert {:ok, importing} = Content.get_video(video.id)
+    assert importing.download_state == :importing
+    assert Repo.get!(Oban.Job, job.id).state == "suspended"
+  end
+
+  test "is a temporary child that exits normally after startup reconciliation" do
+    assert %{restart: :temporary} = Reconciler.child_spec([])
+
+    assert {:ok, pid} =
+             Reconciler.start_link(Keyword.merge(reconciler_opts(), name: nil))
+
+    ref = Process.monitor(pid)
+    assert_receive {:DOWN, ^ref, :process, ^pid, :noproc}
+  end
+
+  test "fails startup when reconciliation fails" do
+    previous_trap_exit = Process.flag(:trap_exit, true)
+    on_exit(fn -> Process.flag(:trap_exit, previous_trap_exit) end)
+
+    assert {:error, :unavailable} =
+             Reconciler.start_link(repo: Repo, content: ReconcilerFailingContent, name: nil)
   end
 
   test "recovers an importing video whose job disappeared" do
@@ -121,5 +150,9 @@ defmodule Ytdarr.Imports.ReconcilerTest do
     end
 
     def recover(_job_id, _manifest, :importing), do: {:ok, []}
+  end
+
+  defmodule ReconcilerFailingContent do
+    def list_importing_videos, do: {:error, :unavailable}
   end
 end

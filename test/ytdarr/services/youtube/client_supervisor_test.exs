@@ -48,6 +48,26 @@ defmodule Ytdarr.Services.YouTube.ClientSupervisorTest do
     end
   end
 
+  test "a missing API key produces a client without credentials" do
+    original_env = System.get_env("YTDARR_YOUTUBE_API_KEY")
+    System.delete_env("YTDARR_YOUTUBE_API_KEY")
+
+    on_exit(fn ->
+      case original_env do
+        nil -> System.delete_env("YTDARR_YOUTUBE_API_KEY")
+        value -> System.put_env("YTDARR_YOUTUBE_API_KEY", value)
+      end
+    end)
+
+    case Settings.get_app_setting_by_key("youtube.primary_api_key") do
+      {:ok, setting} -> Settings.destroy_app_setting(setting)
+      {:error, _} -> :ok
+    end
+
+    client = ClientSupervisor.get_client()
+    assert client.options[:params][:key] == ""
+  end
+
   describe "refresh_client/0" do
     test "returns :ok and continues to yield Req clients afterward" do
       assert :ok = ClientSupervisor.refresh_client()

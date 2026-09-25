@@ -167,7 +167,9 @@ defmodule Ytdarr.Media.VideoImportTest do
              VideoImport.inspect_source(
                context.channel,
                video,
-               Path.join(linked_directory, Path.basename(source)), probe: Probe)
+               Path.join(linked_directory, Path.basename(source)),
+               probe: Probe
+             )
   end
 
   test "skips symlinked optional companions without blocking a valid source", context do
@@ -222,6 +224,41 @@ defmodule Ytdarr.Media.VideoImportTest do
              VideoImport.inspect_source(context.channel, other_target, other_source, probe: Probe)
 
     assert File.read!(Path.rootname(other_source) <> ".nfo") == "managed metadata"
+  end
+
+  test "rejects managed nested stems in either direction without matching siblings", context do
+    for {managed_stem, candidate_stem} <- [
+          {"nested-parent", "nested-parent.en"},
+          {"nested-child.en", "nested-child"}
+        ] do
+      {target, source} = create_source_video(context, candidate_stem)
+      managed_path = Path.join(context.source_root, managed_stem <> ".mp4")
+      File.write!(managed_path, "managed video")
+
+      video_fixture(%{
+        channel_id: context.channel.id,
+        download_path: managed_path,
+        is_downloaded: true,
+        download_state: :downloaded
+      })
+
+      assert {:error, :source_is_managed} =
+               VideoImport.inspect_source(context.channel, target, source, probe: Probe)
+    end
+
+    {target, source} = create_source_video(context, "sibling")
+    managed_path = Path.join(context.source_root, "siblingish.mp4")
+    File.write!(managed_path, "managed sibling")
+
+    video_fixture(%{
+      channel_id: context.channel.id,
+      download_path: managed_path,
+      is_downloaded: true,
+      download_state: :downloaded
+    })
+
+    assert {:ok, _preview} =
+             VideoImport.inspect_source(context.channel, target, source, probe: Probe)
   end
 
   test "rejects a source replaced by a symlinked ancestor before staging", context do

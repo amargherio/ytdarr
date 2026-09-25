@@ -1,7 +1,7 @@
 defmodule Ytdarr.Imports.Reconciler do
   @moduledoc false
 
-  use GenServer
+  use GenServer, restart: :temporary
 
   import Ecto.Query, only: [from: 2]
 
@@ -11,7 +11,7 @@ defmodule Ytdarr.Imports.Reconciler do
   require Logger
 
   @worker "Ytdarr.ObanWorkers.VideoImporter"
-  @pending_states ["available", "scheduled", "retryable"]
+  @pending_states ["available", "scheduled", "retryable", "suspended"]
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
@@ -20,10 +20,17 @@ defmodule Ytdarr.Imports.Reconciler do
   @impl GenServer
   def init(opts) do
     case reconcile(opts) do
-      :ok -> {:ok, %{}}
-      {:error, reason} -> {:stop, reason}
+      :ok ->
+        send(self(), :stop)
+        {:ok, %{}}
+
+      {:error, reason} ->
+        {:stop, reason}
     end
   end
+
+  @impl GenServer
+  def handle_info(:stop, state), do: {:stop, :normal, state}
 
   @spec reconcile(keyword()) :: :ok | {:error, term()}
   def reconcile(opts \\ []) do

@@ -36,7 +36,7 @@ docker compose -f deploy/compose.yaml build \
 docker compose -f deploy/compose.yaml up --no-build --pull never -d
 ```
 
-To enable existing-media imports with the stock Compose mount, create a dedicated `deploy/downloads/.incoming` directory writable by UID/GID `10001`, set `YTDARR_IMPORT_ROOTS=/downloads/.incoming` in `deploy/.env`, and restart. The setting accepts comma-separated absolute directories visible to Ytdarr; unset disables browsing. Do not set it to all of `/downloads`: that directory also contains managed videos. Imports reject paths matching a managed video's media or companions, but source files can be moved and deleted after success. For stronger separation, bind-mount a dedicated staging directory outside the managed media root and allow only its in-container path. Only trusted operators and local processes should have write access to these directories; pathname validation cannot protect against a concurrent symlink swap by another local writer.
+To enable existing-media imports with the stock Compose mount, create a dedicated `deploy/downloads/.incoming` directory writable by UID/GID `10001`, set `YTDARR_IMPORT_ROOTS=/downloads/.incoming` in `deploy/.env`, and restart. The setting accepts comma-separated absolute directories visible to Ytdarr; unset disables browsing. Do not set it to all of `/downloads`: that directory also contains managed videos. Imports reject managed media and same-stem companions (including names such as `foo.en.mkv` next to managed `foo.mkv`), but source files can be moved and deleted after success. For stronger separation, bind-mount a dedicated staging directory outside the managed media root and allow only its in-container path. Only trusted operators and local processes should have write access to these directories; pathname validation cannot protect against a concurrent symlink swap by another local writer.
 
 ## Documentation
 
@@ -57,5 +57,7 @@ mix phx.server
 mix test
 mix precommit
 ```
+
+CI also enforces the global and per-path Coveralls minimums. Run `mix coveralls.json && mix coveralls.path_check` to reproduce those coverage checks locally; `mix precommit` runs tests without coverage.
 
 Run the static-site toolchain separately from `website/`; see the [website authoring guide](https://amargherio.github.io/ytdarr/docs/unreleased/development/website/).

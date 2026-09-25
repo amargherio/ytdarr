@@ -21,6 +21,14 @@ defmodule Ytdarr.Content.VideoTest do
       assert video.import_recovery == @empty_recovery
     end
 
+    test "rejects importing state, which must be entered through the import lifecycle" do
+      channel = channel_fixture()
+      attrs = video_attrs(%{download_state: :importing})
+
+      assert {:error, _} = Content.create_video(channel.id, attrs)
+      assert {:error, _} = Content.get_video_by_external_id(attrs.external_id)
+    end
+
     test "fails when required attributes or channel_id are nil" do
       channel = channel_fixture()
       attrs = video_attrs()
