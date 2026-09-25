@@ -1,0 +1,10 @@
+---
+import { Icon } from '@astrojs/starlight/components';
+import { withBase } from '../lib/urls';
+---
+<script is:inline src={withBase('/theme.js')}></script>
+<template id="theme-icons">
+  <Icon name="sun" class="light" />
+  <Icon name="moon" class="dark" />
+  <Icon name="laptop" class="auto" />
+</template>

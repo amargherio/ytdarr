@@ -1,0 +1,25 @@
+---
+import { getCollection } from 'astro:content';
+import manifest from '../generated/docs-versions.json';
+import { docsHref } from '../lib/urls';
+
+const route = Astro.locals.starlightRoute;
+const match = /^docs\/(unreleased|v\d+\.\d+)(?:\/(.*))?$/.exec(route.id);
+const current = match?.[1] ?? manifest.defaultVersion;
+const topic = match?.[2] ?? '';
+const pages = new Set((await getCollection('docs')).map(({ id }) => id));
+---
+<div class="version-picker">
+  <details>
+    <summary>Documentation version: {manifest.versions.find(({ id }) => id === current)?.label ?? 'Unreleased'}</summary>
+    <ul>
+      {manifest.versions.map((version) => {
+        const exists = !topic || pages.has(`docs/${version.id}/${topic}`);
+        return <li><a href={docsHref(version.id, exists ? topic : '')} aria-current={version.id === current ? 'page' : undefined}>
+          {version.label}{!exists && <span> overview; this page is unavailable</span>}
+        </a></li>;
+      })}
+    </ul>
+  </details>
+  {manifest.versions.length === 1 && <p>No stable releases published yet.</p>}
+</div>

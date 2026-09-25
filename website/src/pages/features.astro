@@ -1,0 +1,83 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import channelsImage from '../assets/channels.webp';
+import manifest from '../generated/docs-versions.json';
+import { docsHref } from '../lib/urls';
+---
+
+<StarlightPage frontmatter={{
+  title: 'Features',
+  description: 'Ytdarr channels, downloads, media organization, and operator controls.',
+  template: 'splash',
+  head: [
+    { tag: 'meta', attrs: { property: 'og:image', content: new URL(channelsImage.src, Astro.site).href } },
+    { tag: 'meta', attrs: { property: 'og:image:alt', content: 'Ytdarr channel management with two demo channels.' } },
+  ],
+}}>
+  <section class="feature-intro" aria-label="Feature overview">
+    <p class="marketing-lede">A focused control room for tracking YouTube channels and turning the videos you choose into organized media files.</p>
+    <p>Ytdarr keeps metadata work separate from download decisions, so a monitored channel does not quietly fill your library.</p>
+  </section>
+
+  <section class="feature-section" aria-labelledby="channels-title">
+    <div class="feature-marker" aria-hidden="true">01</div>
+    <div>
+      <p class="eyebrow">Discovery and monitoring</p>
+      <h2 id="channels-title">Find channels and keep their catalog in view</h2>
+      <p>Resolve a channel by search, handle, URL, or ID. Track its metadata over time, inspect playlists, and choose whether a channel is monitored. Full and incremental syncs update catalog information, not your download queue.</p>
+      <a href={docsHref(manifest.defaultVersion, 'guides/channels-and-playlists')}>Manage channels and playlists</a>
+    </div>
+    <aside class="feature-evidence"><strong>Available</strong><span>Channel and playlist metadata sync, direct-add controls, and monitoring state.</span></aside>
+  </section>
+
+  <section class="feature-section feature-section-reverse" aria-labelledby="queue-title">
+    <div class="feature-marker" aria-hidden="true">02</div>
+    <div>
+      <p class="eyebrow">Deliberate downloads</p>
+      <h2 id="queue-title">Queue the videos that belong in your library</h2>
+      <p>Use a visible queue to inspect available, queued, downloading, downloaded, missing, and import states. yt-dlp parameter sets are available for an operator to store and select, while the queue exposes progress, speed, and estimated time.</p>
+      <a href={docsHref(manifest.defaultVersion, 'guides/downloads-and-queue')}>Use the downloads and queue guide</a>
+    </div>
+    <aside class="feature-evidence"><strong>Available</strong><span>Manual video selection, worker progress, and Oban diagnostics.</span></aside>
+  </section>
+
+  <section class="feature-section" aria-labelledby="library-title">
+    <div class="feature-marker" aria-hidden="true">03</div>
+    <div>
+      <p class="eyebrow">Media organization</p>
+      <h2 id="library-title">Create a library your media server can recognize</h2>
+      <p>Ytdarr writes season and episode paths with generated NFO files, then lets you apply a saved permission policy to existing media. Choose a writable media root and configure your media server to scan the resulting TV-library structure.</p>
+      <a href={docsHref(manifest.defaultVersion, 'guides/media-library')}>Set up your media library</a>
+    </div>
+    <aside class="feature-evidence"><strong>Requires operator setup</strong><span>Media roots, group access, permissions, and media-server library scanning.</span></aside>
+  </section>
+
+  <section class="feature-section feature-section-reverse" aria-labelledby="operator-title">
+    <div class="feature-marker" aria-hidden="true">04</div>
+    <div>
+      <p class="eyebrow">Operator controls</p>
+      <h2 id="operator-title">Keep the service healthy on a trusted network</h2>
+      <p>Review health endpoints, queue diagnostics, storage, API quota, and background work. Ytdarr is meant for a trusted network or an externally authenticated proxy, with configuration and backups treated as operator responsibilities.</p>
+      <a href={docsHref(manifest.defaultVersion, 'operations/security')}>Read the security guidance</a>
+    </div>
+    <aside class="feature-evidence"><strong>Requires operator setup</strong><span>Trusted-network access, TLS proxying, backups, and host-level permissions.</span></aside>
+  </section>
+
+  <section class="marketing-section limitations" aria-labelledby="limitations-title">
+    <div class="section-intro">
+      <p class="eyebrow">Current limitations</p>
+      <h2 id="limitations-title">Know which controls are active before relying on them</h2>
+    </div>
+    <div class="table-scroll" tabindex="0" aria-label="Current product limitations">
+      <table>
+        <thead><tr><th scope="col">Area</th><th scope="col">Current state</th><th scope="col">What this means</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Quality profiles, naming, moves, and orphan cleanup</th><td><strong>Stored only</strong></td><td>These values can be saved, but none changes current download, naming, move, or cleanup behavior.</td></tr>
+          <tr><th scope="row">Download selection</th><td><strong>Available</strong></td><td>Choose videos manually. Monitoring metadata does not automatically download new uploads.</td></tr>
+          <tr><th scope="row">Management access</th><td><strong>Requires operator setup</strong></td><td>Keep the service on a trusted network or behind externally managed authentication.</td></tr>
+          <tr><th scope="row">Content platform</th><td><strong>Available for YouTube</strong></td><td>Ytdarr currently implements YouTube, not a general multi-platform downloader.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</StarlightPage>

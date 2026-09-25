@@ -1,72 +1,58 @@
 # Ytdarr
 
-<!-- Badges: add CI / release / container / license badges here -->
-
-Ytdarr is a self-hosted YouTube channel monitor and video downloader that organizes content for Jellyfin, Plex, and Emby. It is built with Elixir, Phoenix LiveView, and the Ash Framework, uses SQLite for zero-dependency storage, and relies on `yt-dlp` for downloads.
+Ytdarr is a self-hosted YouTube channel monitor and video downloader that organizes selected downloads for Jellyfin, Plex, and Emby. It is built with Elixir, Phoenix LiveView, Ash, SQLite, and yt-dlp.
 
 ## Features
 
-- Monitor YouTube channels for new uploads
-- Run automatic background syncs on configurable intervals with `BatchSyncWorker` (default: 60 minutes)
-- Download videos through `yt-dlp` with configurable quality profiles and parameter sets
-- Organize media as `<channel>/Season YYYY/` with episode numbering and `.nfo` metadata files
-- Track playlists and keep playlist metadata in sync
-- Use the web UI for channel management, content search, settings, and monitoring
-- Use the built-in Oban dashboard at `/oban` to inspect jobs and queues
-- Run with SQLite only — no PostgreSQL, Redis, or other external services required beyond `yt-dlp`
+- Discover and monitor YouTube channels and playlist metadata
+- Synchronize metadata in background jobs
+- Manually queue chosen videos for yt-dlp downloads
+- Organize media into channel/year seasons with episode NFO files
+- Inspect application jobs through the built-in Oban dashboard
+- Run with SQLite rather than a separate database service
 
-## Prerequisites
+## Quick start
 
-- Elixir and Erlang versions from `.tool-versions` for source builds
-- `yt-dlp` installed and available on your `PATH`
-- `ffmpeg` installed and available on your `PATH`
-- A YouTube Data API v3 key from Google Cloud Console
+For a source checkout, install the Elixir/Erlang versions in `.tool-versions`, plus `yt-dlp` and `ffmpeg`, then run:
 
-The published container image includes `yt-dlp` and `ffmpeg`.
-
-## Quick Start
-
-```bash
+```sh
 git clone https://github.com/amargherio/ytdarr.git
 cd ytdarr
 mix setup
-YTDARR_YOUTUBE_API_KEY=your_key_here mix phx.server
+mix phx.server
 ```
 
-Then visit [http://localhost:4000](http://localhost:4000).
+Open `http://localhost:4000`. Configure a YouTube Data API v3 key and a writable media root in Settings before attempting discovery or sync. Keep the management interface on a trusted network or behind an externally authenticated proxy.
 
-For a production container, generate configuration and start Compose:
+For the Unreleased local container path:
 
-```bash
-just generate-env deploy/.env ytdarr.example.com container 4000
-docker compose -f deploy/compose.yaml up -d
+```sh
+just generate-env deploy/.env localhost container 4000
+mkdir -p deploy/downloads
+sudo chown 10001:10001 deploy/downloads
+docker compose -f deploy/compose.yaml build \
+  --build-arg BUILDER_IMAGE=docker.io/hexpm/elixir:1.20.4-erlang-29.1.1-debian-bookworm-20260918-slim
+docker compose -f deploy/compose.yaml up --no-build --pull never -d
 ```
 
 ## Documentation
 
-- [Installation Guide](docs/installation.md) — Dev setup, production deployment, filesystem structure
-- [Configuration Reference](docs/configuration.md) — All settings, quality profiles, yt-dlp params
-- [Deployment Guide](deploy/README.md) — Docker, Podman Quadlet, native systemd updates, and rollback
+The canonical documentation is at <https://amargherio.github.io/ytdarr/docs/>. The links below describe the current Unreleased source; for a tagged installation, select its matching release line on the site before following setup commands.
 
-## How It Works
-
-1. Add a YouTube channel via the web UI (search or direct URL)
-2. Enable monitoring on the channel
-3. Background sync checks for new uploads on the configured interval
-4. Queue videos for download — `yt-dlp` handles the fetch
-5. Videos are organized into season folders with episode numbers and `.nfo` metadata
-6. Point Jellyfin, Plex, or Emby at the configured media root folder
+- [Get started](https://amargherio.github.io/ytdarr/docs/unreleased/getting-started/)
+- [Installation](https://amargherio.github.io/ytdarr/docs/unreleased/installation/docker-compose/)
+- [Configuration reference](https://amargherio.github.io/ytdarr/docs/unreleased/reference/)
+- [Channels, downloads, and media guides](https://amargherio.github.io/ytdarr/docs/unreleased/guides/channels-and-playlists/)
+- [Security, backups, and troubleshooting](https://amargherio.github.io/ytdarr/docs/unreleased/operations/security/)
+- [Developer and website contribution](https://amargherio.github.io/ytdarr/docs/unreleased/development/)
 
 ## Development
 
-```bash
-mix setup              # install deps, create DB, build assets
-mix phx.server         # start dev server with live reload
-iex -S mix phx.server  # start with an IEx console
-mix test               # run the test suite
-mix precommit          # compile (warnings-as-errors), format, test
+```sh
+mix setup
+mix phx.server
+mix test
+mix precommit
 ```
 
-## License
-
-TODO: Add license
+Run the static-site toolchain separately from `website/`; see the [website authoring guide](https://amargherio.github.io/ytdarr/docs/unreleased/development/website/).

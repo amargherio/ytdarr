@@ -1,0 +1,92 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import channelsImage from '../assets/channels.webp';
+import manifest from '../generated/docs-versions.json';
+import { docsHref, withBase } from '../lib/urls';
+
+const defaultVersion = manifest.versions.find(({ id }) => id === manifest.defaultVersion) ?? manifest.versions[0];
+if (!defaultVersion) throw new Error('Documentation manifest has no versions.');
+const releaseHref = defaultVersion.tag ? `https://github.com/amargherio/ytdarr/releases/tag/${encodeURIComponent(defaultVersion.tag)}` : null;
+---
+
+<StarlightPage frontmatter={{
+  title: 'YouTube channels. Your media library.',
+  description: 'Monitor channels, choose the videos you want, and organize downloads for Jellyfin, Plex, and Emby.',
+  template: 'splash',
+  head: [
+    { tag: 'meta', attrs: { property: 'og:image', content: new URL(channelsImage.src, Astro.site).href } },
+    { tag: 'meta', attrs: { property: 'og:image:alt', content: 'Ytdarr channel management with two demo channels.' } },
+  ],
+}}>
+  <section class="marketing-hero" aria-label="Ytdarr overview">
+    <div class="marketing-hero-copy">
+      <p class="marketing-lede">Monitor channels, choose the videos you want, and organize downloads for Jellyfin, Plex, and Emby.</p>
+      <div class="marketing-actions">
+        <a class="button-primary" href={docsHref(manifest.defaultVersion, 'getting-started')}>Get started</a>
+        <a class="button-secondary" href={withBase('/features/')}>Explore features</a>
+      </div>
+      {defaultVersion.tag && releaseHref ? (
+        <p class="release-note">Documentation for <a href={releaseHref}>{defaultVersion.tag}</a>, the newest retained release line.</p>
+      ) : (
+        <p class="release-note"><strong>Unreleased development build.</strong> Follow the local-build instructions while no stable release is published.</p>
+      )}
+    </div>
+    <figure class="channel-capture">
+      <img
+        src={channelsImage.src}
+        width={channelsImage.width}
+        height={channelsImage.height}
+        alt="Ytdarr channel management showing the demo channels Workshop Notes and Field Journal in the channel list."
+        fetchpriority="high"
+      />
+      <figcaption>Ytdarr channel management, shown with demo content.</figcaption>
+    </figure>
+  </section>
+
+  <section class="marketing-section workflow" aria-labelledby="workflow-title">
+    <div class="section-intro">
+      <p class="eyebrow">A deliberate media pipeline</p>
+      <h2 id="workflow-title">From a channel to a library entry</h2>
+      <p>Ytdarr syncs channel and playlist metadata automatically. Downloads stay a deliberate choice, so your queue contains the videos you selected.</p>
+    </div>
+    <ol class="workflow-steps">
+      <li><strong>Add channels</strong><span>Choose the channels and playlists worth following.</span></li>
+      <li><strong>Sync metadata</strong><span>Refresh video and playlist details without downloading anything.</span></li>
+      <li><strong>Queue chosen videos</strong><span>Put only the videos you want into the download queue.</span></li>
+      <li><strong>Organize your library</strong><span>Write predictable media files for your media server to scan.</span></li>
+    </ol>
+  </section>
+
+  <section class="marketing-section deployment" aria-labelledby="deployment-title">
+    <div class="section-intro">
+      <p class="eyebrow">Run it your way</p>
+      <h2 id="deployment-title">Choose the setup that fits your host</h2>
+      <p>Start with a local build while Ytdarr is Unreleased. Each path keeps the application state and downloaded media under your control.</p>
+    </div>
+    <div class="deployment-options">
+      <article>
+        <h3>Build with Docker Compose</h3>
+        <p>Build the current source locally, then run the application and its persistent data directory with Compose.</p>
+        <a href={docsHref(manifest.defaultVersion, 'installation/docker-compose')}>Docker Compose instructions</a>
+      </article>
+      <article>
+        <h3>Podman</h3>
+        <p>Build locally and run on a host using Podman and a checked-in Quadlet starting point.</p>
+        <a href={docsHref(manifest.defaultVersion, 'installation/podman')}>Podman instructions</a>
+      </article>
+      <article>
+        <h3>Native/source setup</h3>
+        <p>Build a release and deploy it to a Linux host when containers are not the right fit.</p>
+        <a href={docsHref(manifest.defaultVersion, 'installation/native')}>Native setup instructions</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="marketing-section closing-call" aria-labelledby="next-title">
+    <div>
+      <p class="eyebrow">Keep the control room useful</p>
+      <h2 id="next-title">Set the paths, permissions, and recovery plan before the first download.</h2>
+    </div>
+    <p><a href={docsHref(manifest.defaultVersion, 'reference')}>Review configuration</a> and <a href={docsHref(manifest.defaultVersion, 'operations/troubleshooting')}>read troubleshooting guidance</a>.</p>
+  </section>
+</StarlightPage>

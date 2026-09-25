@@ -1,0 +1,21 @@
+---
+import PageTitle from '@astrojs/starlight/components/PageTitle.astro';
+import manifest from '../generated/docs-versions.json';
+import { docsHref } from '../lib/urls';
+const route = Astro.locals.starlightRoute;
+const match = /^docs\/(unreleased|v\d+\.\d+)(?:\/(.*))?$/.exec(route.id);
+const version = manifest.versions.find(({ id }) => id === match?.[1]);
+const topic = match?.[2] ?? '';
+const isIndex = !topic || route.entry.filePath?.endsWith('/index.md');
+const file = isIndex ? `${topic ? `${topic}/` : ''}index.md` : `${topic}.md`;
+const source = version ? `https://github.com/amargherio/ytdarr/${version.tag ? 'blob' : 'edit'}/${version.sourceRef}/website/src/content/docs/docs/unreleased/${file}` : '';
+---
+<PageTitle {...Astro.props} />
+{version && <aside class="doc-version-notice" aria-label="Documentation version">
+{version && <span hidden data-pagefind-filter={`version:${version.id}`}></span>}
+  <p>{version.tag ? `Documentation for ${version.label}.` : 'Unreleased documentation for the current main branch.'}
+    {version.id !== manifest.defaultVersion && <a href={docsHref(manifest.defaultVersion)}>See latest published docs</a>}
+  </p>
+  <p>{version.tag ? <a href={`https://github.com/amargherio/ytdarr/releases/tag/${version.tag}`}>Release artifacts</a> : <a href="https://github.com/amargherio/ytdarr">Source checkout</a>} · <a href={source}>{version.tag ? 'View tagged source' : 'Edit this page'}</a></p>
+  {(topic.startsWith('installation/') || topic === 'development') && <p><code>git checkout {version.tag ?? 'main'}</code></p>}
+</aside>}

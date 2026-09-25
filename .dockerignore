@@ -1,5 +1,6 @@
 /.git
 /.github
+/website
 /.elixir_ls
 /_build
 /cover

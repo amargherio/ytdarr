@@ -1,0 +1,8 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { withBase } from '../lib/urls';
+---
+<StarlightPage frontmatter={{ title: 'Page not found', description: 'Find your way back to the Ytdarr site.', template: 'splash' }}>
+  <p>This address is not in the current Ytdarr documentation. A page may exist in another version.</p>
+  <p><a href={withBase('/')}>Home</a> · <a href={withBase('/docs/')}>Documentation versions</a> · <a href={withBase('/search/')}>Search documentation</a></p>
+</StarlightPage>

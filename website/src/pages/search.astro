@@ -1,0 +1,23 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import manifest from '../generated/docs-versions.json';
+import { docsHref, withBase } from '../lib/urls';
+---
+<StarlightPage frontmatter={{ title: 'Search documentation', description: 'Search Ytdarr documentation by release line.', template: 'splash' }}>
+  <p>Choose the documentation version matching your installation. Results never mix versions.</p>
+  <form id="docs-search-form" action={withBase('/search/')} method="get" data-default-version={manifest.defaultVersion}>
+    <label for="search-query">Search terms</label>
+    <input id="search-query" name="q" type="search" autocomplete="off" />
+    <label for="search-version">Documentation version</label>
+    <select id="search-version" name="version">
+      {manifest.versions.map((version) => <option value={version.id}>{version.label}</option>)}
+    </select>
+    <button type="submit">Search</button>
+  </form>
+  <p id="search-status" role="status" aria-live="polite">Enter search terms to find documentation.</p>
+  <ol id="search-results" aria-label="Search results"></ol>
+  <button id="more-results" type="button" hidden>Show more results</button>
+  <p id="search-recovery" hidden>Search could not load. <a href={docsHref(manifest.defaultVersion)}>Browse the documentation instead.</a></p>
+  <noscript><p>Search requires JavaScript. <a href={withBase('/docs/')}>Browse all documentation versions</a>.</p></noscript>
+  <script type="module" src={withBase('/search.js')}></script>
+</StarlightPage>
