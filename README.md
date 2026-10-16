@@ -31,8 +31,7 @@ For the Unreleased local container path:
 just generate-env deploy/.env localhost container 4000
 mkdir -p deploy/downloads
 sudo chown 10001:10001 deploy/downloads
-docker compose -f deploy/compose.yaml build \
-  --build-arg BUILDER_IMAGE=docker.io/hexpm/elixir:1.20.4-erlang-29.1.1-debian-bookworm-20260918-slim
+docker compose -f deploy/compose.yaml build
 docker compose -f deploy/compose.yaml up --no-build --pull never -d
 ```
 

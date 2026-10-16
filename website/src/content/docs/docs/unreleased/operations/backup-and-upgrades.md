@@ -22,7 +22,7 @@ Use an immutable exact release tag when one exists; moving minor and `latest` ta
 
 ## Upgrade native releases
 
-`just deploy` builds an archive, verifies its checksum on the host, stops the service, makes a SQLite backup, migrates, updates the active symlink, starts, and waits for readiness. A migration or readiness failure automatically restores the preceding release and database. The default retention is three releases and three backups; `YTDARR_RELEASE_RETENTION` changes that retention.
+Build or download an archive for the target's exact OS/version and x86_64 architecture, then run `just deploy HOST USER ARCHIVE` with that existing archive and its adjacent `.sha256` file; deployment never builds implicitly. The checkout's `VERSION` must match the archive metadata. Before modifying the installation or stopping the service, activation verifies the archive checksum and rejects missing/invalid target metadata, version/OS/architecture mismatches, or an insufficient host glibc. It then stops the service, makes a SQLite backup, migrates, updates the active symlink, starts, and waits for readiness. A migration or readiness failure automatically restores the preceding release and database. The default retention is three releases and three backups; `YTDARR_RELEASE_RETENTION` changes that retention. See [native installation](../../installation/native/) for target IDs and artifact paths.
 
 To make an explicit rollback, run `just rollback server.example.com VERSION deployer` with a retained version. Native activation accepts prerelease suffixes, which does not make them stable publishing artifacts.
 

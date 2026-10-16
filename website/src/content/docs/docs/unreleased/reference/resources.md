@@ -67,21 +67,21 @@ A parameter-set record has these fields:
   <dt><code>is_default</code></dt><dd>Boolean, default <code>false</code>. Selecting a default clears other defaults. A default set cannot be deleted until another set is made default.</dd>
 </dl>
 
-At worker execution, the downloader reads the resource marked default—so its `format` and `extra_args` affect jobs that were already queued as well as later jobs. No default set means only the base arguments run. `extra_args` is split on whitespace, **not** shell quoting; do not put a quoted argument containing spaces there. Only default `format` and `extra_args` are applied. `rate_limit_kbps`, per-set `concurrency`, and `yt_dlp.default_param_set_name` do not configure the effective downloader.
+At worker execution, the downloader reads the resource marked default—so additions, edits, removals, and default-set changes affect jobs that were already queued as well as later jobs, without a restart. Running downloads keep their original arguments. No default set means no settings-controlled download options are passed. Only default `format` and `extra_args` are applied. `rate_limit_kbps`, per-set `concurrency`, and `yt_dlp.default_param_set_name` do not configure the effective downloader.
 
-Every download starts with these exact base arguments:
+There are no built-in download-option defaults. Configure embedding, subtitles, merge format, timestamps, and other yt-dlp preferences in the default parameter set. The worker still supplies its application-managed progress-reporting flags and output path.
+
+When the default set has a nonempty `format`, Ytdarr appends `-f <format>` as a single value. It then appends `extra_args`, preserving their order and repeated options. Separate arguments with spaces, tabs, or newlines; single quotes, double quotes, and backslash escapes preserve values containing whitespace. Arguments are passed directly to yt-dlp, not through a shell: environment variables, command substitutions, and wildcards are not expanded. Unmatched quotes fail the download with an `invalid_ytdlp_parameters` error rather than running partial arguments. Ytdarr adds its own progress and output arguments last. See [Queues and quota](../queues-and-quota/#worker-queues) for global worker capacity.
+
+For example, the **Extra arguments** field accepts:
 
 ```text
---embed-chapters
---embed-thumbnail
---embed-metadata
---embed-subs
---write-auto-subs
---merge-output-format mp4
---mtime
+--no-playlist
+--cookies "/run/secrets/youtube cookies.txt"
+--add-header 'X-Custom: value with spaces'
 ```
 
-When the default set has a nonempty `format`, Ytdarr appends `-f <format>`. When it has nonempty `extra_args`, Ytdarr appends each whitespace-separated token. It then adds its own progress and output arguments. See [Queues and quota](../queues-and-quota/#worker-queues) for global worker capacity.
+Remove an option from **Extra arguments** and save to stop passing it on subsequent executions. Clearing both **Format** and **Extra arguments** removes all settings-controlled download options; yt-dlp's own defaults then apply.
 
 ### Cookie files and advanced arguments
 
@@ -93,4 +93,4 @@ There is no dedicated cookie setting. If an operator must use yt-dlp cookie-file
 - **New files have the wrong group or mode:** check the saved policy, group membership, and a service restart after membership changes. Use **Apply to existing media** only after the policy validates.
 - **A profile has no effect:** this is expected; all profile preferences are stored only.
 - **A rate limit or per-set concurrency has no effect:** this is expected; use the code/deployment queue capacity described in [Queues and quota](../queues-and-quota/) rather than a stored parameter-set field.
-- **yt-dlp rejects custom arguments:** remove or simplify the whitespace-split `extra_args`, then inspect the worker/log output. Do not assume shell-style quote parsing.
+- **yt-dlp rejects custom arguments:** fix unmatched quotes or remove unsupported options from `extra_args`, save, and retry the download. Inspect the worker/log output for yt-dlp errors.

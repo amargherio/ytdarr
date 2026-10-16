@@ -60,12 +60,8 @@ for command_name in curl runuser sha256sum systemctl tar; do
   }
 done
 
-checksum_dir="$(dirname "$CHECKSUM")"
-checksum_name="$(basename "$CHECKSUM")"
-(
-  cd "$checksum_dir"
-  sha256sum --check "$checksum_name"
-)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+bash "$SCRIPT_DIR/validate-native.sh" "$ARCHIVE" "$CHECKSUM" "$VERSION"
 
 set -a
 # shellcheck disable=SC1090

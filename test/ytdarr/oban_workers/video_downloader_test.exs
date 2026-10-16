@@ -39,33 +39,32 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
   end
 
   describe "retrieve_ytdlp_parameters/0" do
-    test "returns the built-in defaults when no default param set exists" do
-      clear_default_param_sets()
-
-      params = VideoDownloader.retrieve_ytdlp_parameters()
-
-      assert "--embed-chapters" in params
-      assert "--embed-thumbnail" in params
-      assert "--embed-subs" in params
-      refute "-f" in params
-    end
-
-    test "merges the default param set format and extra args" do
+    test "preserves quoted, escaped, and repeated arguments across whitespace" do
       assert {:ok, _param_set} =
                Settings.create_yt_dlp_param_set(%{
                  name: "Default #{System.unique_integer([:positive])}",
-                 format: "bestvideo+bestaudio",
-                 extra_args: "--no-playlist --quiet",
+                 format: "bestvideo[height <= 1080]+bestaudio/best",
+                 extra_args:
+                   ~S(--add-header "X-Test: two words" --cookies /tmp/my\ cookies.txt) <>
+                     "\n\t" <>
+                     ~S(--add-header='X-Other: value' --match-title "first) <>
+                     "\n" <> ~S(second"),
                  is_default: true
                })
 
-      params = VideoDownloader.retrieve_ytdlp_parameters()
+      assert {:ok, params} = VideoDownloader.retrieve_ytdlp_parameters()
 
-      assert "--embed-chapters" in params
-      assert "-f" in params
-      assert "bestvideo+bestaudio" in params
-      assert "--no-playlist" in params
-      assert "--quiet" in params
+      assert [
+               "-f",
+               "bestvideo[height <= 1080]+bestaudio/best",
+               "--add-header",
+               "X-Test: two words",
+               "--cookies",
+               "/tmp/my cookies.txt",
+               "--add-header=X-Other: value",
+               "--match-title",
+               "first\nsecond"
+             ] = params
     end
   end
 
@@ -76,6 +75,29 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
   end
 
   describe "perform/1" do
+    test "reports malformed arguments without launching yt-dlp", %{downloads_root: downloads_root} do
+      deactivate_all_media_root_folders()
+      assert {:ok, _folder} = Settings.create_media_root_folder(%{path: downloads_root})
+
+      assert {:ok, _param_set} =
+               Settings.create_yt_dlp_param_set(%{
+                 name: "Invalid #{System.unique_integer([:positive])}",
+                 extra_args: ~S(--cookies "unfinished),
+                 is_default: true
+               })
+
+      channel = channel_fixture()
+      video = video_fixture(%{channel_id: channel.id})
+      assert {:ok, job} = Content.queue_video_download(video.id, channel.id)
+      Ytdarr.Downloads.subscribe()
+
+      assert {:error, {:invalid_ytdlp_parameters, message}} = VideoDownloader.perform(job)
+      assert message =~ "never closed"
+      assert_received {:download_failed, _, _, {:invalid_ytdlp_parameters, ^message}}
+      refute_received {:download_started, _, _, _}
+      refute Content.get_video!(video.id).is_downloaded
+    end
+
     test "downloads to a sanitized filename and generates an nfo file", %{
       downloads_root: downloads_root
     } do
@@ -193,12 +215,6 @@ defmodule Ytdarr.ObanWorkers.VideoDownloaderTest do
       assert queued.download_state == :queued
       assert queued.download_job_id == job.id
     end
-  end
-
-  defp clear_default_param_sets do
-    Enum.each(Settings.list_yt_dlp_param_sets!(), fn param_set ->
-      Settings.update_yt_dlp_param_set(param_set, %{is_default: false})
-    end)
   end
 
   defp deactivate_all_media_root_folders do

@@ -1,0 +1,56 @@
+name: Native Releases
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targets:
+    name: Discover Native Targets
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read native build matrix
+        id: targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          matrix="$(bash deploy/scripts/build-native.sh --matrix)"
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+
+  native:
+    name: Native ${{ matrix.target }}
+    needs: targets
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    env:
+      CONTAINER_ENGINE: docker
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build native release
+        env:
+          TARGET: ${{ matrix.target }}
+        run: bash deploy/scripts/build-native.sh "$TARGET"
+
+      - name: Smoke test native release in clean runtime
+        env:
+          TARGET: ${{ matrix.target }}
+        run: bash deploy/scripts/smoke-native.sh "$TARGET"
+
+      - name: Upload native release, checksum, and manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-release-${{ matrix.target }}
+          path: dist/native/${{ matrix.target }}/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

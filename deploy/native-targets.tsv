@@ -1,0 +1,6 @@
+# target image (Linux amd64 manifest digest)
+fedora-44 registry.fedoraproject.org/fedora@sha256:923dd7d4362a78ef7edc1887cb599720e9f59ff8669a38c81062c6e2aaa83204
+ubuntu-26.10 docker.io/library/ubuntu@sha256:b18403eb2d06baad26fe088450af83744e456d0e7c46d8319d460ce3a39e1f16
+ubuntu-26.04 docker.io/library/ubuntu@sha256:88a381d5b5eeb2b35d3ad70925a362c37ce569daf43ede89ff818ec20e4d3794
+ubuntu-24.04 docker.io/library/ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+rocky-10.2 docker.io/rockylinux/rockylinux@sha256:e372170ca8630f0f03e9b70fdd0bf4a3ce3426b0de7cdba615f06337389de176

@@ -18,3 +18,5 @@
 *.tar.gz
 coveralls.json
 erl_crash.dump
+/dist
+/.test-artifacts

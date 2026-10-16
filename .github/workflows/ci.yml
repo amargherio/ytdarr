@@ -179,38 +179,9 @@ jobs:
         run: mix assets.deploy
 
   release:
-    name: OTP Release
-    runs-on: ubuntu-26.04
-    needs: [compile, test, assets]
-    env:
-      MIX_ENV: prod
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Erlang & Elixir
-        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
-        with:
-          version-file: .tool-versions
-          version-type: strict
-
-      - name: Restore prod cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-${{ runner.arch }}-mix-prod-${{ hashFiles('.tool-versions', 'mix.exs', 'mix.lock') }}
-
-      - name: Build release
-        run: |
-          mix deps.get --only prod
-          mix compile --force
-          mix assets.deploy
-          mix release --overwrite
-          version="$(cat VERSION)"
-          test -s "_build/prod/ytdarr-${version}.tar.gz"
-          tar -tzf "_build/prod/ytdarr-${version}.tar.gz" | grep -q '^bin/migrate$'
-          tar -tzf "_build/prod/ytdarr-${version}.tar.gz" | grep -q '^bin/server$'
+    name: Native Releases
+    needs: [compile, test, dialyzer, assets]
+    uses: ./.github/workflows/native-release.yml
 
   container:
     name: Container Smoke Test

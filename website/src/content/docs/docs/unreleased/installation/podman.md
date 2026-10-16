@@ -5,21 +5,20 @@ sidebar:
   order: 2
 ---
 
-For this Unreleased version, build and run the exact local image named by `VERSION`; it currently resolves to `localhost/ytdarr:0.1.1-2`. Do not substitute an invented GHCR image or a moving registry tag. In a released documentation version, use the exact release tag shown in that page's version notice.
+For this Unreleased version, build and run the exact local image named by `VERSION`. Do not substitute an invented GHCR image or a moving registry tag. In a released documentation version, use the exact release tag shown in that page's version notice.
 
 ## Build and install a local Quadlet
 
-1. Build the local linux/amd64 image from the current `VERSION` with a published builder tag:
+1. Build the local linux/amd64 image from the current `VERSION`:
 
    ```sh
    version="$(tr -d '[:space:]' < VERSION)"
    podman build --platform linux/amd64 -f deploy/Dockerfile \
      --build-arg VERSION="$version" \
-     --build-arg BUILDER_IMAGE=docker.io/hexpm/elixir:1.20.4-erlang-29.1.1-debian-bookworm-20260918-slim \
      -t "localhost/ytdarr:$version" .
    ```
 
-   The Dockerfile's default `hexpm/elixir:1.19.5-erlang-29-debian-bookworm-20260623-slim` tag is not published, so `just container-build` currently fails without a builder override. The explicit compatible builder above built a local image and passed an isolated container `/health/ready` check. It does not change `.tool-versions` for native/source builds.
+   The Dockerfile builds the checksum-verified toolchain matching `.tool-versions` on a digest-pinned base. `just container-build` uses this same default build without a builder-image override.
 
 2. Create a local Quadlet variation. It retains the supplied volumes, health check, and SELinux `:Z` mount, but changes `Image=` to the image built from `VERSION` and removes registry auto-update:
 

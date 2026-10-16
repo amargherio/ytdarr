@@ -60,16 +60,16 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
   end
 
   defp prepare_and_download(job, video_id, channel, video, destination) do
-    with {:ok, policy} <- MediaPermissions.load_policy(),
+    with {:ok, ytdlp_params} <- retrieve_ytdlp_parameters(),
+         {:ok, policy} <- MediaPermissions.load_policy(),
          :ok <- MediaPermissions.mkdir_p(destination.season_directory, policy) do
-      download(job, video_id, channel, video, destination)
+      download(job, video_id, channel, video, destination, ytdlp_params)
     else
       {:error, reason} -> fail_download(job, video_id, reason)
     end
   end
 
-  defp download(job, video_id, channel, video, destination) do
-    ytdlp_params = retrieve_ytdlp_parameters()
+  defp download(job, video_id, channel, video, destination, ytdlp_params) do
     Logger.info("Full yt-dlp parameters: #{inspect(ytdlp_params)}")
 
     progress_flags = [
@@ -203,37 +203,51 @@ defmodule Ytdarr.ObanWorkers.VideoDownloader do
     end
   end
 
-  @default_ytdlp_params [
-    "--embed-chapters",
-    "--embed-thumbnail",
-    "--embed-metadata",
-    "--embed-subs",
-    "--write-auto-subs",
-    "--merge-output-format",
-    "mp4",
-    "--mtime"
-  ]
-
+  @doc "Loads the current default parameter set for execution, preserving argument boundaries."
+  @spec retrieve_ytdlp_parameters() :: {:ok, [String.t()]} | {:error, term()}
   def retrieve_ytdlp_parameters do
-    case Ytdarr.Settings.get_default_yt_dlp_param_set() do
+    case Ytdarr.Settings.get_default_yt_dlp_param_set(not_found_error?: false) do
+      {:ok, nil} ->
+        {:ok, []}
+
       {:ok, %{extra_args: extra_args, format: format}} ->
-        base = @default_ytdlp_params
-
-        base =
-          if is_binary(format) and format != "" do
-            base ++ ["-f", format]
-          else
-            base
-          end
-
-        if is_binary(extra_args) and extra_args != "" do
-          base ++ String.split(extra_args)
-        else
-          base
+        with {:ok, args} <- parse_extra_args(extra_args) do
+          format_args = if is_binary(format) and format != "", do: ["-f", format], else: []
+          {:ok, format_args ++ args}
         end
 
-      _ ->
-        @default_ytdlp_params
+      {:error, reason} ->
+        {:error, reason}
     end
   end
+
+  defp parse_extra_args(nil), do: {:ok, []}
+
+  defp parse_extra_args(args) do
+    {:ok, args |> normalize_argument_whitespace(nil, []) |> OptionParser.split()}
+  rescue
+    error in RuntimeError ->
+      {:error, {:invalid_ytdlp_parameters, Exception.message(error)}}
+  end
+
+  # OptionParser.split/1 only separates on spaces. Preserve quoted/escaped whitespace.
+  defp normalize_argument_whitespace(<<>>, _quote, acc),
+    do: acc |> Enum.reverse() |> IO.iodata_to_binary()
+
+  defp normalize_argument_whitespace(<<"\\", char, rest::binary>>, quote, acc),
+    do: normalize_argument_whitespace(rest, quote, [<<"\\", char>> | acc])
+
+  defp normalize_argument_whitespace(<<char, rest::binary>>, nil, acc)
+       when char in [?", ?'],
+       do: normalize_argument_whitespace(rest, char, [char | acc])
+
+  defp normalize_argument_whitespace(<<char, rest::binary>>, char, acc),
+    do: normalize_argument_whitespace(rest, nil, [char | acc])
+
+  defp normalize_argument_whitespace(<<char, rest::binary>>, nil, acc)
+       when char in [?\t, ?\n, ?\r],
+       do: normalize_argument_whitespace(rest, nil, [?\s | acc])
+
+  defp normalize_argument_whitespace(<<char, rest::binary>>, quote, acc),
+    do: normalize_argument_whitespace(rest, quote, [char | acc])
 end

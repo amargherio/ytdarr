@@ -30,15 +30,14 @@ Install Docker with the Compose plugin. The initial local build needs the reposi
 
    If importing existing media later, create `deploy/downloads/.incoming` with the same ownership and add `YTDARR_IMPORT_ROOTS=/downloads/.incoming` to `deploy/.env` before restarting. Do not expose the entire managed `/downloads` directory as an import root; see [Import existing media](../../guides/importing-existing-media/) for a separate bind-mount option.
 
-3. Build the local image with a published compatible builder, then start only that image:
+3. Build the local image, then start only that image:
 
    ```sh
-   docker compose -f deploy/compose.yaml build \
-     --build-arg BUILDER_IMAGE=docker.io/hexpm/elixir:1.20.4-erlang-29.1.1-debian-bookworm-20260918-slim
+   docker compose -f deploy/compose.yaml build
    docker compose -f deploy/compose.yaml up --no-build --pull never -d
    ```
 
-   The Dockerfile's current default `hexpm/elixir:1.19.5-erlang-29-debian-bookworm-20260623-slim` does not exist in the registry. This explicit build argument selects an available Elixir 1.20.4/OTP 29.1.1 builder compatible with `mix.exs` (`~> 1.19`); the resulting local image started and passed `/health/ready` in an isolated Podman smoke run. It does not change the app's source-development `.tool-versions` or the published runtime image tag.
+   The shared Dockerfile uses a digest-pinned Ubuntu base and checksum-verified toolchain downloads matching `.tool-versions`. No builder-image override is required. Native distribution builds use the same Dockerfile with their own pinned base images.
 
 4. Follow startup and readiness:
 

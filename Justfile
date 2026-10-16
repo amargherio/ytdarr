@@ -2,7 +2,6 @@ default:
     @just --list
 
 app_version := trim(read("VERSION"))
-release_archive := "_build/prod/ytdarr-" + app_version + ".tar.gz"
 
 # Install deps and setup the DB
 setup:
@@ -33,18 +32,17 @@ test-failed:
     mix test --failed
 
 ## release
-# build prod release tarball
+# Build a native archive for this host's exact distribution and version.
 release:
-    MIX_ENV=prod mix deps.get --only prod
-    MIX_ENV=prod mix compile --warnings-as-errors
-    MIX_ENV=prod mix assets.deploy
-    MIX_ENV=prod mix release --overwrite
-    cd _build/prod && sha256sum ytdarr-{{app_version}}.tar.gz > ytdarr-{{app_version}}.tar.gz.sha256
-    @echo "Release built at {{release_archive}}"
+    bash deploy/scripts/build-native.sh host
 
-clean-release:
-    rm -rf _build/prod/rel/ytdarr _build/prod/ytdarr-{{app_version}}.tar.gz _build/prod/ytdarr-{{app_version}}.tar.gz.sha256
-    just release
+# Build one supported distribution in its matching container environment.
+release-target target:
+    bash deploy/scripts/build-native.sh "{{target}}"
+
+# Build the complete supported native distribution matrix.
+release-all:
+    bash deploy/scripts/build-native.sh all
 
 gen-secret:
     mix phx.gen.secret
@@ -64,14 +62,17 @@ install-host host user env_file="deploy/.env":
     ssh "{{user}}@{{host}}" "sudo --non-interactive bash '$staging/provision-host.sh' '$staging/ytdarr.service' '$staging/$(basename "{{env_file}}")'"
     ssh "{{user}}@{{host}}" "rm -rf '$staging'"
 
-# Build and atomically deploy a native release with backup, migration, and health verification.
-deploy host user: release
+# Deploy an existing, explicitly selected native archive; never builds implicitly.
+deploy host user archive:
     #!/usr/bin/env bash
     set -euo pipefail
-    staging="/tmp/ytdarr-deploy-{{app_version}}"
-    ssh "{{user}}@{{host}}" "mkdir -p '$staging'"
-    rsync -avP "{{release_archive}}" "{{release_archive}}.sha256" deploy/scripts/activate-release.sh "{{user}}@{{host}}:$staging/"
-    ssh "{{user}}@{{host}}" "sudo --non-interactive bash '$staging/activate-release.sh' '$staging/ytdarr-{{app_version}}.tar.gz' '$staging/ytdarr-{{app_version}}.tar.gz.sha256' '{{app_version}}'"
+    archive="{{archive}}"
+    [[ -f "$archive" && -f "$archive.sha256" ]] || { echo "Archive and checksum must already exist: $archive" >&2; exit 1; }
+    archive_name="$(basename "$archive")"
+    [[ "$archive_name" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*\.tar\.gz$ ]] || { echo "Unsafe archive filename: $archive_name" >&2; exit 1; }
+    staging="$(ssh "{{user}}@{{host}}" 'mktemp -d /tmp/ytdarr-deploy.XXXXXXXX')"
+    rsync -avP "$archive" "$archive.sha256" deploy/scripts/activate-release.sh deploy/scripts/validate-native.sh "{{user}}@{{host}}:$staging/"
+    ssh "{{user}}@{{host}}" "sudo --non-interactive bash '$staging/activate-release.sh' '$staging/$archive_name' '$staging/$archive_name.sha256' '{{app_version}}'"
     ssh "{{user}}@{{host}}" "rm -rf '$staging'"
 
 # Restore a retained native release and its pre-upgrade database backup.

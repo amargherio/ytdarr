@@ -64,13 +64,12 @@ These names are consumed by deployment files or image builds, not by the running
   <dt><code>YTDARR_VERSION</code></dt><dd>Compose build argument for the image label; default <code>dev</code>.</dd>
   <dt><code>YTDARR_PORT</code></dt><dd>Host port published to the fixed container port 4000; default <code>4000</code>.</dd>
   <dt><code>YTDARR_DOWNLOADS_PATH</code></dt><dd>Host path bound to <code>/downloads</code>; default <code>./downloads</code>. It does not change any stored application root path.</dd>
-  <dt><code>ELIXIR_VERSION</code>, <code>OTP_VERSION</code>, <code>DEBIAN_VERSION</code></dt><dd>Docker build inputs for the builder/runtime images.</dd>
-  <dt><code>BUILDER_IMAGE</code>, <code>RUNNER_IMAGE</code></dt><dd>Docker base-image build inputs.</dd>
-  <dt><code>YT_DLP_VERSION</code>, <code>YT_DLP_SHA256</code></dt><dd>Docker build inputs that select and verify yt-dlp. Read the current pins from <code>deploy/Dockerfile</code> rather than maintaining a second version list.</dd>
+  <dt><code>BASE_IMAGE</code></dt><dd>Docker base-image build input. Native builds select digest-pinned distribution images from <code>deploy/native-targets.tsv</code>; the default application image uses Ubuntu 24.04.</dd>
+  <dt><code>NATIVE_BUILD_JOBS</code></dt><dd>OTP source-build parallelism, default <code>4</code>. Supported by the native build entrypoint and as a Docker build argument.</dd>
   <dt><code>VCS_REF</code>, <code>VERSION</code></dt><dd>OCI image-label build inputs.</dd>
 </dl>
 
-The current default `BUILDER_IMAGE` derived from `ELIXIR_VERSION=1.19.5`, `OTP_VERSION=29`, and `DEBIAN_VERSION=bookworm-20260623-slim` is not published. Current Unreleased container builds must override `BUILDER_IMAGE` with the tested published Elixir 1.20.4/OTP 29.1.1 Bookworm tag shown in [Docker Compose](../../installation/docker-compose/#build-and-start) and [Podman](../../installation/podman/#build-and-install-a-local-quadlet). This is an image-build input, not a change to the running app Settings or source tool versions.
+Erlang and Elixir versions come from `.tool-versions`; their download versions and SHA-256 checksums must match the lock entries in `deploy/native-downloads.tsv`. The same lock file selects and verifies yt-dlp. `CONTAINER_ENGINE=podman` or `CONTAINER_ENGINE=docker` selects the native builder engine. These are build controls, not application Settings.
 
 
 ### Native deployment helpers

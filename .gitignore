@@ -60,3 +60,6 @@ npm-debug.log
 
 .env
 /deploy/secrets/
+
+# OS-qualified native release archives and manifests.
+/dist/
