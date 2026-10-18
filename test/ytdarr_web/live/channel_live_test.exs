@@ -1,7 +1,9 @@
 defmodule YtdarrWeb.ChannelLiveTest do
   use YtdarrWeb.ConnCase
+  use Oban.Testing, repo: Ytdarr.Repo, engine: Oban.Engines.Lite
 
   import Phoenix.LiveViewTest
+  import Ecto.Query
   import Ytdarr.ContentFixtures
   alias Ytdarr.Settings
 
@@ -84,6 +86,132 @@ defmodule YtdarrWeb.ChannelLiveTest do
       refute has_element?(index_live, "#channels-#{channel.id}")
       refute File.exists?(downloaded_file)
       assert {:error, _error} = Ytdarr.Content.get_channel(channel.id)
+    end
+
+    test "refreshes only selected channels after a selection is toggled off", %{
+      conn: conn,
+      channel: channel
+    } do
+      other = channel_fixture()
+      excluded = channel_fixture()
+      {:ok, view, _html} = live(conn, ~p"/channels")
+
+      assert has_element?(view, "#refresh-selected-channels[disabled]")
+
+      for selected <- [channel, other, excluded] do
+        view |> element("#select-channel-#{selected.id}") |> render_click()
+      end
+
+      view |> element("#select-channel-#{excluded.id}") |> render_click()
+
+      assert has_element?(view, "#select-channel-#{channel.id}[checked]")
+      assert has_element?(view, "#select-channel-#{other.id}[checked]")
+      refute has_element?(view, "#select-channel-#{excluded.id}[checked]")
+
+      view |> element("#refresh-selected-channels") |> render_click()
+
+      jobs = all_enqueued(worker: Ytdarr.ObanWorkers.SyncWorker)
+
+      assert Enum.sort(Enum.map(jobs, & &1.args["source_id"])) ==
+               Enum.sort([channel.id, other.id])
+
+      assert Enum.all?(jobs, &(&1.args["source_type"] == "channel"))
+      assert has_element?(view, "#refresh-selected-channels[disabled]")
+      refute has_element?(view, "#select-channel-#{channel.id}[checked]")
+      refute has_element?(view, "#select-channel-#{other.id}[checked]")
+    end
+
+    test "select all and clear all update every streamed checkbox", %{
+      conn: conn,
+      channel: channel
+    } do
+      other = channel_fixture()
+      {:ok, view, _html} = live(conn, ~p"/channels")
+
+      view |> element("#select-all-channels") |> render_click()
+
+      assert has_element?(view, "#select-all-channels[checked]")
+      assert has_element?(view, "#select-channel-#{channel.id}[checked]")
+      assert has_element?(view, "#select-channel-#{other.id}[checked]")
+
+      view |> element("#select-all-channels") |> render_click()
+
+      refute has_element?(view, "#select-all-channels[checked]")
+      refute has_element?(view, "#select-channel-#{channel.id}[checked]")
+      refute has_element?(view, "#select-channel-#{other.id}[checked]")
+      assert has_element?(view, "#refresh-selected-channels[disabled]")
+      assert [] == all_enqueued(worker: Ytdarr.ObanWorkers.SyncWorker)
+    end
+
+    test "refresh all includes unselected, unmonitored, and newly added channels", %{
+      conn: conn,
+      channel: channel
+    } do
+      other = channel_fixture()
+      {:ok, view, _html} = live(conn, ~p"/channels")
+      view |> element("#select-channel-#{channel.id}") |> render_click()
+      added = channel_fixture()
+
+      expected_ids = Ytdarr.Content.list_channels!() |> Enum.map(& &1.id) |> Enum.sort()
+      view |> element("#refresh-all-channels") |> render_click()
+
+      jobs = all_enqueued(worker: Ytdarr.ObanWorkers.SyncWorker)
+
+      assert Enum.sort(Enum.map(jobs, & &1.args["source_id"])) ==
+               expected_ids
+
+      assert Enum.all?(jobs, &(&1.args["source_type"] == "channel"))
+      refute Ytdarr.Content.get_channel!(channel.id).is_monitored
+      refute Ytdarr.Content.get_channel!(other.id).is_monitored
+      assert has_element?(view, "#channels-#{added.id}")
+    end
+
+    test "removing the last selected channel disables refresh controls", %{
+      conn: conn,
+      channel: channel
+    } do
+      for resource <- [
+            Ytdarr.Content.PlaylistVideo,
+            Ytdarr.Content.Video,
+            Ytdarr.Content.Playlist
+          ] do
+        Ytdarr.Repo.delete_all(resource)
+      end
+
+      Ytdarr.Repo.delete_all(
+        from channel in Ytdarr.Content.Channel, where: channel.id != ^channel.id
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/channels")
+      view |> element("#select-channel-#{channel.id}") |> render_click()
+      view |> element("#remove-channel-keep-files-#{channel.id}") |> render_click()
+
+      assert has_element?(view, "#refresh-selected-channels[disabled]")
+      assert has_element?(view, "#refresh-all-channels[disabled]")
+      assert has_element?(view, "#select-all-channels[disabled]")
+      refute has_element?(view, "#select-all-channels[checked]")
+
+      render_hook(view, "refresh-selected", %{})
+      render_hook(view, "refresh-all", %{})
+      assert [] == all_enqueued(worker: Ytdarr.ObanWorkers.SyncWorker)
+    end
+
+    test "a selected channel removed elsewhere is not queued for refresh", %{
+      conn: conn,
+      channel: channel
+    } do
+      other = channel_fixture()
+      {:ok, view, _html} = live(conn, ~p"/channels")
+      view |> element("#select-channel-#{channel.id}") |> render_click()
+      view |> element("#select-channel-#{other.id}") |> render_click()
+      :ok = Ytdarr.Content.destroy_channel(channel, %{delete_files: false})
+
+      view |> element("#refresh-selected-channels") |> render_click()
+
+      assert [job] = all_enqueued(worker: Ytdarr.ObanWorkers.SyncWorker)
+      assert job.args == %{"source_type" => "channel", "source_id" => other.id}
+      refute has_element?(view, "#channels-#{channel.id}")
+      assert has_element?(view, "#refresh-selected-channels[disabled]")
     end
   end
 

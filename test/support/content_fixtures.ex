@@ -18,7 +18,7 @@ defmodule Ytdarr.ContentFixtures do
         url: "https://www.youtube.com/channel/UC#{unique_id}TESTCHANNEL",
         description: "A test channel description",
         platform: "YouTube",
-        avatar_url: "https://example.com/avatar.jpg",
+        avatar_url: nil,
         is_monitored: false
       })
 

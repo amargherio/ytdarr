@@ -16,6 +16,17 @@ A direct channel URL, handle, or ID is the most predictable way to add a channel
 
 A full sync gathers the known metadata; incremental synchronization checks newer material. Monitoring controls future metadata sync, not automatic downloading. Search's **Add Only** and **Add & Sync** path omits `monitor=false` while the handler defaults monitoring to true; handling an already-known search result can update local state without necessarily persisting monitoring. Treat the channel detail page as the source of truth and correct the setting there if necessary.
 
+## Manually refresh a batch of channels
+
+Open **Channels → All Channels** (`/channels`). Select individual channels with the row checkboxes, or use **Select all** to select or clear the whole list.
+
+- **Refresh selected** queues a metadata refresh for each selected channel. It is disabled when nothing is selected.
+- **Refresh all** queues a metadata refresh for every saved channel, regardless of selection or monitoring status.
+
+Refreshes run as background jobs using the same channel refresh logic as the detail page. The notification reports how many jobs were queued, not completed; inspect them in **Oban Jobs**. Successfully queued channels are deselected. If a job cannot be queued, its channel stays selected so you can retry with **Refresh selected**.
+
+Manual refreshes do not change monitoring settings or queue video downloads. Both refresh actions are disabled when there are no channels.
+
 ## Work with playlists
 
 On a channel detail page, inspect discovered playlists and choose whether to monitor them. Playlist and channel sync are metadata operations; they do not place videos in the download queue. Use [downloads and queue](../downloads-and-queue/) to choose individual videos.

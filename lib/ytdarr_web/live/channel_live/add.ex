@@ -2,6 +2,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
   use YtdarrWeb, :live_view
 
   alias Ytdarr.Content
+  alias Ytdarr.Services.YouTube.Client
 
   @impl true
   def mount(_params, _session, socket) do
@@ -98,6 +99,7 @@ defmodule YtdarrWeb.ChannelLive.Add do
           external_id: resolved.external_id,
           url: resolved.url,
           avatar_url: resolved.avatar_url,
+          banner_url: resolved.banner_url,
           description: resolved.description,
           platform: "YouTube",
           platform_username: resolved.platform_username,
@@ -173,18 +175,9 @@ defmodule YtdarrWeb.ChannelLive.Add do
          |> put_flash(:info, "Channel already existed and is now marked as monitored")}
 
       selected_channel ->
-        attrs = %{
-          name: selected_channel.name,
-          external_id: selected_channel.external_id,
-          url: selected_channel.url,
-          avatar_url: selected_channel.avatar_url,
-          description: selected_channel.description,
-          platform: "YouTube"
-        }
-
         socket = update(socket, :adding_ids, &MapSet.put(&1, external_id))
 
-        case Content.create_channel(attrs) do
+        case resolve_and_create_channel(external_id) do
           {:ok, channel} ->
             if should_monitor do
               Content.toggle_channel_monitor(channel.id)
@@ -211,6 +204,24 @@ defmodule YtdarrWeb.ChannelLive.Add do
 
       true ->
         {:noreply, put_flash(socket, :error, "Channel not found in results")}
+    end
+  end
+
+  defp resolve_and_create_channel(external_id) do
+    with {:ok, resolved} <- Client.get_channel(external_id) do
+      resolved
+      |> Map.take([
+        :name,
+        :external_id,
+        :url,
+        :avatar_url,
+        :banner_url,
+        :description,
+        :platform,
+        :platform_username,
+        :uploads_playlist_id
+      ])
+      |> Content.create_channel()
     end
   end
 

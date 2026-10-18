@@ -10,7 +10,7 @@ defmodule Ytdarr.Content do
 
   alias Ytdarr.Content.{Channel, Playlist, Video}
   alias Ytdarr.{Imports, Repo}
-  alias Ytdarr.Media.{VideoArtifacts, VideoImport}
+  alias Ytdarr.Media.{ChannelArtifacts, VideoArtifacts, VideoImport}
   alias Ytdarr.Services.YouTube.{Client, IdentifierParser}
 
   require Ash.Query
@@ -366,25 +366,44 @@ defmodule Ytdarr.Content do
   end
 
   @doc """
-  Refresh cached images for a channel (avatar and banner) using ETag-based conditional requests.
+  Ensure channel directories, conditionally refresh artwork, and write Jellyfin show metadata.
+  Remote failures preserve existing artwork and are retried on the next channel sync.
   """
   def refresh_channel_images(channel) do
     alias Ytdarr.Cache.ImageCache
 
-    Enum.each(~w(avatar banner), fn type ->
-      case ImageCache.refresh(channel, type) do
-        :refreshed ->
-          Logger.info("Refreshed #{type} image for channel #{channel.name}")
+    with {:ok, policy} <- Ytdarr.MediaPermissions.load_policy(),
+         :ok <- ChannelArtifacts.prepare(channel, policy) do
+      Enum.each(~w(avatar banner), fn type ->
+        case ImageCache.refresh(channel, type) do
+          :refreshed ->
+            Logger.info("Refreshed #{type} image for channel #{channel.name}")
 
-        :not_modified ->
-          Logger.debug("#{type} image for channel #{channel.name} not modified")
+          :not_modified ->
+            Logger.debug("#{type} image for channel #{channel.name} not modified")
 
-        {:error, reason} ->
-          Logger.warning(
-            "Failed to refresh #{type} image for channel #{channel.name}: #{inspect(reason)}"
-          )
+          {:error, :no_url} ->
+            :ok
+
+          {:error, reason} ->
+            Logger.warning(
+              "Failed to refresh #{type} image for channel #{channel.name}: #{inspect(reason)}"
+            )
+        end
+      end)
+
+      case ChannelArtifacts.write_nfo(channel, policy) do
+        :ok -> :ok
+        {:error, reason} -> log_channel_media_error(channel, reason)
       end
-    end)
+    else
+      {:error, reason} -> log_channel_media_error(channel, reason)
+    end
+  end
+
+  defp log_channel_media_error(channel, reason) do
+    Logger.warning("Failed to prepare media for channel #{channel.name}: #{inspect(reason)}")
+    {:error, reason}
   end
 
   # ---------------------------------------------------------------------------

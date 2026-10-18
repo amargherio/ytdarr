@@ -254,16 +254,7 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
         refresh_channel_metadata(channel)
 
       yt_channel ->
-        updates =
-          %{}
-          |> maybe_put(:avatar_url, yt_channel.avatar_url, channel.avatar_url)
-          |> maybe_put(:banner_url, yt_channel.banner_url, channel.banner_url)
-
-        if map_size(updates) > 0 do
-          Content.update_channel(channel, updates)
-        end
-
-        Content.refresh_channel_images(channel)
+        update_channel_images(channel, yt_channel)
     end
   end
 
@@ -271,22 +262,39 @@ defmodule Ytdarr.ObanWorkers.BatchSyncWorker do
   defp refresh_channel_metadata(channel) do
     case Client.get_channel(channel.external_id) do
       {:ok, yt_channel} ->
-        updates =
-          %{}
-          |> maybe_put(:avatar_url, yt_channel.avatar_url, channel.avatar_url)
-          |> maybe_put(:banner_url, yt_channel.banner_url, channel.banner_url)
-
-        if map_size(updates) > 0 do
-          Content.update_channel(channel, updates)
-        end
-
-        Content.refresh_channel_images(channel)
+        update_channel_images(channel, yt_channel)
 
       {:error, reason} ->
         Logger.warning(
           "[BatchSyncWorker] Failed to refresh metadata for #{channel.name}: #{inspect(reason)}"
         )
     end
+  end
+
+  defp update_channel_images(channel, yt_channel) do
+    updates =
+      %{}
+      |> maybe_put(:avatar_url, yt_channel.avatar_url, channel.avatar_url)
+      |> maybe_put(:banner_url, yt_channel.banner_url, channel.banner_url)
+
+    channel =
+      if map_size(updates) > 0 do
+        case Content.update_channel(channel, updates) do
+          {:ok, updated} ->
+            updated
+
+          {:error, reason} ->
+            Logger.warning(
+              "[BatchSyncWorker] Failed to update channel #{channel.name}: #{inspect(reason)}"
+            )
+
+            channel
+        end
+      else
+        channel
+      end
+
+    Content.refresh_channel_images(channel)
   end
 
   defp maybe_put(map, key, new_val, old_val) when new_val != old_val and not is_nil(new_val) do

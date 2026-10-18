@@ -9,6 +9,7 @@ Ytdarr is a self-hosted YouTube channel monitor and video downloader that organi
 - Manually queue chosen videos for yt-dlp downloads
 - Import existing videos only from explicitly configured server-side directories
 - Organize media into channel/year seasons with episode NFO files
+- Save Jellyfin channel posters, banners, and show NFO metadata; refresh artwork when it changes
 - Inspect application jobs through the built-in Oban dashboard
 - Run with SQLite rather than a separate database service
 

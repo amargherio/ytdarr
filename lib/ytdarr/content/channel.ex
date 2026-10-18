@@ -44,6 +44,7 @@ defmodule Ytdarr.Content.Channel do
 
       change Ytdarr.Content.Channel.Changes.SetFilesystemPaths
       change Ytdarr.Content.Channel.Changes.SetMonitoredTimestamp
+      change Ytdarr.Content.Channel.Changes.InitializeMedia
     end
 
     update :update do
